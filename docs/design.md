@@ -37,10 +37,32 @@ Combat never changes to a modal tactical board. The first-person renderer,
 party status, action controls, and log remain one composition throughout
 exploration and initiative resolution.
 
+## Rules compilation
+
+`rust/content/rules/starter.json` is inert authored policy. Rust strictly decodes
+it into the Roguelike-owned candidate schema, requires exact Engine rules-package
+provenance for every definition, resolves the admitted package, validates all
+cross-references and bounds, and compiles an immutable `RoguelikeRuleset`.
+TypeScript declarations are generated from that Rust schema; the browser does
+not compile or evaluate the candidate.
+
+The rules retain the Ruleweaver-inspired attack-versus-defense shape, four
+ability/defense families, class level grants, feats, equipment, and attributed
+modifiers. They intentionally omit D20's multi-budget activation model. Movement
+and every attack compile with the same fixed activation cost of one. The later
+session runtime owns when that activation is spent.
+
+Durable actor abilities, builds, and collapsed-party membership use registered
+`entity-state` components. Defense modifiers, vitality bounds, damage kinds,
+items, and equipment use an admitted `gameplay-mechanics` catalog and named
+Engine services directly. This repository owns their Roguelike vocabulary and
+does not wrap those mechanisms in a shared RPG facade.
+
 ## Upstream ownership
 
 `dependency-sources.json` is the canonical source selection. Rusty Engine is
-pinned for the retained renderer process and later named mechanisms. Rusty
+pinned for the retained renderer process, registered entity state, rules-package
+admission, and named gameplay mechanics. Rusty
 Procgen is pinned for `rusty_procgen_preflight::core::ProcgenCore`; the consumer
 never shells out to its CLI or copies its algorithms. A missing reusable
 generation capability must be demonstrated by this consumer and fixed

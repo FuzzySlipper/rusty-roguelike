@@ -10,8 +10,13 @@ version = "0.1.0"
 [workspace.dependencies]
 anyhow = "1.0.98"
 axum = "0.8.4"
+core-ids = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
+entity-state = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
+gameplay-mechanics = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
+gameplay-rules = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread"] }
 tower-http = { version = "0.6.6", features = ["fs"] }
+ts-rs = { version = "11.0.1", features = ["serde-compat"] }
 rusty-procgen-preflight = { git = "https://github.com/FuzzySlipper/rusty-procgen", rev = "1540ed9deb43cb259b94778cca2c2188ac635f03", package = "rusty-procgen-preflight" }

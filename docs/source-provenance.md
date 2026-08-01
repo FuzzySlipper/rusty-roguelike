@@ -3,8 +3,9 @@
 ## Runtime dependencies
 
 - Rusty Engine: `https://github.com/FuzzySlipper/rusty-engine` at
-  `fb608e323a8b44a55195f5720101224ff37fd5db`. The bootstrap consumes its public
-  retained renderer packages directly.
+  `fb608e323a8b44a55195f5720101224ff37fd5db`. The product consumes its public
+  retained renderer packages plus exact `core-ids`, `entity-state`,
+  `gameplay-rules`, and `gameplay-mechanics` Rust crates directly.
 - Rusty Procgen: `https://github.com/FuzzySlipper/rusty-procgen` at
   `1540ed9deb43cb259b94778cca2c2188ac635f03`. Rust links the public
   filesystem-free `rusty_procgen_preflight::core::ProcgenCore` facade.
@@ -35,5 +36,14 @@ revision `2ef818e180abf507b3af7fd9bc1029f1e0983237`. Names, contracts, code, and
 ownership were reduced and rewritten for this product. Rusty D20 is not a
 runtime, build, or test dependency.
 
-The game premise and later Ruleweaver-inspired content are separately owned by
-Rusty Roguelike. Donor evidence never overrides this repository's design.
+The starter rules selectively adapt concepts from Ruleweaver revision
+`04ef26d0eef1ba478a2c39b78cca61fe82b15be5`, especially
+`docs/action-economy-conditions-targeting.md`, `docs/class-talent-system.md`,
+`docs/items-inventory-party.md`, and `docs/action-system-architecture.md` plus
+the longsword, shortbow, leather armor, Defensive Mobility, and Uncanny Dodge
+definitions inspected at that revision. Rusty Roguelike rewrites those ideas
+around one activation per movement/action and owns the resulting candidate,
+catalog, party, enemy, class, feat, item, and action vocabulary. Ruleweaver is
+not a runtime or build dependency.
+
+Donor evidence never overrides this repository's design.

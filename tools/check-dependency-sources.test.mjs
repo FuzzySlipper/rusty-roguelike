@@ -40,6 +40,17 @@ test('rejects removal of the Procgen package record', () => {
   );
 });
 
+test('rejects removal of one Engine Rust crate package record', () => {
+  const mutatedLock = inputs.cargoLock.replace(
+    /\[\[package\]\]\nname = "gameplay-rules"[\s\S]*?(?=\n\[\[package\]\])/,
+    '',
+  );
+  assert.throws(
+    () => validateDependencySources({ ...inputs, cargoLock: mutatedLock }),
+    /gameplay-rules locked package record expected 1, observed 0/,
+  );
+});
+
 function removeYamlRecord(content, header) {
   const start = content.indexOf(header);
   assert.notEqual(start, -1, `missing fixture record ${header}`);

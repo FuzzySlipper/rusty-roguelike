@@ -9,9 +9,14 @@
 | `rust/crates/rusty-roguelike/src/floor/generation.rs`           | Direct public `ProcgenCore` generation pipeline and provenance capture     | Rust floor tests                                      |
 | `rust/crates/rusty-roguelike/src/floor/admission.rs`            | Roguelike-owned bounded topology, semantic, and provenance admission       | Rust floor tests                                      |
 | `rust/crates/rusty-roguelike/src/floor/types.rs`                | Admitted floor DTO, exact provenance, and atomic floor replacement         | Rust floor tests                                      |
+| `rust/content/rules/starter.json`                               | Inert Roguelike-owned starter rules, party, enemies, classes, feats, items | Rust rules tests                                      |
+| `rust/crates/rusty-roguelike/src/rules/candidate.rs`            | Strict candidate schema, package envelope, generated TypeScript owner      | Rust rules tests; protocol check                      |
+| `rust/crates/rusty-roguelike/src/rules/compiler.rs`             | Semantic compilation, provenance, references, one-activation rule          | Rust rules tests                                      |
+| `rust/crates/rusty-roguelike/src/rules/mechanics.rs`            | Direct Engine mechanics catalog projection                                 | Engine `StatService` integration test                 |
+| `rust/crates/rusty-roguelike/src/rules/component.rs`            | Durable registered actor/build/collapsed-party components                  | Rust rules tests                                      |
 | `rust/crates/rusty-roguelike/src/lib.rs`                        | Private module facade and public Rust API                                  | `cargo test --manifest-path rust/Cargo.toml --locked` |
 | `rust/crates/rusty-roguelike/src/bin/host.rs`                   | Same-origin static/API Rust host                                           | real Playwright smoke                                 |
-| `libs/protocol/`                                                | Generated DTO and strict unknown-JSON admission                            | Vitest; `pnpm run protocol:check`                     |
+| `libs/protocol/`                                                | Generated bootstrap/candidate DTOs and strict unknown-JSON admission       | Vitest; `pnpm run protocol:check`                     |
 | `libs/platform/`                                                | Browser HTTP, resize, and device-pixel-ratio ports                         | typecheck; consumers                                  |
 | `libs/transport/`                                               | Typed bootstrap transport                                                  | Vitest                                                |
 | `libs/store/`                                                   | Angular async bootstrap state                                              | Vitest; browser smoke                                 |

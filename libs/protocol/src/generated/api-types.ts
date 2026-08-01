@@ -12,3 +12,61 @@ readonly rustyEngineRevision: typeof RUSTY_ENGINE_REVISION;
 readonly rustyProcgenRevision: typeof RUSTY_PROCGEN_REVISION;
 readonly procgenLinkHash: string;
 };
+
+export const ROGUELIKE_CANDIDATE_SCHEMA_VERSION = 1 as const;
+export const ROGUELIKE_ID_PATTERN = "^[a-z0-9._-]+$" as const;
+export const ROGUELIKE_LIMITS = Object.freeze({
+maxIdBytes: 64,
+maxDefinitionsPerKind: 64,
+maxAuthoredTextBytes: 512,
+maxActionTags: 16,
+maxDamageDice: 16,
+maxDamageDieSides: 100,
+maxStaticRolls: 4096,
+} as const);
+
+export type RoguelikeId = string;
+
+export type RoguelikeRulesCandidate = { schemaVersion: number, rollPolicy: RollPolicyCandidate, abilities: Array<AbilityCandidate>, defenses: Array<DefenseCandidate>, damageTypes: Array<DamageTypeCandidate>, actions: Array<ActionCandidate>, feats: Array<FeatCandidate>, classes: Array<ClassCandidate>, items: Array<ItemCandidate>, actors: Array<ActorCandidate>, party: PartyCandidate, };
+
+export type RollPolicyKindCandidate = "seeded" | "static";
+
+export type RollPolicyCandidate = { kind: RollPolicyKindCandidate, seed: number, rolls: Array<StaticRollCandidate>, };
+
+export type StaticRollCandidate = { d20: number, damage: Array<number>, };
+
+export type AbilityCandidate = { id: RoguelikeId, minimum: number, maximum: number, };
+
+export type DefenseCandidate = { id: RoguelikeId, base: number, abilities: Array<RoguelikeId>, };
+
+export type DamageTypeCandidate = { id: RoguelikeId, };
+
+export type DamageCandidate = { kind: RoguelikeId, dice: number, sides: number, bonus: number, };
+
+export type ActionTargetCandidate = "self-only" | "hostile-cell" | "ally-cell";
+
+export type MovementCandidate = { steps: number, };
+
+export type AttackCandidate = { ability: RoguelikeId, defense: RoguelikeId, damage: DamageCandidate, range: number, };
+
+export type ActionCandidate = { id: RoguelikeId, name: string, tags: Array<RoguelikeId>, target: ActionTargetCandidate, movement: MovementCandidate | null, attack: AttackCandidate | null, };
+
+export type StatModifierCandidate = { defense: RoguelikeId, amount: number, };
+
+export type FeatCandidate = { id: RoguelikeId, name: string, description: string, modifiers: Array<StatModifierCandidate>, };
+
+export type ClassLevelCandidate = { level: number, actions: Array<RoguelikeId>, feats: Array<RoguelikeId>, actionSlotIncrease: number, featSlotIncrease: number, };
+
+export type ClassCandidate = { id: RoguelikeId, name: string, levels: Array<ClassLevelCandidate>, };
+
+export type EquipmentSlotCandidate = "body" | "weapon" | "focus";
+
+export type ItemCandidate = { id: RoguelikeId, name: string, slot: EquipmentSlotCandidate | null, grantsAction: RoguelikeId | null, modifiers: Array<StatModifierCandidate>, };
+
+export type ActorSideCandidate = "party" | "opposition";
+
+export type AbilityScoreCandidate = { ability: RoguelikeId, score: number, };
+
+export type ActorCandidate = { id: RoguelikeId, entityId: number, name: string, title: string, side: ActorSideCandidate, level: number, experience: number, vitality: number, inventoryCapacity: number, class: RoguelikeId, classLevel: number, abilities: Array<AbilityScoreCandidate>, actions: Array<RoguelikeId>, feats: Array<RoguelikeId>, items: Array<RoguelikeId>, };
+
+export type PartyCandidate = { id: RoguelikeId, entityId: number, members: Array<RoguelikeId>, };

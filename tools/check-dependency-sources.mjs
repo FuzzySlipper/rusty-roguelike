@@ -8,6 +8,13 @@ const ENGINE_PACKAGES = [
   '@rusty-engine/renderer-three',
 ];
 
+const ENGINE_RUST_CRATES = [
+  'core-ids',
+  'entity-state',
+  'gameplay-mechanics',
+  'gameplay-rules',
+];
+
 export function validateDependencySources({
   sources,
   packageJson,
@@ -76,6 +83,33 @@ export function validateDependencySources({
     1,
     'canonical Procgen manifest entry',
   );
+
+  const engineSource = `git+${sources.rustyEngine.repository}?rev=${sources.rustyEngine.commit}#${sources.rustyEngine.commit}`;
+  for (const crate of ENGINE_RUST_CRATES) {
+    const manifestEntry = `${crate} = { git = "${sources.rustyEngine.repository}", rev = "${sources.rustyEngine.commit}" }`;
+    requireCount(
+      cargoManifest,
+      manifestEntry,
+      1,
+      `canonical ${crate} manifest entry`,
+    );
+    const records = cargoLock
+      .split('[[package]]')
+      .filter((block) =>
+        new RegExp(`\\nname = "${crate}"\\n`).test(`\n${block}`),
+      );
+    if (records.length !== 1) {
+      throw new Error(
+        `${crate} locked package record expected 1, observed ${records.length}`,
+      );
+    }
+    requireCount(
+      records[0],
+      `source = "${engineSource}"`,
+      1,
+      `canonical ${crate} locked source`,
+    );
+  }
   const procgenSource = `git+${sources.rustyProcgen.repository}?rev=${sources.rustyProcgen.commit}#${sources.rustyProcgen.commit}`;
   const procgenPackages = cargoLock
     .split('[[package]]')
