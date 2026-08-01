@@ -216,6 +216,16 @@ fn complete_save_rejects_unknown_incompatible_stale_and_impossible_facts() {
         "session_save_log_invalid"
     );
 
+    let mut unbounded_revision = value.clone();
+    unbounded_revision["session"]["revision"] = serde_json::json!(u64::MAX);
+    assert_eq!(
+        GameSession::decode_save(&serde_json::to_string(&unbounded_revision).unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "session_save_bounds_invalid"
+    );
+
     let mut missing = value.clone();
     missing["session"].as_object_mut().unwrap().remove("round");
     assert_eq!(

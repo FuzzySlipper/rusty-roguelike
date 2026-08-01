@@ -343,6 +343,7 @@ fn validate_session_shape(
     save: &SessionDurableState,
 ) -> Result<(), SessionError> {
     if save.round == 0
+        || save.revision > MAX_SESSION_LOG_ENTRIES as u64
         || save.order.len() > MAX_SESSION_ACTIVATIONS
         || save.latest_receipts.len() > MAX_SESSION_RECEIPTS
         || save.log.len() > MAX_SESSION_LOG_ENTRIES
