@@ -14,6 +14,7 @@ pub(crate) fn generated_world_typescript() -> String {
     let declarations = [
         WorldCell::decl(),
         Facing::decl(),
+        RelativeStep::decl(),
         EnemyParticipation::decl(),
         WorldViewCellKind::decl(),
         WorldViewCell::decl(),

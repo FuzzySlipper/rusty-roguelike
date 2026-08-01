@@ -8,6 +8,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
   ...nxE2EPreset(import.meta.dirname, { testDir: './src' }),
   fullyParallel: false,
+  timeout: 120_000,
   workers: 1,
   use: { baseURL, trace: 'on-first-retry' },
   webServer: {

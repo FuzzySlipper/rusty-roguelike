@@ -1,17 +1,19 @@
 use core_ids::EntityId;
 use gameplay_mechanics::{
     DamageKindId, DamagePart, DamageRequest, DamageService, MechanicsScalar, OperationId,
-    SourceInstanceId, SourceInstanceIdentity, StatService,
+    SourceInstanceId, SourceInstanceIdentity, StatService, TracksComponent,
 };
 
 use crate::{
     defense_stat_id, vitality_track_id, ActionDefinition, ActionEffectDefinition,
-    ActionTargetCandidate, ActorDefinition, ActorSideCandidate, RoguelikeId,
+    ActionTargetCandidate, ActorBuildComponent, ActorDefinition, ActorSideCandidate, RoguelikeId,
 };
 
 use super::runtime::{error, GameSession};
 use super::{
-    PartyCommand, PartyMemberSelectionPolicy, PartySquareTargetReceipt, SessionError, TurnReceipt,
+    CarriedItemView, LegalActionView, PartyCommand, PartyDecisionView, PartyMemberSelectionPolicy,
+    PartyMemberStatusView, PartySquareTargetReceipt, PartyTurnDirection, SessionError,
+    SessionOutcome, TurnReceipt, TurnSide,
 };
 
 struct ResolvedAttack {
@@ -27,6 +29,161 @@ struct ResolvedAttack {
 }
 
 impl GameSession {
+    pub(super) fn party_status(&self) -> Result<Vec<PartyMemberStatusView>, SessionError> {
+        self.world
+            .rules()
+            .party()
+            .members
+            .iter()
+            .map(|actor_id| {
+                let actor = &self.world.rules().actors()[actor_id];
+                let entity = EntityId::new(actor.entity_id);
+                let tracks = self
+                    .world
+                    .entities()
+                    .component::<TracksComponent>(entity)
+                    .map_err(|detail| error("session_tracks_read", detail.to_string()))?
+                    .ok_or_else(|| error("session_tracks_missing", format!("entity {entity}")))?;
+                let current = tracks
+                    .current(&vitality_track_id())
+                    .ok_or_else(|| error("session_vitality_missing", format!("entity {entity}")))?
+                    .get();
+                let build = self
+                    .world
+                    .entities()
+                    .component::<ActorBuildComponent>(entity)
+                    .map_err(|detail| error("session_build_read", detail.to_string()))?
+                    .ok_or_else(|| error("session_build_missing", format!("entity {entity}")))?;
+                let operation =
+                    OperationId::parse(format!("view.party.{}.{}", actor.entity_id, self.revision))
+                        .map_err(|detail| error("session_operation_invalid", detail.to_string()))?;
+                let maximum = StatService::evaluate(
+                    self.world.entities(),
+                    self.world.rules().mechanics(),
+                    entity,
+                    &crate::vitality_maximum_stat_id(),
+                    &operation,
+                    &[],
+                )
+                .map_err(|detail| error("session_vitality_evaluation_failed", detail.to_string()))?
+                .value
+                .get();
+                Ok(PartyMemberStatusView {
+                    entity_id: actor.entity_id,
+                    actor_id: actor.id.clone(),
+                    name: actor.name.clone(),
+                    current_vitality: u16::try_from(current.max(0)).map_err(|_| {
+                        error(
+                            "session_vitality_out_of_range",
+                            "current vitality exceeds u16",
+                        )
+                    })?,
+                    maximum_vitality: u16::try_from(maximum.max(0)).map_err(|_| {
+                        error(
+                            "session_vitality_out_of_range",
+                            "maximum vitality exceeds u16",
+                        )
+                    })?,
+                    conscious: current > 0,
+                    carried_items: build
+                        .items()
+                        .iter()
+                        .map(|item_id| CarriedItemView {
+                            item_id: item_id.clone(),
+                            name: self.world.rules().items()[item_id].name.clone(),
+                        })
+                        .collect(),
+                })
+            })
+            .collect()
+    }
+
+    pub(super) fn party_decision(&self) -> Result<Option<PartyDecisionView>, SessionError> {
+        if self.outcome != SessionOutcome::Ongoing {
+            return Ok(None);
+        }
+        let Some(current) = self.current_slot() else {
+            return Ok(None);
+        };
+        if current.side != TurnSide::Party {
+            return Ok(None);
+        }
+        let actor = self.actor(current.entity.raw())?;
+        let owns_movement = actor.actions.iter().any(|id| {
+            self.world.rules().actions().get(id).is_some_and(|action| {
+                action.activation_cost == 1
+                    && action.target == ActionTargetCandidate::SelfOnly
+                    && matches!(action.effect, ActionEffectDefinition::Movement { steps: 1 })
+            })
+        });
+        let mut legal_steps = Vec::new();
+        if owns_movement {
+            for step in [
+                crate::RelativeStep::Forward,
+                crate::RelativeStep::Left,
+                crate::RelativeStep::Right,
+                crate::RelativeStep::Backward,
+            ] {
+                let mut staged = self
+                    .world
+                    .fork()
+                    .map_err(|detail| error("session_stage_world", detail.to_string()))?;
+                if staged.step(step).is_ok() {
+                    legal_steps.push(step);
+                }
+            }
+        }
+
+        let visible = self
+            .world
+            .view()
+            .map_err(|detail| error("session_world_view", detail.to_string()))?;
+        let party_position = self
+            .world
+            .party_position()
+            .map_err(|detail| error("session_world_read", detail.to_string()))?;
+        let actions = actor
+            .actions
+            .iter()
+            .filter_map(|action_id| {
+                let action = self.world.rules().actions().get(action_id)?;
+                let ActionEffectDefinition::Attack { range, .. } = action.effect else {
+                    return None;
+                };
+                if action.target != ActionTargetCandidate::HostileCell {
+                    return None;
+                }
+                let mut legal_target_entity_ids = visible
+                    .visible_actors
+                    .iter()
+                    .filter(|target| {
+                        self.world
+                            .enemy_position(EntityId::new(target.entity_id))
+                            .ok()
+                            .and_then(|position| {
+                                self.world.clear_distance(party_position, position)
+                            })
+                            .is_some_and(|distance| distance <= u32::from(range))
+                    })
+                    .map(|target| target.entity_id)
+                    .collect::<Vec<_>>();
+                legal_target_entity_ids.sort_unstable();
+                Some(LegalActionView {
+                    action_id: action.id.clone(),
+                    name: action.name.clone(),
+                    legal_target_entity_ids,
+                })
+            })
+            .collect::<Vec<_>>();
+        Ok(Some(PartyDecisionView {
+            actor_entity_id: actor.entity_id,
+            expected_revision: self.revision,
+            legal_steps,
+            can_turn: owns_movement,
+            actions,
+        }))
+    }
+
     pub(super) fn resolve_party_command(
         &mut self,
         command: PartyCommand,
@@ -40,6 +197,7 @@ impl GameSession {
                     .map_err(|detail| error("session_party_step_rejected", detail.to_string()))?;
                 self.latest_receipts.push(TurnReceipt::PartyMoved {
                     actor_entity_id: actor.entity_id,
+                    step,
                 });
             }
             PartyCommand::TurnLeft { .. } => {
@@ -49,6 +207,7 @@ impl GameSession {
                     .map_err(|detail| error("session_party_turn_rejected", detail.to_string()))?;
                 self.latest_receipts.push(TurnReceipt::PartyTurned {
                     actor_entity_id: actor.entity_id,
+                    direction: PartyTurnDirection::Left,
                 });
             }
             PartyCommand::TurnRight { .. } => {
@@ -58,6 +217,7 @@ impl GameSession {
                     .map_err(|detail| error("session_party_turn_rejected", detail.to_string()))?;
                 self.latest_receipts.push(TurnReceipt::PartyTurned {
                     actor_entity_id: actor.entity_id,
+                    direction: PartyTurnDirection::Right,
                 });
             }
             PartyCommand::UseAction {

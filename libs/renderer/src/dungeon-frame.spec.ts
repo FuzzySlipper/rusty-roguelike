@@ -1,0 +1,186 @@
+import { describe, expect, it } from 'vitest';
+
+import type { SessionView, TurnReceipt } from '@rusty-roguelike/protocol';
+
+import { cameraMotionCue, createDungeonFrame } from './dungeon-frame';
+
+const SESSION: SessionView = {
+  schemaVersion: 1,
+  revision: 4,
+  round: 2,
+  outcome: 'ongoing',
+  current: {
+    entityId: 101,
+    actorId: 'party.brann',
+    name: 'Brann',
+    side: 'party',
+    initiative: 12,
+  },
+  order: [
+    {
+      entityId: 101,
+      actorId: 'party.brann',
+      name: 'Brann',
+      side: 'party',
+      initiative: 12,
+    },
+  ],
+  party: [
+    {
+      entityId: 101,
+      actorId: 'party.brann',
+      name: 'Brann',
+      currentVitality: 20,
+      maximumVitality: 20,
+      conscious: true,
+      carriedItems: [],
+    },
+  ],
+  decision: {
+    actorEntityId: 101,
+    expectedRevision: 4,
+    legalSteps: ['forward'],
+    canTurn: true,
+    actions: [],
+  },
+  latestReceipts: [],
+  world: {
+    schemaVersion: 1,
+    revision: 9,
+    floorId: 'floor.renderer',
+    facing: 'north',
+    discoveredCellCount: 4,
+    cells: [
+      { lateral: 0, depth: 0, kind: 'floor' },
+      { lateral: 0, depth: 1, kind: 'floor' },
+      { lateral: 1, depth: 1, kind: 'wall' },
+    ],
+    visibleActors: [
+      {
+        actorId: 'enemy.scout',
+        entityId: 201,
+        name: 'Scout',
+        lateral: 0,
+        depth: 1,
+        participating: true,
+      },
+    ],
+  },
+};
+
+describe('createDungeonFrame', () => {
+  it('maps only Rust-projected facts into stable Engine handles and metadata', () => {
+    const first = createDungeonFrame(SESSION);
+    const repeated = createDungeonFrame(SESSION);
+    expect(repeated.handles).toEqual(first.handles);
+    expect(first.frame.ops).toHaveLength(first.handles.length);
+    const enemy = first.frame.ops.find(
+      (operation) =>
+        operation.op === 'create' &&
+        operation.node.metadata.label === 'enemy-201',
+    );
+    expect(enemy).toMatchObject({
+      op: 'create',
+      node: {
+        metadata: {
+          sourceEntity: 201,
+          tags: ['rusty-roguelike', 'enemy', 'enemy-201'],
+        },
+      },
+    });
+    expect(
+      first.frame.ops.some(
+        (operation) =>
+          operation.op === 'create' &&
+          operation.node.metadata.label === 'wall-1-1',
+      ),
+    ).toBe(true);
+  });
+
+  it('destroys the prior retained set before recreating the exact projection', () => {
+    const first = createDungeonFrame(SESSION);
+    const next = createDungeonFrame(
+      {
+        ...SESSION,
+        revision: 5,
+        world: { ...SESSION.world, visibleActors: [] },
+      },
+      first.handles,
+    );
+    expect(next.frame.ops.slice(0, first.handles.length)).toEqual(
+      first.handles.map((handle) => ({ op: 'destroy', handle })),
+    );
+    expect(
+      next.frame.ops.some(
+        (operation) =>
+          operation.op === 'create' &&
+          operation.node.metadata.tags.includes('enemy'),
+      ),
+    ).toBe(false);
+  });
+
+  it('telegraphs only the Rust-projected targets of the transient selected action', () => {
+    const decision = SESSION.decision;
+    if (decision === null) {
+      throw new Error('fixture must expose a party decision');
+    }
+    const session: SessionView = {
+      ...SESSION,
+      decision: {
+        ...decision,
+        actions: [
+          {
+            actionId: 'aimed-shot',
+            name: 'Aimed Shot',
+            legalTargetEntityIds: [201],
+          },
+        ],
+      },
+    };
+    const frame = createDungeonFrame(session, [], 'aimed-shot');
+    const target = frame.frame.ops.find(
+      (operation) =>
+        operation.op === 'create' &&
+        operation.node.metadata.label === 'enemy-201',
+    );
+    expect(target).toMatchObject({
+      op: 'create',
+      node: { metadata: { tags: expect.arrayContaining(['legal-target']) } },
+    });
+    expect(
+      createDungeonFrame(session).frame.ops.some(
+        (operation) =>
+          operation.op === 'create' &&
+          operation.node.metadata.tags.includes('legal-target'),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('cameraMotionCue', () => {
+  it('derives disposable presentation offsets only from accepted Rust receipts', () => {
+    const moved: TurnReceipt = {
+      kind: 'partyMoved',
+      actorEntityId: 101,
+      step: 'left',
+    };
+    const turned: TurnReceipt = {
+      kind: 'partyTurned',
+      actorEntityId: 101,
+      direction: 'right',
+    };
+    expect(cameraMotionCue([moved])).toEqual({
+      kind: 'step',
+      lateral: -0.72,
+      depth: 0,
+      yawDegrees: 0,
+    });
+    expect(cameraMotionCue([turned])).toEqual({
+      kind: 'turn',
+      lateral: 0,
+      depth: 0,
+      yawDegrees: -90,
+    });
+    expect(cameraMotionCue([])).toBeNull();
+  });
+});

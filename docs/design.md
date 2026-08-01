@@ -129,9 +129,21 @@ before trusting geometry. A proposed generation is fully generated and
 admitted before it can replace the current floor, so malformed, incompatible,
 or exhausted results cannot partially publish state.
 
-The browser still exposes only the bootstrap readout and blank retained scene.
-Rust now owns world state, its generated projection contract, the live in-memory
-initiative session, and a generated strict session projection including complete
-target-resolution receipts. Transport and playable rendering enter in later
-reviewed tasks; the phase boundary is recorded in
-[known limitations](known-limitations.md).
+The Rust host publishes the live session and accepts only strict,
+revision-bound typed commands. Its projection includes the current decision,
+party vitality and carried-item summaries, relative visible topology, and
+complete target-resolution receipts. The browser strictly decodes that view,
+keeps classified transport failures visible, and submits only projected
+choices; it does not recreate movement, targeting, initiative, or rules policy.
+
+One permanent public Engine `RendererSurface` owns the full window. A pure
+adapter maps only Rust-projected relative cells and visible actors into stable
+retained handles and public picking metadata. Brief camera offsets are derived
+from accepted movement/turn receipts and discarded after presentation; reduced
+motion snaps immediately. Initiative, movement, action selection, party status,
+field packs, and the detailed rules log are pointer-transparent overlays around
+that same canvas. Selecting an action highlights only its Rust-projected legal
+targets; resolved attacks drive bounded retained impact presentation. Enemy
+selection is an Engine metadata pick with explicit
+button and keyboard alternatives, and all resulting legality remains admitted
+by Rust.

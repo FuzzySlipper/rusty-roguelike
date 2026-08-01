@@ -1,9 +1,21 @@
-use std::{env, net::SocketAddr, path::PathBuf};
+use std::{env, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{bail, Context, Result};
-use axum::{routing::get, Json, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
+use rusty_roguelike::{
+    generate_authored_floor, starter_ruleset, GameSession, SessionCommandDto, SessionErrorDto,
+    SessionView, WorldState,
+};
 use serde_json::json;
+use tokio::sync::Mutex;
 use tower_http::services::{ServeDir, ServeFile};
+
+const EXPEDITION_SEED: u64 = 5_201;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -16,6 +28,10 @@ async fn main() -> Result<()> {
         );
     }
 
+    let session = new_expedition()?;
+    let state = AppState {
+        session: Arc::new(Mutex::new(session)),
+    };
     let app = Router::new()
         .route(
             "/healthz",
@@ -25,6 +41,10 @@ async fn main() -> Result<()> {
             "/api/v1/bootstrap",
             get(|| async { Json(rusty_roguelike::bootstrap_readout()) }),
         )
+        .route("/api/v1/session", get(session_view))
+        .route("/api/v1/session/commands", post(session_command))
+        .route("/api/v1/session/restart", post(restart_session))
+        .with_state(state)
         .fallback_service(ServeDir::new(&options.static_root).fallback(ServeFile::new(index)));
 
     let listener = tokio::net::TcpListener::bind(options.address)
@@ -33,6 +53,68 @@ async fn main() -> Result<()> {
     println!("Rusty Roguelike listening on http://{}", options.address);
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+#[derive(Clone)]
+struct AppState {
+    session: Arc<Mutex<GameSession>>,
+}
+
+async fn session_view(
+    State(state): State<AppState>,
+) -> Result<Json<SessionView>, (StatusCode, Json<SessionErrorDto>)> {
+    let session = state.session.lock().await;
+    session
+        .view()
+        .map(Json)
+        .map_err(|error| classified_error(StatusCode::INTERNAL_SERVER_ERROR, error))
+}
+
+async fn session_command(
+    State(state): State<AppState>,
+    Json(command): Json<SessionCommandDto>,
+) -> Result<Json<SessionView>, (StatusCode, Json<SessionErrorDto>)> {
+    let mut session = state.session.lock().await;
+    session
+        .command(command.into())
+        .map(Json)
+        .map_err(|error| classified_error(StatusCode::CONFLICT, error))
+}
+
+async fn restart_session(
+    State(state): State<AppState>,
+) -> Result<Json<SessionView>, (StatusCode, Json<SessionErrorDto>)> {
+    let replacement = new_expedition()
+        .map_err(|error| internal_error("session_restart_failed", error.to_string()))?;
+    let view = replacement
+        .view()
+        .map_err(|error| classified_error(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    *state.session.lock().await = replacement;
+    Ok(Json(view))
+}
+
+fn new_expedition() -> Result<GameSession> {
+    Ok(GameSession::new(WorldState::new(
+        generate_authored_floor(EXPEDITION_SEED)?,
+        starter_ruleset()?,
+    )?)?)
+}
+
+fn classified_error(
+    status: StatusCode,
+    error: rusty_roguelike::SessionError,
+) -> (StatusCode, Json<SessionErrorDto>) {
+    (status, Json(SessionErrorDto::from(&error)))
+}
+
+fn internal_error(code: &str, detail: String) -> (StatusCode, Json<SessionErrorDto>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(SessionErrorDto {
+            code: code.to_owned(),
+            detail,
+        }),
+    )
 }
 
 struct Options {

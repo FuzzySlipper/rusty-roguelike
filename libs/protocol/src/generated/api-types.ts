@@ -85,6 +85,8 @@ export type WorldCell = { x: number, y: number, };
 
 export type Facing = "north" | "east" | "south" | "west";
 
+export type RelativeStep = "forward" | "backward" | "left" | "right";
+
 export type EnemyParticipation = "dormant" | "participating";
 
 export type WorldViewCellKind = "floor" | "wall";
@@ -111,6 +113,20 @@ export type PartySquareTargetReceipt = { selectedMemberEntityId: number, selecti
 
 export type ActivationView = { entityId: number, actorId: RoguelikeId, name: string, side: TurnSide, initiative: number, };
 
-export type TurnReceipt = { "kind": "partyMoved", actorEntityId: number, } | { "kind": "partyTurned", actorEntityId: number, } | { "kind": "partyAttacked", actorEntityId: number, targetEntityId: number, actionId: RoguelikeId, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionAttacked", actorEntityId: number, actionId: RoguelikeId, target: PartySquareTargetReceipt, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionMoved", actorEntityId: number, } | { "kind": "oppositionPassed", actorEntityId: number, };
+export type PartyMemberStatusView = { entityId: number, actorId: RoguelikeId, name: string, currentVitality: number, maximumVitality: number, conscious: boolean, carriedItems: Array<CarriedItemView>, };
 
-export type SessionView = { schemaVersion: number, revision: number, round: number, outcome: SessionOutcome, current: ActivationView | null, order: Array<ActivationView>, latestReceipts: Array<TurnReceipt>, world: WorldView, };
+export type CarriedItemView = { itemId: RoguelikeId, name: string, };
+
+export type LegalActionView = { actionId: RoguelikeId, name: string, legalTargetEntityIds: Array<number>, };
+
+export type PartyDecisionView = { actorEntityId: number, expectedRevision: number, legalSteps: Array<RelativeStep>, canTurn: boolean, actions: Array<LegalActionView>, };
+
+export type PartyTurnDirection = "left" | "right";
+
+export type SessionCommandDto = { "kind": "step", actorEntityId: number, expectedRevision: number, step: RelativeStep, } | { "kind": "turnLeft", actorEntityId: number, expectedRevision: number, } | { "kind": "turnRight", actorEntityId: number, expectedRevision: number, } | { "kind": "useAction", actorEntityId: number, expectedRevision: number, actionId: RoguelikeId, targetEntityId: number, };
+
+export type SessionErrorDto = { code: string, detail: string, };
+
+export type TurnReceipt = { "kind": "partyMoved", actorEntityId: number, step: RelativeStep, } | { "kind": "partyTurned", actorEntityId: number, direction: PartyTurnDirection, } | { "kind": "partyAttacked", actorEntityId: number, targetEntityId: number, actionId: RoguelikeId, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionAttacked", actorEntityId: number, actionId: RoguelikeId, target: PartySquareTargetReceipt, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionMoved", actorEntityId: number, } | { "kind": "oppositionPassed", actorEntityId: number, };
+
+export type SessionView = { schemaVersion: number, revision: number, round: number, outcome: SessionOutcome, current: ActivationView | null, order: Array<ActivationView>, party: Array<PartyMemberStatusView>, decision: PartyDecisionView | null, latestReceipts: Array<TurnReceipt>, world: WorldView, };

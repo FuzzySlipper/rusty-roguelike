@@ -109,6 +109,8 @@ impl GameSession {
             } else {
                 vec![]
             },
+            party: self.party_status()?,
+            decision: self.party_decision()?,
             latest_receipts: self.latest_receipts.clone(),
             world: self
                 .world

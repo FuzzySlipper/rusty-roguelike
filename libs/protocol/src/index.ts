@@ -12,6 +12,11 @@ import {
   WORLD_VIEW_LIMITS,
   type ActivationView,
   type BootstrapReadoutDto,
+  type CarriedItemView,
+  type LegalActionView,
+  type PartyDecisionView,
+  type PartyMemberStatusView,
+  type SessionErrorDto,
   type SessionView,
   type TurnReceipt,
   type VisibleActorView,
@@ -163,14 +168,17 @@ export function decodeWorldView(value: unknown): WorldView {
 
 const SESSION_VIEW_KEYS = [
   'current',
+  'decision',
   'latestReceipts',
   'order',
   'outcome',
+  'party',
   'revision',
   'round',
   'schemaVersion',
   'world',
 ] as const;
+const SESSION_ERROR_KEYS = ['code', 'detail'] as const;
 const ACTIVATION_KEYS = [
   'actorId',
   'entityId',
@@ -178,7 +186,31 @@ const ACTIVATION_KEYS = [
   'name',
   'side',
 ] as const;
+const PARTY_STATUS_KEYS = [
+  'actorId',
+  'carriedItems',
+  'conscious',
+  'currentVitality',
+  'entityId',
+  'maximumVitality',
+  'name',
+] as const;
+const CARRIED_ITEM_KEYS = ['itemId', 'name'] as const;
+const PARTY_DECISION_KEYS = [
+  'actions',
+  'actorEntityId',
+  'canTurn',
+  'expectedRevision',
+  'legalSteps',
+] as const;
+const LEGAL_ACTION_KEYS = ['actionId', 'legalTargetEntityIds', 'name'] as const;
 const SIMPLE_RECEIPT_KEYS = ['actorEntityId', 'kind'] as const;
+const PARTY_MOVED_RECEIPT_KEYS = ['actorEntityId', 'kind', 'step'] as const;
+const PARTY_TURNED_RECEIPT_KEYS = [
+  'actorEntityId',
+  'direction',
+  'kind',
+] as const;
 const PARTY_ATTACK_RECEIPT_KEYS = [
   'abilityModifier',
   'actionId',
@@ -258,6 +290,50 @@ export function decodeSessionView(value: unknown): SessionView {
     throw new Error('terminal session exposes a live activation');
   }
   if (
+    !Array.isArray(value['party']) ||
+    value['party'].length < 1 ||
+    value['party'].length > SESSION_VIEW_LIMITS.maxActivations
+  ) {
+    throw new Error('party status is not a bounded array');
+  }
+  const partyIds = new Set<number>();
+  for (const member of value['party']) {
+    decodePartyMemberStatus(member);
+    if (partyIds.has(member.entityId)) {
+      throw new Error('party status contains duplicate entities');
+    }
+    partyIds.add(member.entityId);
+  }
+  for (const activation of value['order']) {
+    const member = value['party'].find(
+      (candidate) => candidate.entityId === activation.entityId,
+    );
+    if (
+      (activation.side === 'party' &&
+        (member === undefined ||
+          member.actorId !== activation.actorId ||
+          member.name !== activation.name)) ||
+      (activation.side === 'opposition' && member !== undefined)
+    ) {
+      throw new Error('activation side disagrees with party identity');
+    }
+  }
+  if (value['outcome'] === 'ongoing') {
+    const decision = value['decision'];
+    const current = value['current'];
+    decodePartyDecision(decision, value['world']);
+    decodeActivation(current);
+    if (
+      decision.expectedRevision !== value['revision'] ||
+      decision.actorEntityId !== current.entityId ||
+      current.side !== 'party'
+    ) {
+      throw new Error('party decision does not match the current activation');
+    }
+  } else if (value['decision'] !== null) {
+    throw new Error('terminal session exposes a party decision');
+  }
+  if (
     !Array.isArray(value['latestReceipts']) ||
     value['latestReceipts'].length > SESSION_VIEW_LIMITS.maxReceipts
   ) {
@@ -265,9 +341,157 @@ export function decodeSessionView(value: unknown): SessionView {
   }
   for (const receipt of value['latestReceipts']) {
     decodeTurnReceipt(receipt);
+    if (
+      (receipt.kind.startsWith('party') &&
+        !partyIds.has(receipt.actorEntityId)) ||
+      (receipt.kind.startsWith('opposition') &&
+        partyIds.has(receipt.actorEntityId)) ||
+      (receipt.kind === 'oppositionAttacked' &&
+        !partyIds.has(receipt.target.selectedMemberEntityId))
+    ) {
+      throw new Error('turn receipt disagrees with party identity');
+    }
   }
   decodeWorldView(value['world']);
   return value as SessionView;
+}
+
+export function decodeSessionError(value: unknown): SessionErrorDto {
+  requireExactRecord(value, SESSION_ERROR_KEYS, 'session error');
+  requireId(value['code'], 'session error code');
+  requireBoundedText(
+    value['detail'],
+    1,
+    ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+    'session error detail',
+  );
+  return value as SessionErrorDto;
+}
+
+function decodePartyMemberStatus(
+  value: unknown,
+): asserts value is PartyMemberStatusView {
+  requireExactRecord(value, PARTY_STATUS_KEYS, 'party member status');
+  requireEntityId(value['entityId'], 'party member identity');
+  requireId(value['actorId'], 'party member actor identity');
+  requireBoundedText(
+    value['name'],
+    1,
+    ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+    'party member name',
+  );
+  requireSafeInteger(value['currentVitality'], 0, 65_535, 'current vitality');
+  requireSafeInteger(value['maximumVitality'], 1, 65_535, 'maximum vitality');
+  if (Number(value['currentVitality']) > Number(value['maximumVitality'])) {
+    throw new Error('party vitality exceeds its maximum');
+  }
+  if (value['conscious'] !== Number(value['currentVitality']) > 0) {
+    throw new Error('party consciousness disagrees with vitality');
+  }
+  if (
+    !Array.isArray(value['carriedItems']) ||
+    value['carriedItems'].length > ROGUELIKE_LIMITS.maxDefinitionsPerKind
+  ) {
+    throw new Error('carried items are not a bounded array');
+  }
+  const itemIds = new Set<string>();
+  for (const item of value['carriedItems']) {
+    decodeCarriedItem(item);
+    if (itemIds.has(item.itemId)) {
+      throw new Error('party member status contains duplicate carried items');
+    }
+    itemIds.add(item.itemId);
+  }
+}
+
+function decodeCarriedItem(value: unknown): asserts value is CarriedItemView {
+  requireExactRecord(value, CARRIED_ITEM_KEYS, 'carried item');
+  requireId(value['itemId'], 'carried item identity');
+  requireBoundedText(
+    value['name'],
+    1,
+    ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+    'carried item name',
+  );
+}
+
+function decodePartyDecision(
+  value: unknown,
+  world: unknown,
+): asserts value is PartyDecisionView {
+  requireExactRecord(value, PARTY_DECISION_KEYS, 'party decision');
+  requireEntityId(value['actorEntityId'], 'decision actor identity');
+  requireSafeInteger(
+    value['expectedRevision'],
+    0,
+    Number.MAX_SAFE_INTEGER,
+    'decision revision',
+  );
+  if (typeof value['canTurn'] !== 'boolean') {
+    throw new Error('party decision has an invalid turn fact');
+  }
+  if (!Array.isArray(value['legalSteps']) || value['legalSteps'].length > 4) {
+    throw new Error('legal steps are not a bounded array');
+  }
+  const steps = new Set<string>();
+  for (const step of value['legalSteps']) {
+    if (!['forward', 'backward', 'left', 'right'].includes(String(step))) {
+      throw new Error('party decision contains an invalid step');
+    }
+    if (steps.has(String(step))) {
+      throw new Error('party decision contains duplicate steps');
+    }
+    steps.add(String(step));
+  }
+  if (
+    !Array.isArray(value['actions']) ||
+    value['actions'].length > ROGUELIKE_LIMITS.maxDefinitionsPerKind
+  ) {
+    throw new Error('legal actions are not a bounded array');
+  }
+  const decodedWorld = decodeWorldView(world);
+  const visibleTargets = new Set(
+    decodedWorld.visibleActors.map((actor) => actor.entityId),
+  );
+  const actionIds = new Set<string>();
+  for (const action of value['actions']) {
+    decodeLegalAction(action, visibleTargets);
+    if (actionIds.has(action.actionId)) {
+      throw new Error('party decision contains duplicate actions');
+    }
+    actionIds.add(action.actionId);
+  }
+}
+
+function decodeLegalAction(
+  value: unknown,
+  visibleTargets: ReadonlySet<number>,
+): asserts value is LegalActionView {
+  requireExactRecord(value, LEGAL_ACTION_KEYS, 'legal action');
+  requireId(value['actionId'], 'legal action identity');
+  requireBoundedText(
+    value['name'],
+    1,
+    ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+    'legal action name',
+  );
+  if (
+    !Array.isArray(value['legalTargetEntityIds']) ||
+    value['legalTargetEntityIds'].length > WORLD_VIEW_LIMITS.maxVisibleActors
+  ) {
+    throw new Error('legal targets are not a bounded array');
+  }
+  const targetIds = new Set<number>();
+  for (const target of value['legalTargetEntityIds']) {
+    requireEntityId(target, 'legal target identity');
+    if (!visibleTargets.has(target)) {
+      throw new Error('legal action references a nonvisible target');
+    }
+    if (targetIds.has(target)) {
+      throw new Error('legal action contains duplicate targets');
+    }
+    targetIds.add(target);
+  }
 }
 
 function decodeActivation(value: unknown): asserts value is ActivationView {
@@ -292,7 +516,31 @@ function decodeTurnReceipt(value: unknown): asserts value is TurnReceipt {
   }
   switch (value['kind']) {
     case 'partyMoved':
+      requireExactRecord(
+        value,
+        PARTY_MOVED_RECEIPT_KEYS,
+        'party movement receipt',
+      );
+      requireEntityId(value['actorEntityId'], 'receipt actor identity');
+      if (
+        !['forward', 'backward', 'left', 'right'].includes(
+          String(value['step']),
+        )
+      ) {
+        throw new Error('party movement receipt has an invalid step');
+      }
+      return;
     case 'partyTurned':
+      requireExactRecord(
+        value,
+        PARTY_TURNED_RECEIPT_KEYS,
+        'party turn receipt',
+      );
+      requireEntityId(value['actorEntityId'], 'receipt actor identity');
+      if (value['direction'] !== 'left' && value['direction'] !== 'right') {
+        throw new Error('party turn receipt has an invalid direction');
+      }
+      return;
     case 'oppositionMoved':
     case 'oppositionPassed':
       requireExactRecord(value, SIMPLE_RECEIPT_KEYS, 'turn receipt');

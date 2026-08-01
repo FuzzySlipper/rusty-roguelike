@@ -64,6 +64,157 @@ pub enum PartyCommand {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, TS)]
+#[ts(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum SessionCommandDto {
+    Step {
+        #[ts(type = "number")]
+        actor_entity_id: u64,
+        #[ts(type = "number")]
+        expected_revision: u64,
+        step: RelativeStep,
+    },
+    TurnLeft {
+        #[ts(type = "number")]
+        actor_entity_id: u64,
+        #[ts(type = "number")]
+        expected_revision: u64,
+    },
+    TurnRight {
+        #[ts(type = "number")]
+        actor_entity_id: u64,
+        #[ts(type = "number")]
+        expected_revision: u64,
+    },
+    UseAction {
+        #[ts(type = "number")]
+        actor_entity_id: u64,
+        #[ts(type = "number")]
+        expected_revision: u64,
+        action_id: RoguelikeId,
+        #[ts(type = "number")]
+        target_entity_id: u64,
+    },
+}
+
+impl<'de> Deserialize<'de> for SessionCommandDto {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(
+            deny_unknown_fields,
+            tag = "kind",
+            rename_all = "camelCase",
+            rename_all_fields = "camelCase"
+        )]
+        enum StrictSessionCommandDto {
+            Step {
+                actor_entity_id: u64,
+                expected_revision: u64,
+                step: RelativeStep,
+            },
+            TurnLeft {
+                actor_entity_id: u64,
+                expected_revision: u64,
+            },
+            TurnRight {
+                actor_entity_id: u64,
+                expected_revision: u64,
+            },
+            UseAction {
+                actor_entity_id: u64,
+                expected_revision: u64,
+                action_id: RoguelikeId,
+                target_entity_id: u64,
+            },
+        }
+
+        Ok(match StrictSessionCommandDto::deserialize(deserializer)? {
+            StrictSessionCommandDto::Step {
+                actor_entity_id,
+                expected_revision,
+                step,
+            } => Self::Step {
+                actor_entity_id,
+                expected_revision,
+                step,
+            },
+            StrictSessionCommandDto::TurnLeft {
+                actor_entity_id,
+                expected_revision,
+            } => Self::TurnLeft {
+                actor_entity_id,
+                expected_revision,
+            },
+            StrictSessionCommandDto::TurnRight {
+                actor_entity_id,
+                expected_revision,
+            } => Self::TurnRight {
+                actor_entity_id,
+                expected_revision,
+            },
+            StrictSessionCommandDto::UseAction {
+                actor_entity_id,
+                expected_revision,
+                action_id,
+                target_entity_id,
+            } => Self::UseAction {
+                actor_entity_id,
+                expected_revision,
+                action_id,
+                target_entity_id,
+            },
+        })
+    }
+}
+
+impl From<SessionCommandDto> for PartyCommand {
+    fn from(value: SessionCommandDto) -> Self {
+        match value {
+            SessionCommandDto::Step {
+                actor_entity_id,
+                expected_revision,
+                step,
+            } => Self::Step {
+                actor_entity_id,
+                expected_revision,
+                step,
+            },
+            SessionCommandDto::TurnLeft {
+                actor_entity_id,
+                expected_revision,
+            } => Self::TurnLeft {
+                actor_entity_id,
+                expected_revision,
+            },
+            SessionCommandDto::TurnRight {
+                actor_entity_id,
+                expected_revision,
+            } => Self::TurnRight {
+                actor_entity_id,
+                expected_revision,
+            },
+            SessionCommandDto::UseAction {
+                actor_entity_id,
+                expected_revision,
+                action_id,
+                target_entity_id,
+            } => Self::UseAction {
+                actor_entity_id,
+                expected_revision,
+                action_id,
+                target_entity_id,
+            },
+        }
+    }
+}
+
 impl PartyCommand {
     pub const fn actor_entity_id(&self) -> u64 {
         match self {
@@ -113,6 +264,59 @@ pub struct ActivationView {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct PartyMemberStatusView {
+    #[ts(type = "number")]
+    pub entity_id: u64,
+    pub actor_id: RoguelikeId,
+    pub name: String,
+    pub current_vitality: u16,
+    pub maximum_vitality: u16,
+    pub conscious: bool,
+    pub carried_items: Vec<CarriedItemView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CarriedItemView {
+    pub item_id: RoguelikeId,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct LegalActionView {
+    pub action_id: RoguelikeId,
+    pub name: String,
+    #[ts(type = "Array<number>")]
+    pub legal_target_entity_ids: Vec<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct PartyDecisionView {
+    #[ts(type = "number")]
+    pub actor_entity_id: u64,
+    #[ts(type = "number")]
+    pub expected_revision: u64,
+    pub legal_steps: Vec<RelativeStep>,
+    pub can_turn: bool,
+    pub actions: Vec<LegalActionView>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(rename_all = "kebab-case")]
+pub enum PartyTurnDirection {
+    Left,
+    Right,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
@@ -123,10 +327,12 @@ pub enum TurnReceipt {
     PartyMoved {
         #[ts(type = "number")]
         actor_entity_id: u64,
+        step: RelativeStep,
     },
     PartyTurned {
         #[ts(type = "number")]
         actor_entity_id: u64,
+        direction: PartyTurnDirection,
     },
     PartyAttacked {
         #[ts(type = "number")]
@@ -181,6 +387,8 @@ pub struct SessionView {
     pub outcome: SessionOutcome,
     pub current: Option<ActivationView>,
     pub order: Vec<ActivationView>,
+    pub party: Vec<PartyMemberStatusView>,
+    pub decision: Option<PartyDecisionView>,
     pub latest_receipts: Vec<TurnReceipt>,
     pub world: WorldView,
 }
@@ -189,6 +397,23 @@ pub struct SessionView {
 pub struct SessionError {
     code: &'static str,
     detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct SessionErrorDto {
+    pub code: String,
+    pub detail: String,
+}
+
+impl From<&SessionError> for SessionErrorDto {
+    fn from(value: &SessionError) -> Self {
+        Self {
+            code: value.code().to_owned(),
+            detail: value.detail().to_owned(),
+        }
+    }
 }
 
 impl SessionError {

@@ -15,6 +15,13 @@ pub(crate) fn generated_session_typescript() -> String {
         PartyMemberSelectionPolicy::decl(),
         PartySquareTargetReceipt::decl(),
         ActivationView::decl(),
+        PartyMemberStatusView::decl(),
+        CarriedItemView::decl(),
+        LegalActionView::decl(),
+        PartyDecisionView::decl(),
+        PartyTurnDirection::decl(),
+        SessionCommandDto::decl(),
+        SessionErrorDto::decl(),
         TurnReceipt::decl(),
         SessionView::decl(),
     ]

@@ -144,11 +144,11 @@ describe('decodeWorldView', () => {
 });
 
 const ACTIVATION = {
-  entityId: 202,
-  actorId: 'enemy.goblin-scout',
-  name: 'Goblin Scout',
-  side: 'opposition',
-  initiative: 14,
+  entityId: 102,
+  actorId: 'party.kestrel',
+  name: 'Kestrel',
+  side: 'party',
+  initiative: 16,
 };
 
 const OPPOSITION_ATTACK = {
@@ -156,7 +156,7 @@ const OPPOSITION_ATTACK = {
   actorEntityId: 202,
   actionId: 'rusty-blade',
   target: {
-    selectedMemberEntityId: 101,
+    selectedMemberEntityId: 102,
     selectionPolicy: 'round-robin-living',
     eligibleMemberCount: 3,
   },
@@ -178,8 +178,32 @@ const SESSION_VIEW = {
   outcome: 'ongoing',
   current: ACTIVATION,
   order: [ACTIVATION],
+  party: [
+    {
+      entityId: 102,
+      actorId: 'party.kestrel',
+      name: 'Kestrel',
+      currentVitality: 18,
+      maximumVitality: 18,
+      conscious: true,
+      carriedItems: [{ itemId: 'item.longbow', name: 'Longbow' }],
+    },
+  ],
+  decision: {
+    actorEntityId: 102,
+    expectedRevision: 4,
+    legalSteps: ['forward'],
+    canTurn: true,
+    actions: [
+      {
+        actionId: 'aimed-shot',
+        name: 'Aimed Shot',
+        legalTargetEntityIds: [201],
+      },
+    ],
+  },
   latestReceipts: [OPPOSITION_ATTACK],
-  world: WORLD_VIEW,
+  world: { ...WORLD_VIEW, visibleActors: [VISIBLE_ACTOR] },
 };
 
 describe('decodeSessionView', () => {
@@ -251,5 +275,55 @@ describe('decodeSessionView', () => {
         outcome: 'victory',
       }),
     ).toThrow('terminal session');
+  });
+
+  it('rejects browser-invented legal targets and inconsistent party status', () => {
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        decision: {
+          ...SESSION_VIEW.decision,
+          actions: [
+            {
+              ...SESSION_VIEW.decision.actions[0],
+              legalTargetEntityIds: [999],
+            },
+          ],
+        },
+      }),
+    ).toThrow('nonvisible target');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        party: [
+          {
+            ...SESSION_VIEW.party[0],
+            currentVitality: 0,
+            conscious: true,
+          },
+        ],
+      }),
+    ).toThrow('consciousness');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        order: [{ ...ACTIVATION, side: 'opposition' }],
+        current: { ...ACTIVATION, side: 'opposition' },
+      }),
+    ).toThrow('party identity');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        latestReceipts: [
+          {
+            ...OPPOSITION_ATTACK,
+            target: {
+              ...OPPOSITION_ATTACK.target,
+              selectedMemberEntityId: 999,
+            },
+          },
+        ],
+      }),
+    ).toThrow('party identity');
   });
 });

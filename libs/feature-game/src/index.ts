@@ -1,12 +1,35 @@
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
+  computed,
+  effect,
   inject,
+  signal,
+  viewChild,
+  type ElementRef,
+  type OnDestroy,
   type OnInit,
 } from '@angular/core';
 
+import {
+  keyboardEventTargetsEditable,
+  observeGlobalKeydown,
+} from '@rusty-roguelike/platform';
+import type {
+  LegalActionView,
+  RelativeStep,
+  SessionCommandDto,
+  TurnReceipt,
+} from '@rusty-roguelike/protocol';
 import { GameViewportComponent } from '@rusty-roguelike/renderer';
-import { BootstrapStore } from '@rusty-roguelike/store';
+import {
+  BootstrapStore,
+  SessionStore,
+  type RulesLogEntry,
+} from '@rusty-roguelike/store';
+
+type Drawer = 'party' | 'inventory' | null;
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,7 +39,8 @@ import { BootstrapStore } from '@rusty-roguelike/store';
   styles: [
     `
       :host,
-      main {
+      main,
+      .stage {
         display: block;
         height: 100dvh;
         inset: 0;
@@ -25,135 +49,922 @@ import { BootstrapStore } from '@rusty-roguelike/store';
         width: 100vw;
       }
 
-      .overlay {
-        background: var(--rr-panel);
-        border: 1px solid var(--rr-line);
-        border-radius: 12px;
-        left: 50%;
-        max-height: calc(100dvh - 2rem);
-        max-width: min(700px, calc(100vw - 2rem));
-        overflow: auto;
-        padding: clamp(1rem, 3vw, 2rem);
-        pointer-events: auto;
+      .loading,
+      .fatal {
+        align-items: center;
+        background:
+          radial-gradient(
+            circle at 50% 30%,
+            rgb(31 67 66 / 0.65),
+            transparent 42%
+          ),
+          var(--rr-bg);
+        display: grid;
+        justify-items: center;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      .loading h1,
+      .fatal h1 {
+        font-size: clamp(2.4rem, 8vw, 5rem);
+        margin: 0 0 0.75rem;
+      }
+
+      .hud {
+        inset: 0;
+        pointer-events: none;
         position: absolute;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        width: 100%;
         z-index: 2;
       }
 
-      .eyebrow,
-      dt {
+      .panel,
+      button,
+      details {
+        pointer-events: auto;
+      }
+
+      .panel {
+        backdrop-filter: blur(12px);
+        background: var(--rr-panel);
+        border: 1px solid var(--rr-line);
+        border-radius: 9px;
+        box-shadow: 0 12px 36px rgb(0 0 0 / 0.28);
+      }
+
+      .initiative {
+        display: flex;
+        gap: 0.35rem;
+        left: 50%;
+        max-width: min(70vw, 760px);
+        overflow-x: auto;
+        padding: 0.38rem;
+        position: absolute;
+        top: 0.65rem;
+        transform: translateX(-50%);
+      }
+
+      .initiative span {
+        border: 1px solid transparent;
+        border-radius: 999px;
+        color: var(--rr-muted);
+        flex: 0 0 auto;
+        font-size: 0.72rem;
+        padding: 0.35rem 0.55rem;
+      }
+
+      .initiative .current {
+        background: rgb(126 229 210 / 0.14);
+        border-color: var(--rr-accent);
+        color: var(--rr-text);
+      }
+
+      .expedition-tools {
+        display: flex;
+        gap: 0.4rem;
+        position: absolute;
+        right: 0.65rem;
+        top: 0.65rem;
+      }
+
+      button {
+        background: rgb(12 27 31 / 0.96);
+        border: 1px solid var(--rr-line);
+        border-radius: 7px;
+        color: var(--rr-text);
+        cursor: pointer;
+        font: inherit;
+        min-height: 44px;
+        padding: 0.55rem 0.75rem;
+      }
+
+      button:hover:not(:disabled),
+      button:focus-visible,
+      button.selected {
+        background: rgb(126 229 210 / 0.16);
+        border-color: var(--rr-accent);
+        outline: none;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.38;
+      }
+
+      .party-rail {
+        display: grid;
+        gap: 0.45rem;
+        left: 0.65rem;
+        max-width: 190px;
+        padding: 0.55rem;
+        position: absolute;
+        top: 4.2rem;
+        width: calc(100vw - 1.3rem);
+      }
+
+      .member {
+        display: grid;
+        gap: 0.25rem;
+      }
+
+      .member header {
+        display: flex;
+        font-size: 0.78rem;
+        justify-content: space-between;
+      }
+
+      .member meter {
+        accent-color: var(--rr-accent);
+        height: 0.42rem;
+        width: 100%;
+      }
+
+      .member.down {
+        opacity: 0.58;
+      }
+
+      .actions {
+        bottom: 0.65rem;
+        left: 0.65rem;
+        max-height: 35dvh;
+        max-width: min(460px, calc(100vw - 1.3rem));
+        overflow: auto;
+        padding: 0.65rem;
+        position: absolute;
+        width: max-content;
+      }
+
+      .panel-title {
         color: var(--rr-accent);
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.11em;
+        margin: 0 0 0.45rem;
         text-transform: uppercase;
       }
 
-      h1 {
-        font-size: clamp(2rem, 8vw, 4.4rem);
-        line-height: 0.95;
-        margin: 0.35rem 0 1rem;
+      .action-row,
+      .target-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
       }
 
-      p {
-        color: var(--rr-muted);
-        line-height: 1.55;
+      .target-row {
+        border-top: 1px solid var(--rr-line);
+        margin-top: 0.55rem;
+        padding-top: 0.55rem;
       }
 
-      dl {
+      .movement {
+        bottom: 0.65rem;
         display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        margin: 1.5rem 0 0;
+        gap: 0.3rem;
+        grid-template-columns: repeat(3, 46px);
+        left: 50%;
+        padding: 0.45rem;
+        position: absolute;
+        transform: translateX(-50%);
       }
 
-      dl > div {
-        background: rgb(255 255 255 / 0.035);
-        border: 1px solid var(--rr-line);
-        min-width: 0;
-        padding: 0.85rem;
+      .movement button {
+        min-height: 46px;
+        padding: 0;
       }
 
-      dd {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      .movement .forward {
+        grid-column: 2;
+      }
+
+      .movement .turn-left {
+        grid-column: 1;
+      }
+
+      .movement .backward {
+        grid-column: 2;
+      }
+
+      .rules-log {
+        bottom: 0.65rem;
+        max-height: 34dvh;
+        max-width: min(390px, calc(100vw - 1.3rem));
+        overflow: auto;
+        padding: 0.6rem;
+        position: absolute;
+        right: 0.65rem;
+        width: 30vw;
+      }
+
+      .empty-log {
+        color: var(--rr-muted);
         font-size: 0.78rem;
+        margin: 0;
+      }
+
+      .log-entry {
+        border-top: 1px solid var(--rr-line);
+        font-size: 0.76rem;
+        padding: 0.42rem 0;
+      }
+
+      .log-entry:first-of-type {
+        border-top: 0;
+      }
+
+      .log-entry summary {
+        cursor: help;
+      }
+
+      .log-detail {
+        color: var(--rr-muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        line-height: 1.45;
         margin: 0.35rem 0 0;
         overflow-wrap: anywhere;
       }
 
-      .failure {
-        color: var(--rr-danger);
+      .drawer {
+        left: 50%;
+        max-height: min(70dvh, 620px);
+        max-width: min(620px, calc(100vw - 2rem));
+        overflow: auto;
+        padding: 1rem;
+        position: absolute;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
       }
 
-      @media (max-width: 560px) {
-        .overlay {
-          bottom: 0.75rem;
-          left: 0.75rem;
-          max-height: calc(100dvh - 1.5rem);
-          max-width: calc(100vw - 1.5rem);
-          padding: 1rem;
-          top: auto;
+      .drawer header {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .drawer h2 {
+        margin: 0;
+      }
+
+      .drawer-grid {
+        display: grid;
+        gap: 0.7rem;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        margin-top: 1rem;
+      }
+
+      .drawer article {
+        background: rgb(255 255 255 / 0.035);
+        border: 1px solid var(--rr-line);
+        padding: 0.75rem;
+      }
+
+      .drawer h3 {
+        margin: 0 0 0.4rem;
+      }
+
+      .drawer ul {
+        color: var(--rr-muted);
+        margin: 0;
+        padding-left: 1.1rem;
+      }
+
+      .command-error {
+        background: rgb(72 17 20 / 0.96);
+        border: 1px solid rgb(255 135 135 / 0.55);
+        color: #ffd9d1;
+        left: 50%;
+        max-width: min(560px, calc(100vw - 2rem));
+        padding: 0.7rem 0.9rem;
+        position: absolute;
+        top: 4.2rem;
+        transform: translateX(-50%);
+      }
+
+      .system-readout {
+        bottom: 0.3rem;
+        color: transparent;
+        font-size: 1px;
+        pointer-events: none;
+        position: absolute;
+        right: 0.3rem;
+      }
+
+      @media (max-width: 760px) {
+        .initiative {
+          left: 0.5rem;
+          max-width: calc(52vw - 0.75rem);
           transform: none;
         }
 
-        dl {
-          grid-template-columns: 1fr;
+        .expedition-tools {
+          right: 0.5rem;
+          top: 0.5rem;
+        }
+
+        .expedition-tools button {
+          font-size: 0.8rem;
+          padding: 0.4rem 0.55rem;
+        }
+
+        .party-rail {
+          display: flex;
+          left: 0.5rem;
+          max-width: calc(100vw - 1rem);
+          overflow-x: auto;
+          top: 3.8rem;
+        }
+
+        .member {
+          flex: 0 0 130px;
+        }
+
+        .actions {
+          bottom: 0.5rem;
+          left: 0.5rem;
+          max-height: 11rem;
+          max-width: calc(30vw - 0.5rem);
+          width: 100%;
+        }
+
+        .action-row,
+        .target-row {
+          display: grid;
+        }
+
+        .actions button {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .movement {
+          bottom: 0.5rem;
+        }
+
+        .rules-log {
+          bottom: 0.5rem;
+          max-height: 11rem;
+          max-width: calc(30vw - 0.5rem);
+          right: 0.5rem;
+          width: 100%;
         }
       }
     `,
   ],
   template: `
     <main>
-      <rr-game-viewport />
-      <section class="overlay" aria-labelledby="product-title">
-        <span class="eyebrow">Rust-owned expedition</span>
-        <h1 id="product-title">Rusty Roguelike</h1>
-        @switch (store.state().status) {
-          @case ('loading') {
-            <p role="status">Linking the public Engine and Procgen runtimes…</p>
-          }
-          @case ('ready') {
-            <p>
-              The retained renderer and same-origin Rust host are ready. The
-              first generated expedition arrives in the next reviewed slice.
-            </p>
-            @if (store.state(); as state) {
-              @if (state.status === 'ready') {
-                <dl aria-label="Exact dependency readout">
-                  <div>
-                    <dt>Rusty Engine</dt>
-                    <dd data-testid="engine-revision">
-                      {{ state.value.rustyEngineRevision }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Rusty Procgen</dt>
-                    <dd data-testid="procgen-revision">
-                      {{ state.value.rustyProcgenRevision }}
-                    </dd>
-                  </div>
-                </dl>
-              }
-            }
-          }
-          @case ('error') {
-            @if (store.state(); as state) {
-              @if (state.status === 'error') {
-                <p class="failure" role="alert">{{ state.message }}</p>
-              }
+      @switch (session.state().status) {
+        @case ('loading') {
+          <section class="stage loading" role="status">
+            <div>
+              <p class="panel-title">Rust-owned expedition</p>
+              <h1>Rusty Roguelike</h1>
+              <p>Generating the floor and assembling initiative…</p>
+            </div>
+          </section>
+        }
+        @case ('error') {
+          @if (session.state(); as state) {
+            @if (state.status === 'error') {
+              <section class="stage fatal" role="alert">
+                <div>
+                  <p class="panel-title">Expedition unavailable</p>
+                  <h1>Rusty Roguelike</h1>
+                  <p>{{ state.message }}</p>
+                  <button type="button" (click)="reload()">Retry</button>
+                </div>
+              </section>
             }
           }
         }
-      </section>
+        @case ('ready') {
+          @if (session.state(); as state) {
+            @if (state.status === 'ready') {
+              <section
+                class="stage"
+                [attr.data-session-revision]="state.value.revision"
+                [attr.data-visible-enemies]="
+                  state.value.world.visibleActors.length
+                "
+              >
+                <rr-game-viewport
+                  [session]="state.value"
+                  [selectedActionId]="selectedActionId()"
+                  (actorPicked)="pickTarget($event)"
+                />
+                <div class="hud">
+                  <nav class="panel initiative" aria-label="Initiative order">
+                    @for (
+                      activation of state.value.order;
+                      track activation.entityId
+                    ) {
+                      <span
+                        [class.current]="
+                          activation.entityId === state.value.current?.entityId
+                        "
+                        [attr.aria-current]="
+                          activation.entityId === state.value.current?.entityId
+                            ? 'step'
+                            : null
+                        "
+                      >
+                        {{ activation.name }} · {{ activation.initiative }}
+                      </span>
+                    }
+                  </nav>
+
+                  <div class="expedition-tools">
+                    <button type="button" (click)="openDrawer('party')">
+                      Party
+                    </button>
+                    <button type="button" (click)="openDrawer('inventory')">
+                      Packs
+                    </button>
+                  </div>
+
+                  <aside class="panel party-rail" aria-label="Party vitality">
+                    @for (member of state.value.party; track member.entityId) {
+                      <div class="member" [class.down]="!member.conscious">
+                        <header>
+                          <span>{{ member.name }}</span>
+                          <span
+                            >{{ member.currentVitality }}/{{
+                              member.maximumVitality
+                            }}</span
+                          >
+                        </header>
+                        <meter
+                          min="0"
+                          [max]="member.maximumVitality"
+                          [value]="member.currentVitality"
+                        >
+                          {{ member.currentVitality }} of
+                          {{ member.maximumVitality }}
+                        </meter>
+                      </div>
+                    }
+                  </aside>
+
+                  <section class="panel actions" aria-label="Available actions">
+                    <p class="panel-title">
+                      One action · {{ state.value.current?.name }}
+                    </p>
+                    <div class="action-row">
+                      @for (
+                        action of state.value.decision?.actions ?? [];
+                        track action.actionId;
+                        let index = $index
+                      ) {
+                        <button
+                          type="button"
+                          [class.selected]="
+                            selectedActionId() === action.actionId
+                          "
+                          [disabled]="
+                            session.busy() ||
+                            action.legalTargetEntityIds.length === 0
+                          "
+                          [attr.aria-pressed]="
+                            selectedActionId() === action.actionId
+                          "
+                          (click)="selectAction(action)"
+                        >
+                          {{ index + 1 }} · {{ action.name }}
+                        </button>
+                      }
+                    </div>
+                    @if (selectedAction(); as action) {
+                      <div class="target-row" aria-label="Legal targets">
+                        @for (
+                          targetId of action.legalTargetEntityIds;
+                          track targetId
+                        ) {
+                          <button
+                            type="button"
+                            [disabled]="session.busy()"
+                            (click)="useAction(action, targetId)"
+                          >
+                            {{ targetName(targetId) }}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </section>
+
+                  <nav class="panel movement" aria-label="Movement and facing">
+                    <button
+                      class="forward"
+                      type="button"
+                      aria-label="Step forward"
+                      [disabled]="!canStep('forward') || session.busy()"
+                      (click)="step('forward')"
+                    >
+                      W
+                    </button>
+                    <button
+                      class="turn-left"
+                      type="button"
+                      aria-label="Turn left"
+                      [disabled]="
+                        !state.value.decision?.canTurn || session.busy()
+                      "
+                      (click)="turn('left')"
+                    >
+                      Q
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Step left"
+                      [disabled]="!canStep('left') || session.busy()"
+                      (click)="step('left')"
+                    >
+                      A
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Step right"
+                      [disabled]="!canStep('right') || session.busy()"
+                      (click)="step('right')"
+                    >
+                      D
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Turn right"
+                      [disabled]="
+                        !state.value.decision?.canTurn || session.busy()
+                      "
+                      (click)="turn('right')"
+                    >
+                      E
+                    </button>
+                    <button
+                      class="backward"
+                      type="button"
+                      aria-label="Step backward"
+                      [disabled]="!canStep('backward') || session.busy()"
+                      (click)="step('backward')"
+                    >
+                      S
+                    </button>
+                  </nav>
+
+                  <section
+                    #rulesLog
+                    class="panel rules-log"
+                    aria-label="Rules log"
+                    aria-live="polite"
+                  >
+                    <p class="panel-title">Rules log</p>
+                    @if (session.log().length === 0) {
+                      <p class="empty-log">
+                        The expedition is waiting for a command.
+                      </p>
+                    }
+                    @for (entry of session.log(); track entry.id) {
+                      <details class="log-entry" [title]="receiptDetail(entry)">
+                        <summary>{{ receiptSummary(entry) }}</summary>
+                        <p class="log-detail">{{ receiptDetail(entry) }}</p>
+                      </details>
+                    }
+                  </section>
+
+                  @if (drawer(); as open) {
+                    <section
+                      class="panel drawer"
+                      role="dialog"
+                      [attr.aria-label]="
+                        open === 'party' ? 'Party quick view' : 'Field packs'
+                      "
+                    >
+                      <header>
+                        <h2>
+                          {{
+                            open === 'party'
+                              ? 'Party quick view'
+                              : 'Field packs'
+                          }}
+                        </h2>
+                        <button
+                          type="button"
+                          aria-label="Close panel"
+                          (click)="closeDrawer()"
+                        >
+                          ×
+                        </button>
+                      </header>
+                      <div class="drawer-grid">
+                        @for (
+                          member of state.value.party;
+                          track member.entityId
+                        ) {
+                          <article>
+                            <h3>{{ member.name }}</h3>
+                            @if (open === 'party') {
+                              <p>
+                                Vitality {{ member.currentVitality }} /
+                                {{ member.maximumVitality }} ·
+                                {{
+                                  member.conscious ? 'Ready' : 'Incapacitated'
+                                }}
+                              </p>
+                            } @else {
+                              @if (member.carriedItems.length === 0) {
+                                <p>No carried items.</p>
+                              } @else {
+                                <ul>
+                                  @for (
+                                    item of member.carriedItems;
+                                    track item.itemId
+                                  ) {
+                                    <li>{{ item.name }}</li>
+                                  }
+                                </ul>
+                              }
+                            }
+                          </article>
+                        }
+                      </div>
+                    </section>
+                  }
+
+                  @if (session.commandError(); as failure) {
+                    <p class="command-error" role="alert">
+                      @if (failure.code !== null) {
+                        <strong>{{ failure.code }}</strong> ·
+                      }
+                      {{ failure.detail }}
+                    </p>
+                  }
+
+                  @if (bootstrap.state(); as bootstrapState) {
+                    @if (bootstrapState.status === 'ready') {
+                      <span class="system-readout" aria-hidden="true">
+                        <span data-testid="engine-revision">{{
+                          bootstrapState.value.rustyEngineRevision
+                        }}</span>
+                        <span data-testid="procgen-revision">{{
+                          bootstrapState.value.rustyProcgenRevision
+                        }}</span>
+                      </span>
+                    }
+                  }
+                </div>
+              </section>
+            }
+          }
+        }
+      }
     </main>
   `,
 })
-export class GameShellComponent implements OnInit {
-  protected readonly store = inject(BootstrapStore);
+export class GameShellComponent implements OnInit, OnDestroy {
+  protected readonly bootstrap = inject(BootstrapStore);
+  protected readonly session = inject(SessionStore);
+  protected readonly selectedActionId = signal<string | null>(null);
+  protected readonly drawer = signal<Drawer>(null);
+  protected readonly selectedAction = computed(() => {
+    const state = this.session.state();
+    if (state.status !== 'ready') {
+      return null;
+    }
+    return (
+      state.value.decision?.actions.find(
+        (action) => action.actionId === this.selectedActionId(),
+      ) ?? null
+    );
+  });
+  private readonly rulesLog = viewChild<ElementRef<HTMLElement>>('rulesLog');
+  private stopKeyboard: (() => void) | null = null;
+
+  constructor() {
+    effect(() => {
+      const state = this.session.state();
+      if (
+        state.status === 'ready' &&
+        this.selectedActionId() !== null &&
+        !state.value.decision?.actions.some(
+          (action) => action.actionId === this.selectedActionId(),
+        )
+      ) {
+        this.selectedActionId.set(null);
+      }
+    });
+    afterRenderEffect(() => {
+      this.session.log();
+      const panel = this.rulesLog()?.nativeElement;
+      if (panel !== undefined) {
+        panel.scrollTop = panel.scrollHeight;
+      }
+    });
+  }
 
   ngOnInit(): void {
-    void this.store.load();
+    void this.bootstrap.load();
+    void this.session.load();
+    this.stopKeyboard = observeGlobalKeydown((event) => this.keydown(event));
   }
+
+  ngOnDestroy(): void {
+    this.stopKeyboard?.();
+    this.stopKeyboard = null;
+  }
+
+  protected reload(): void {
+    void this.session.load();
+  }
+
+  protected openDrawer(drawer: Exclude<Drawer, null>): void {
+    this.drawer.set(drawer);
+  }
+
+  protected closeDrawer(): void {
+    this.drawer.set(null);
+  }
+
+  protected selectAction(action: LegalActionView): void {
+    this.selectedActionId.set(
+      this.selectedActionId() === action.actionId ? null : action.actionId,
+    );
+  }
+
+  protected canStep(step: RelativeStep): boolean {
+    const state = this.session.state();
+    return (
+      state.status === 'ready' &&
+      (state.value.decision?.legalSteps.includes(step) ?? false)
+    );
+  }
+
+  protected step(step: RelativeStep): void {
+    const decision = this.decision();
+    if (decision === null || !decision.legalSteps.includes(step)) {
+      return;
+    }
+    void this.dispatch({
+      kind: 'step',
+      actorEntityId: decision.actorEntityId,
+      expectedRevision: decision.expectedRevision,
+      step,
+    });
+  }
+
+  protected turn(direction: 'left' | 'right'): void {
+    const decision = this.decision();
+    if (decision === null || !decision.canTurn) {
+      return;
+    }
+    void this.dispatch({
+      kind: direction === 'left' ? 'turnLeft' : 'turnRight',
+      actorEntityId: decision.actorEntityId,
+      expectedRevision: decision.expectedRevision,
+    });
+  }
+
+  protected useAction(action: LegalActionView, targetEntityId: number): void {
+    const decision = this.decision();
+    if (
+      decision === null ||
+      !decision.actions.some(
+        (legal) =>
+          legal.actionId === action.actionId &&
+          legal.legalTargetEntityIds.includes(targetEntityId),
+      )
+    ) {
+      return;
+    }
+    void this.dispatch({
+      kind: 'useAction',
+      actorEntityId: decision.actorEntityId,
+      expectedRevision: decision.expectedRevision,
+      actionId: action.actionId,
+      targetEntityId,
+    });
+  }
+
+  protected pickTarget(targetEntityId: number): void {
+    const action = this.selectedAction();
+    if (action !== null) {
+      this.useAction(action, targetEntityId);
+    }
+  }
+
+  protected targetName(entityId: number): string {
+    const state = this.session.state();
+    if (state.status !== 'ready') {
+      return `Target ${entityId}`;
+    }
+    return (
+      state.value.party.find((member) => member.entityId === entityId)?.name ??
+      state.value.world.visibleActors.find(
+        (actor) => actor.entityId === entityId,
+      )?.name ??
+      `Target ${entityId}`
+    );
+  }
+
+  protected receiptSummary(entry: RulesLogEntry): string {
+    const receipt = entry.receipt;
+    switch (receipt.kind) {
+      case 'partyMoved':
+        return `R${entry.revision} · Party stepped ${receipt.step}`;
+      case 'partyTurned':
+        return `R${entry.revision} · Party turned ${receipt.direction}`;
+      case 'partyAttacked':
+        return `R${entry.revision} · ${receipt.hit ? 'Hit' : 'Miss'} with ${receipt.actionId}`;
+      case 'oppositionAttacked':
+        return `R${entry.revision} · ${this.targetName(receipt.target.selectedMemberEntityId)} was targeted`;
+      case 'oppositionMoved':
+        return `R${entry.revision} · Opposition advanced`;
+      case 'oppositionPassed':
+        return `R${entry.revision} · Opposition passed`;
+    }
+  }
+
+  protected receiptDetail(entry: RulesLogEntry): string {
+    const receipt = entry.receipt;
+    switch (receipt.kind) {
+      case 'partyMoved':
+        return `Actor ${receipt.actorEntityId}; accepted relative step ${receipt.step}.`;
+      case 'partyTurned':
+        return `Actor ${receipt.actorEntityId}; accepted ${receipt.direction} rotation.`;
+      case 'partyAttacked':
+        return attackDetail(receipt, `target ${receipt.targetEntityId}`);
+      case 'oppositionAttacked':
+        return `${attackDetail(receipt, `party member ${receipt.target.selectedMemberEntityId}`)} Selection ${receipt.target.selectionPolicy} over ${receipt.target.eligibleMemberCount} living members.`;
+      case 'oppositionMoved':
+        return `Actor ${receipt.actorEntityId}; one Engine-routed grid step.`;
+      case 'oppositionPassed':
+        return `Actor ${receipt.actorEntityId}; no legal attack or movement.`;
+    }
+  }
+
+  private decision() {
+    const state = this.session.state();
+    return state.status === 'ready' ? state.value.decision : null;
+  }
+
+  private async dispatch(command: SessionCommandDto): Promise<void> {
+    if (await this.session.command(command)) {
+      this.selectedActionId.set(null);
+    }
+  }
+
+  private keydown(event: KeyboardEvent): void {
+    if (
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      this.drawer() !== null
+    ) {
+      return;
+    }
+    if (keyboardEventTargetsEditable(event)) {
+      return;
+    }
+    const key = event.key.toLowerCase();
+    const step = new Map<string, RelativeStep>([
+      ['arrowup', 'forward'],
+      ['w', 'forward'],
+      ['arrowdown', 'backward'],
+      ['s', 'backward'],
+      ['a', 'left'],
+      ['d', 'right'],
+    ]).get(key);
+    if (step !== undefined) {
+      event.preventDefault();
+      this.step(step);
+      return;
+    }
+    if (key === 'q' || key === 'e') {
+      event.preventDefault();
+      this.turn(key === 'q' ? 'left' : 'right');
+      return;
+    }
+    const actionIndex = Number.parseInt(key, 10) - 1;
+    const state = this.session.state();
+    const action =
+      state.status === 'ready'
+        ? state.value.decision?.actions[actionIndex]
+        : undefined;
+    if (action !== undefined && action.legalTargetEntityIds.length > 0) {
+      event.preventDefault();
+      this.selectAction(action);
+    }
+  }
+}
+
+function attackDetail(
+  receipt: Extract<
+    TurnReceipt,
+    { kind: 'partyAttacked' | 'oppositionAttacked' }
+  >,
+  target: string,
+): string {
+  const signedModifier =
+    receipt.abilityModifier >= 0
+      ? `+${receipt.abilityModifier}`
+      : String(receipt.abilityModifier);
+  return `${receipt.actionId} against ${target}: d20 ${receipt.d20} ${signedModifier} = ${receipt.attackTotal} vs defense ${receipt.defense}; ${receipt.hit ? 'hit' : 'miss'}; damage [${receipt.damageRolls.join(', ')}] ${receipt.damageBonus >= 0 ? '+' : ''}${receipt.damageBonus}, requested ${receipt.requestedDamage}, applied ${receipt.appliedDamage}.`;
 }

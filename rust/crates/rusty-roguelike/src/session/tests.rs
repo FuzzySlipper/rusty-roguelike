@@ -9,12 +9,65 @@ use crate::{
     EnemyParticipation, EnemyWorldComponent, FloorBounds, FloorCell, FloorFeature,
     FloorFeatureKind, PartyCommand, RelativeStep, RoguelikePackageEnvelope,
     RoguelikeRulesCandidate, RoguelikeRuleset, RollPolicyCandidate, RollPolicyKindCandidate,
-    StaticRollCandidate, TurnReceipt, TurnSide, WorldState,
+    SessionCommandDto, StaticRollCandidate, TurnReceipt, TurnSide, WorldState,
 };
 
 use super::GameSession;
 
 const SEED: u64 = 5_201;
+
+#[test]
+fn view_projects_party_status_inventory_and_the_exact_current_decision() {
+    let session =
+        GameSession::new(WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap())
+            .unwrap();
+    let view = session.view().unwrap();
+    let current = view.current.as_ref().unwrap();
+    let decision = view.decision.as_ref().unwrap();
+
+    assert_eq!(view.party.len(), 3);
+    assert!(view.party.iter().all(|member| {
+        member.current_vitality <= member.maximum_vitality
+            && member.conscious == (member.current_vitality > 0)
+            && !member.carried_items.is_empty()
+    }));
+    assert_eq!(decision.actor_entity_id, current.entity_id);
+    assert_eq!(decision.expected_revision, view.revision);
+    assert!(!decision.legal_steps.is_empty());
+    assert!(decision.can_turn);
+    assert!(decision.actions.iter().any(|action| {
+        action.action_id.as_str() == "aimed-shot" && action.legal_target_entity_ids.contains(&202)
+    }));
+}
+
+#[test]
+fn session_command_dto_is_closed_and_preserves_the_typed_action() {
+    let canonical = serde_json::json!({
+        "kind": "useAction",
+        "actorEntityId": 102,
+        "expectedRevision": 4,
+        "actionId": "aimed-shot",
+        "targetEntityId": 202
+    });
+    let decoded: SessionCommandDto = serde_json::from_value(canonical).unwrap();
+    assert!(matches!(
+        decoded,
+        SessionCommandDto::UseAction {
+            actor_entity_id: 102,
+            expected_revision: 4,
+            target_entity_id: 202,
+            ref action_id,
+        } if action_id.as_str() == "aimed-shot"
+    ));
+
+    let forged = serde_json::json!({
+        "kind": "turnLeft",
+        "actorEntityId": 102,
+        "expectedRevision": 4,
+        "ignoredLegality": true
+    });
+    assert!(serde_json::from_value::<SessionCommandDto>(forged).is_err());
+}
 
 #[test]
 fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
@@ -54,7 +107,8 @@ fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
     assert!(matches!(
         next.latest_receipts.first(),
         Some(TurnReceipt::PartyMoved {
-            actor_entity_id: 102
+            actor_entity_id: 102,
+            ..
         })
     ));
     let after_mira = turn_right(&mut session);

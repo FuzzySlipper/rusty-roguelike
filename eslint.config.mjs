@@ -26,11 +26,15 @@ const depConstraints = [
     sourceTag: 'scope:store',
     onlyDependOnLibsWithTags: ['scope:protocol', 'scope:transport'],
   },
-  { sourceTag: 'scope:renderer', onlyDependOnLibsWithTags: ['scope:platform'] },
+  {
+    sourceTag: 'scope:renderer',
+    onlyDependOnLibsWithTags: ['scope:platform', 'scope:protocol'],
+  },
   {
     sourceTag: 'scope:feature',
     onlyDependOnLibsWithTags: [
       'scope:protocol',
+      'scope:platform',
       'scope:store',
       'scope:renderer',
       'scope:theme',
