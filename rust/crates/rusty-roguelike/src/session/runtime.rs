@@ -7,8 +7,8 @@ use crate::{vitality_track_id, ActorDefinition, ActorSideCandidate, RoguelikeId,
 
 use super::roll::RollSource;
 use super::{
-    ActivationView, SessionCommand, SessionError, SessionOutcome, SessionPhase, SessionView,
-    TurnReceipt, TurnSide, SESSION_VIEW_SCHEMA_VERSION,
+    ActivationView, SessionCommand, SessionError, SessionLogEntry, SessionOutcome, SessionPhase,
+    SessionView, TurnReceipt, TurnSide, MAX_SESSION_LOG_ENTRIES, SESSION_VIEW_SCHEMA_VERSION,
 };
 
 const MAX_AUTOMATIC_SETTLEMENTS: usize = 256;
@@ -32,6 +32,8 @@ pub struct GameSession {
     pub(super) phase: SessionPhase,
     pub(super) outcome: SessionOutcome,
     pub(super) latest_receipts: Vec<TurnReceipt>,
+    pub(super) log: Vec<SessionLogEntry>,
+    pub(super) next_log_id: u64,
     pub(super) target_cursors: BTreeMap<u64, usize>,
 }
 
@@ -48,6 +50,8 @@ impl GameSession {
             phase: SessionPhase::Preparation,
             outcome: SessionOutcome::Ongoing,
             latest_receipts: vec![],
+            log: vec![],
+            next_log_id: 1,
             target_cursors: BTreeMap::new(),
         };
         session.rebuild_order()?;
@@ -116,6 +120,7 @@ impl GameSession {
             .revision
             .checked_add(1)
             .ok_or_else(|| error("session_revision_overflow", "session revision overflowed"))?;
+        staged.append_log()?;
         *self = staged;
         self.view()
     }
@@ -142,6 +147,7 @@ impl GameSession {
             preparation: self.preparation_view()?,
             decision: self.party_decision()?,
             latest_receipts: self.latest_receipts.clone(),
+            log: self.log.clone(),
             world: self
                 .world
                 .view()
@@ -167,8 +173,31 @@ impl GameSession {
             phase: self.phase,
             outcome: self.outcome,
             latest_receipts: self.latest_receipts.clone(),
+            log: self.log.clone(),
+            next_log_id: self.next_log_id,
             target_cursors: self.target_cursors.clone(),
         })
+    }
+
+    fn append_log(&mut self) -> Result<(), SessionError> {
+        if self.log.len() + self.latest_receipts.len() > MAX_SESSION_LOG_ENTRIES {
+            return Err(error(
+                "session_log_bound_exceeded",
+                "the complete durable session log exceeded its fixed bound",
+            ));
+        }
+        for receipt in &self.latest_receipts {
+            self.log.push(SessionLogEntry {
+                id: self.next_log_id,
+                revision: self.revision,
+                receipt: receipt.clone(),
+            });
+            self.next_log_id = self
+                .next_log_id
+                .checked_add(1)
+                .ok_or_else(|| error("session_log_identity_overflow", "log identity overflowed"))?;
+        }
+        Ok(())
     }
 
     pub(super) fn current_slot(&self) -> Option<&TurnSlot> {

@@ -6,7 +6,7 @@ import { SessionTransportError } from '@rusty-roguelike/transport';
 import { SessionStoreCore, type SessionTransportPort } from './index';
 
 const SESSION: SessionView = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   revision: 0,
   phase: 'expedition',
   round: 1,
@@ -72,6 +72,7 @@ const SESSION: SessionView = {
     actions: [],
   },
   latestReceipts: [],
+  log: [],
   world: {
     schemaVersion: 1,
     revision: 1,
@@ -84,6 +85,51 @@ const SESSION: SessionView = {
 };
 
 describe('SessionStoreCore', () => {
+  it('publishes only Rust-returned save and reopen state', async () => {
+    const saved: SessionView = {
+      ...SESSION,
+      revision: 1,
+      decision:
+        SESSION.decision === null
+          ? null
+          : { ...SESSION.decision, expectedRevision: 1 },
+      latestReceipts: [
+        {
+          kind: 'partyTurned' as const,
+          actorEntityId: 101,
+          direction: 'right' as const,
+        },
+      ],
+      log: [
+        {
+          id: 1,
+          revision: 1,
+          receipt: {
+            kind: 'partyTurned' as const,
+            actorEntityId: 101,
+            direction: 'right' as const,
+          },
+        },
+      ],
+    };
+    let live = saved;
+    const transport: SessionTransportPort = {
+      load: async () => live,
+      command: async () => live,
+      save: async () => live,
+      reopen: async () => saved,
+    };
+    const store = new SessionStoreCore(transport);
+    await store.load();
+    await expect(store.save()).resolves.toBe(true);
+    expect(store.persistenceNotice()).toBe('Session saved.');
+    live = { ...saved, revision: 2, latestReceipts: [], log: saved.log };
+    await expect(store.reopen()).resolves.toBe(true);
+    expect(store.state()).toEqual({ status: 'ready', value: saved });
+    expect(store.log()).toEqual(saved.log);
+    expect(store.persistenceNotice()).toBe('Saved session reopened.');
+  });
+
   it('admits only one delayed mutation and permits a later command after settlement', async () => {
     let release: ((value: SessionView) => void) | undefined;
     const commands: SessionCommandDto[] = [];
@@ -95,6 +141,8 @@ describe('SessionStoreCore', () => {
           release = resolve;
         });
       },
+      save: async () => SESSION,
+      reopen: async () => SESSION,
     };
     const store = new SessionStoreCore(transport);
     await store.load();
@@ -121,6 +169,17 @@ describe('SessionStoreCore', () => {
       latestReceipts: [
         { kind: 'partyTurned', actorEntityId: 101, direction: 'right' },
       ],
+      log: [
+        {
+          id: 1,
+          revision: 1,
+          receipt: {
+            kind: 'partyTurned',
+            actorEntityId: 101,
+            direction: 'right',
+          },
+        },
+      ],
     });
     await expect(first).resolves.toBe(true);
     expect(store.busy()).toBe(false);
@@ -142,6 +201,8 @@ describe('SessionStoreCore', () => {
           'the command revision is stale',
         );
       },
+      save: async () => SESSION,
+      reopen: async () => SESSION,
     };
     const store = new SessionStoreCore(transport);
     await store.load();

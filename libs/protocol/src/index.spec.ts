@@ -172,7 +172,7 @@ const OPPOSITION_ATTACK = {
 };
 
 const SESSION_VIEW = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   revision: 4,
   phase: 'expedition',
   round: 2,
@@ -249,6 +249,7 @@ const SESSION_VIEW = {
     ],
   },
   latestReceipts: [OPPOSITION_ATTACK],
+  log: [{ id: 1, revision: 4, receipt: OPPOSITION_ATTACK }],
   world: { ...WORLD_VIEW, visibleActors: [VISIBLE_ACTOR] },
 };
 
@@ -269,6 +270,7 @@ const PREPARATION_VIEW = {
   order: [],
   decision: null,
   latestReceipts: [],
+  log: [],
   preparation: {
     ready: false,
     stash: {
@@ -384,6 +386,37 @@ describe('decodeSessionView', () => {
         ],
       }),
     ).toThrow('eligible party member count');
+  });
+
+  it('requires canonical Rust log identities and exact latest receipts', () => {
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        log: [
+          {
+            ...SESSION_VIEW.log[0],
+            id: 2,
+          },
+        ],
+      }),
+    ).toThrow('log identities');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        log: [],
+      }),
+    ).toThrow('latest receipts');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        log: [
+          {
+            ...SESSION_VIEW.log[0],
+            browserAuthority: true,
+          },
+        ],
+      }),
+    ).toThrow('missing or unknown');
   });
 
   it('rejects forged roll arithmetic, damage, and activation lifecycle', () => {

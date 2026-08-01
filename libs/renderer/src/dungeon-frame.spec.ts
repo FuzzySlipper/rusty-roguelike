@@ -5,7 +5,7 @@ import type { SessionView, TurnReceipt } from '@rusty-roguelike/protocol';
 import { cameraMotionCue, createDungeonFrame } from './dungeon-frame';
 
 const SESSION: SessionView = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   revision: 4,
   phase: 'expedition',
   round: 2,
@@ -71,6 +71,7 @@ const SESSION: SessionView = {
     actions: [],
   },
   latestReceipts: [],
+  log: [],
   world: {
     schemaVersion: 1,
     revision: 9,

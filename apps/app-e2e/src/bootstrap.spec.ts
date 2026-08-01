@@ -56,6 +56,14 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await expect(
     page.getByRole('button', { name: 'Begin expedition' }),
   ).toBeEnabled();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Session saved.');
+  await issueAndWait(page, stage, 'Begin expedition');
+  await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+  await expect(stage).toHaveAttribute('data-session-revision', '7');
+  await expect(
+    page.getByRole('heading', { name: 'Prepare the expedition' }),
+  ).toBeVisible();
   await testInfo.attach(`preparation-${testInfo.project.name}.png`, {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png',
@@ -79,6 +87,13 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     RUSTY_PROCGEN_REVISION,
   );
   await expect(page.locator('canvas')).toBeVisible();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await issueAndWait(page, stage, 'Step right');
+  await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+  await expect(stage).toHaveAttribute('data-session-revision', '8');
+  await expect(page.getByRole('status')).toContainText(
+    'Saved session reopened.',
+  );
 
   const partyTrigger = page.getByRole('button', { name: 'Party' });
   await partyTrigger.click();
@@ -121,6 +136,14 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
       );
     }
     await expect(stage).toHaveAttribute('data-visible-enemies', '1');
+    const combatRevision = await stage.getAttribute('data-session-revision');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await issueAndWait(page, stage, 'Turn right');
+    await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+    await expect(stage).toHaveAttribute(
+      'data-session-revision',
+      String(combatRevision),
+    );
     await issueAndWait(page, stage, 'Turn right');
     await expect(stage).toHaveAttribute('data-visible-enemies', '2');
 

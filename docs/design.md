@@ -86,8 +86,10 @@ Opposition activations settle automatically through Engine-routed movement to
 the next party decision. An actor with no currently legal action explicitly
 passes, defeated actors are removed, newly revealed actors join on the next
 round rebuild, and automatic settlement has a fixed bound. Seeded action rolls
-come from the pinned Engine RNG service; authored static rolls are consumed in
-order and must match the selected action's dice. The current catalog authors no
+come from the pinned Engine RNG service under one stable scope per action index;
+authored static rolls are consumed in order and must match the selected action's
+dice. The durable action index is cross-validated against the complete Rust
+rules log. The current catalog authors no
 reactions, so there is no acknowledgement pause. Enemy attacks intentionally
 target the collapsed party square rather than an aggregate party resource. For
 each enemy, Rust selects one living party member in authored party order using
@@ -104,6 +106,32 @@ Durable actor abilities, builds, and collapsed-party membership use registered
 items, and equipment use an admitted `gameplay-mechanics` catalog and named
 Engine services directly. This repository owns their Roguelike vocabulary and
 does not wrap those mechanisms in a shared RPG facade.
+
+## Complete session persistence
+
+Save schema 1 is a closed Rust-owned contract. It records the exact public
+Engine and Procgen revisions, compiled starter-rules fingerprint, admitted floor
+and complete Procgen provenance, Engine's registered durable entity snapshot,
+session revision/round/phase/outcome, derived initiative order and cursor,
+action-roll index, per-enemy target cursors, latest receipts, and the complete
+bounded rules log. Session view schema 3 projects that Rust log directly; the
+browser no longer assembles a parallel history from transient receipts.
+
+Restore recompiles the starter rules and regenerates the floor from the saved
+seed before comparing either artifact. It restores registered entities through
+the exact world component registry, validates compiled entity and immutable
+component identity, Engine mechanics/catalog consistency, reachable discovery
+and actor positions, living occupancy, dormancy, vitality, inventory/equipment,
+initiative, terminal outcome, receipt arithmetic, damage history, RNG position,
+and log continuity. Unknown nested facts, old schemas, dependency mismatches,
+forged provenance, disconnected positions, impossible components, and
+inconsistent lifecycle facts reject before a replacement session is published.
+Finally, Rust replays every initiating receipt from a fresh authored session and
+requires exact receipts, registered snapshot, initiative, rolls, cursors, log,
+and projection; locally plausible but unreachable combinations therefore fail.
+The same-origin host owns one in-memory save slot; Save captures the current
+Rust session and Reopen constructs a fresh `GameSession` from its serialized
+contract before atomically replacing live state.
 
 ## Collapsed-party world state
 
@@ -150,7 +178,8 @@ admitted before it can replace the current floor, so malformed, incompatible,
 or exhausted results cannot partially publish state.
 
 The Rust host publishes the live session and accepts only strict,
-revision-bound typed commands. Its projection includes phase, preparation
+revision-bound typed commands plus explicit save/reopen lifecycle requests. Its
+projection includes phase, preparation
 readiness, the shared stash while preparing, complete party identity, class,
 level, experience, abilities, defenses, feats, actions and loadouts, the current
 decision, relative visible topology, and complete target-resolution receipts.

@@ -145,6 +145,7 @@ import { LoadoutPanelComponent, type LoadoutMoveIntent } from './loadout-panel';
         header {
           align-items: flex-start;
           flex-direction: column;
+          padding-right: 9rem;
         }
 
         .workspace {

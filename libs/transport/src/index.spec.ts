@@ -38,7 +38,7 @@ describe('BootstrapTransport', () => {
 });
 
 const TERMINAL_SESSION = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   revision: 3,
   phase: 'expedition',
   round: 2,
@@ -84,6 +84,7 @@ const TERMINAL_SESSION = {
   preparation: null,
   decision: null,
   latestReceipts: [],
+  log: [],
   world: {
     schemaVersion: 1,
     revision: 12,
@@ -98,13 +99,15 @@ const TERMINAL_SESSION = {
 describe('SessionTransport', () => {
   it('posts typed commands and strictly decodes the session', async () => {
     let observed: unknown;
+    const urls: string[] = [];
     const http: HttpClientPort = {
       get: async () => ({
         ok: true,
         status: 200,
         json: async () => TERMINAL_SESSION,
       }),
-      post: async (_url, body) => {
+      post: async (url, body) => {
+        urls.push(url);
         observed = body;
         return {
           ok: true,
@@ -127,6 +130,13 @@ describe('SessionTransport', () => {
       actorEntityId: 101,
       expectedRevision: 2,
     });
+    await expect(transport.save()).resolves.toEqual(TERMINAL_SESSION);
+    await expect(transport.reopen()).resolves.toEqual(TERMINAL_SESSION);
+    expect(urls).toEqual([
+      '/api/v1/session/commands',
+      '/api/v1/session/save',
+      '/api/v1/session/reopen',
+    ]);
   });
 
   it('preserves classified Rust command rejection', async () => {

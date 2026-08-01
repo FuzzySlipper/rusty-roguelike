@@ -127,7 +127,23 @@ type Drawer = 'party' | 'inventory' | null;
         gap: 0.4rem;
         position: absolute;
         right: 0.65rem;
+        top: 3.75rem;
+      }
+
+      .persistence-tools {
+        display: flex;
+        gap: 0.4rem;
+        pointer-events: auto;
+        position: absolute;
+        right: 0.65rem;
         top: 0.65rem;
+        z-index: 4;
+      }
+
+      .persistence-notice {
+        align-self: center;
+        color: var(--rr-accent);
+        font-size: 0.72rem;
       }
 
       button {
@@ -161,7 +177,7 @@ type Drawer = 'party' | 'inventory' | null;
         max-width: 190px;
         padding: 0.55rem;
         position: absolute;
-        top: 4.2rem;
+        top: 7rem;
         width: calc(100vw - 1.3rem);
       }
 
@@ -361,7 +377,7 @@ type Drawer = 'party' | 'inventory' | null;
 
         .expedition-tools {
           right: 0.5rem;
-          top: 0.5rem;
+          top: 3.65rem;
         }
 
         .expedition-tools button {
@@ -369,12 +385,19 @@ type Drawer = 'party' | 'inventory' | null;
           padding: 0.4rem 0.55rem;
         }
 
+        .persistence-notice {
+          position: absolute;
+          right: 0;
+          top: calc(100% + 0.2rem);
+          white-space: nowrap;
+        }
+
         .party-rail {
           display: flex;
           left: 0.5rem;
           max-width: calc(100vw - 1rem);
           overflow-x: auto;
-          top: 3.8rem;
+          top: 7rem;
         }
 
         .member {
@@ -455,6 +478,27 @@ type Drawer = 'party' | 'inventory' | null;
                   [selectedActionId]="selectedActionId()"
                   (actorPicked)="pickTarget($event)"
                 />
+                <div class="persistence-tools">
+                  @if (session.persistenceNotice(); as notice) {
+                    <span class="persistence-notice" role="status">{{
+                      notice
+                    }}</span>
+                  }
+                  <button
+                    type="button"
+                    [disabled]="session.busy()"
+                    (click)="saveSession()"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    [disabled]="session.busy()"
+                    (click)="reopenSession()"
+                  >
+                    Reopen
+                  </button>
+                </div>
                 @if (state.value.phase === 'preparation') {
                   <rr-preparation [view]="state.value" />
                 } @else {
@@ -793,6 +837,16 @@ export class GameShellComponent implements OnInit, OnDestroy {
 
   protected reload(): void {
     void this.session.load();
+  }
+
+  protected saveSession(): void {
+    void this.session.save();
+  }
+
+  protected reopenSession(): void {
+    this.drawer.set(null);
+    this.selectedActionId.set(null);
+    void this.session.reopen();
   }
 
   protected openDrawer(drawer: Exclude<Drawer, null>): void {

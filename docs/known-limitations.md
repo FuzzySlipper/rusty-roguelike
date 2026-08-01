@@ -23,12 +23,13 @@ multi-member effects.
 - Expedition loadouts are intentionally read-only. A later equipment-in-turn
   design must assign an explicit activation cost before mutation can be admitted;
   this phase does not treat opening Packs as a free equipment action.
-- Complete saves and full protocol hardening are task #6493.
 - End-to-end floor certification is task #6494.
 
 The admitted floor and compiled rules form the live Rust `WorldState` and
 `GameSession`; the host publishes their strict projection and accepts typed,
-revision-bound gameplay commands. Complete durable session serialization,
-including the per-enemy target cursor, belongs to #6493. The current restart
-creates the same deterministic first expedition in memory and is not presented
-as save/load support.
+revision-bound gameplay commands. Complete schema-1 saves include the registered
+Engine entity snapshot, exact floor/provenance and content identities, initiative,
+RNG and target cursors, inventory/equipment, progression facts, terminal state,
+and the complete bounded Rust log. The current same-origin host save slot is
+intentionally process-local; durable filesystem/profile selection belongs to a
+future native host rather than the browser presentation layer.

@@ -1,4 +1,5 @@
 mod loadout;
+mod persistence;
 mod resolution;
 mod roll;
 mod runtime;
@@ -33,6 +34,7 @@ pub(crate) fn generated_session_typescript() -> String {
         SessionCommandDto::decl(),
         SessionErrorDto::decl(),
         TurnReceipt::decl(),
+        SessionLogEntry::decl(),
         SessionView::decl(),
     ]
     .into_iter()
@@ -44,6 +46,7 @@ pub(crate) fn generated_session_typescript() -> String {
 export const SESSION_VIEW_LIMITS = Object.freeze({{\n\
   maxActivations: {MAX_SESSION_ACTIVATIONS},\n\
   maxReceipts: {MAX_SESSION_RECEIPTS},\n\
+  maxLogEntries: {MAX_SESSION_LOG_ENTRIES},\n\
 }} as const);\n\n\
 {declarations}"
     )

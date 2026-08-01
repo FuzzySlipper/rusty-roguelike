@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 
 use core_ids::EntityId;
-use entity_state::{EntityAuthoringService, EntityComponent, EntityDefinition, EntityState};
+use entity_state::{
+    EntityAuthoringService, EntityComponent, EntityDefinition, EntityState, EntityStateSnapshot,
+};
 use gameplay_mechanics::{
     validate_state_against_catalog, ActiveEffectsComponent, EquipmentComponent,
     IntrinsicSourceBinding, IntrinsicSourcesComponent, InventoryCapacityLimit, InventoryComponent,
@@ -295,6 +297,41 @@ impl WorldState {
         Ok(state)
     }
 
+    pub fn restore_snapshot(
+        floor: GeneratedFloor,
+        rules: RoguelikeRuleset,
+        snapshot: EntityStateSnapshot,
+    ) -> Result<Self, WorldStateError> {
+        let canonical = Self::new(floor.clone(), rules.clone())?;
+        validate_snapshot_core(&snapshot, &canonical)?;
+        let registry = super::roguelike_world_component_registry()
+            .map_err(|detail| error("world_component_registry", detail.to_string()))?;
+        let entities = EntityState::from_snapshot_with_registry(snapshot, registry)
+            .map_err(|detail| error("world_snapshot_invalid", detail.to_string()))?;
+        validate_state_against_catalog(&entities, rules.mechanics())
+            .map_err(|detail| error("world_mechanics_restore", detail.to_string()))?;
+        validate_immutable_components(&entities, canonical.entities())?;
+
+        let spatial = FloorSpatial::build(&floor)?;
+        let state = Self {
+            floor,
+            rules,
+            entities,
+            spatial,
+            party_entity: canonical.party_entity,
+            stash_entity: canonical.stash_entity,
+        };
+        state.validate_restored_world_state()?;
+        state.validate_loadout_state()?;
+        state.validate_vitality_state()?;
+        state.validate_current_visibility()?;
+        Ok(state)
+    }
+
+    pub fn entity_snapshot(&self) -> EntityStateSnapshot {
+        self.entities.durable_snapshot()
+    }
+
     pub fn durable_state(&self) -> Result<WorldDurableState, WorldStateError> {
         let party = self.party()?.clone();
         let mut enemies = self
@@ -379,6 +416,10 @@ impl WorldState {
 
     pub fn entities(&self) -> &EntityState {
         &self.entities
+    }
+
+    pub(crate) fn floor(&self) -> &GeneratedFloor {
+        &self.floor
     }
 
     pub(crate) fn fork(&self) -> Result<Self, WorldStateError> {
@@ -544,6 +585,160 @@ impl WorldState {
         Ok(())
     }
 
+    fn validate_loadout_state(&self) -> Result<(), WorldStateError> {
+        let party = self
+            .rules
+            .party()
+            .members
+            .iter()
+            .map(|id| EntityId::new(self.rules.actors()[id].entity_id))
+            .collect::<BTreeSet<_>>();
+        let mut owners = party.clone();
+        owners.insert(self.stash_entity);
+        for (item, _) in self
+            .entities
+            .components::<ItemComponent>()
+            .map_err(|detail| error("world_item_restore", detail.to_string()))?
+        {
+            let owner = self.entities.contained_in(item).ok_or_else(|| {
+                error(
+                    "world_item_owner_missing",
+                    format!("item {item} has no durable owner"),
+                )
+            })?;
+            let actor = self
+                .rules
+                .actors()
+                .values()
+                .find(|actor| EntityId::new(actor.entity_id) == owner);
+            if !owners.contains(&owner)
+                && !actor.is_some_and(|actor| actor.side == ActorSideCandidate::Opposition)
+            {
+                return Err(error(
+                    "world_item_owner_invalid",
+                    format!("item {item} has invalid owner {owner}"),
+                ));
+            }
+        }
+        for owner in owners {
+            let inventory = gameplay_mechanics::InventoryService::view(
+                &self.entities,
+                self.rules.mechanics(),
+                owner,
+            )
+            .map_err(|detail| error("world_inventory_restore", detail.to_string()))?;
+            if owner != self.stash_entity {
+                let equipment = component::<EquipmentComponent>(&self.entities, owner)?;
+                for assignment in equipment.assignments() {
+                    if self.entities.contained_in(assignment.item) != Some(owner)
+                        || !inventory
+                            .unique_items()
+                            .iter()
+                            .any(|item| item.entity == assignment.item)
+                    {
+                        return Err(error(
+                            "world_equipment_restore_invalid",
+                            format!("owner {owner} equips an item outside its inventory"),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_restored_world_state(&self) -> Result<(), WorldStateError> {
+        let entry = entry_cell(&self.floor)?;
+        let party = self.party()?;
+        if party.floor_id() != self.floor.floor_id {
+            return Err(error(
+                "world_floor_mismatch",
+                "durable party does not identify the admitted floor",
+            ));
+        }
+        self.spatial.require_reachable(entry, party.position())?;
+        let canonical_party = PartyExplorationComponent::new(
+            party.floor_id().to_owned(),
+            party.position(),
+            party.facing(),
+            party.discovered().to_vec(),
+        )
+        .map_err(|detail| error("world_party_restore_invalid", detail))?;
+        if &canonical_party != party {
+            return Err(error(
+                "world_discovery_not_canonical",
+                "durable discovery cells must already be sorted and unique",
+            ));
+        }
+        for cell in party.discovered() {
+            self.spatial.require_reachable(entry, *cell)?;
+        }
+        if self
+            .spatial
+            .visible_floor_cells(party.position(), party.facing())
+            .iter()
+            .any(|cell| party.discovered().binary_search(cell).is_err())
+        {
+            return Err(error(
+                "world_discovery_incomplete",
+                "durable discovery omits currently visible floor cells",
+            ));
+        }
+
+        let mut occupied = BTreeSet::new();
+        for actor in self
+            .rules
+            .actors()
+            .values()
+            .filter(|actor| actor.side == ActorSideCandidate::Opposition)
+        {
+            let entity = EntityId::new(actor.entity_id);
+            let enemy = self.enemy(entity)?;
+            if enemy.floor_id() != self.floor.floor_id {
+                return Err(error(
+                    "world_enemy_position_invalid",
+                    "enemy placement has a floor mismatch",
+                ));
+            }
+            self.spatial.require_reachable(entry, enemy.position())?;
+            let alive = self.actor_alive(entity)?;
+            if alive && (enemy.position() == party.position() || !occupied.insert(enemy.position()))
+            {
+                return Err(error(
+                    "world_enemy_position_invalid",
+                    "living enemy placement overlaps the party or another living enemy",
+                ));
+            }
+            if enemy.participation() == EnemyParticipation::Dormant
+                && (!alive || party.discovered().binary_search(&enemy.position()).is_ok())
+            {
+                return Err(error(
+                    "world_dormancy_forged",
+                    "a dead or discovered enemy cannot remain dormant",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_vitality_state(&self) -> Result<(), WorldStateError> {
+        for actor in self.rules.actors().values() {
+            let entity = EntityId::new(actor.entity_id);
+            let tracks = component::<TracksComponent>(&self.entities, entity)?;
+            if tracks.values().len() != 1
+                || tracks.values()[0].track() != &vitality_track_id()
+                || tracks.values()[0].current().get() < 0
+                || tracks.values()[0].current().get() > i64::from(actor.vitality)
+            {
+                return Err(error(
+                    "world_vitality_restore_invalid",
+                    format!("entity {entity} has impossible vitality"),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     fn party(&self) -> Result<&PartyExplorationComponent, WorldStateError> {
         component(&self.entities, self.party_entity)
     }
@@ -558,6 +753,77 @@ impl WorldState {
             .current(&vitality_track_id())
             .is_some_and(|value| value.get() > 0))
     }
+}
+
+fn validate_snapshot_core(
+    snapshot: &EntityStateSnapshot,
+    canonical: &WorldState,
+) -> Result<(), WorldStateError> {
+    let expected = canonical.entities.durable_snapshot();
+    if snapshot.schema_version != expected.schema_version
+        || snapshot.entities.len() != expected.entities.len()
+    {
+        return Err(error(
+            "world_entity_roster_mismatch",
+            "durable entity roster does not match compiled content",
+        ));
+    }
+    let item_ids = canonical
+        .entities
+        .components::<ItemComponent>()
+        .map_err(|detail| error("world_item_restore", detail.to_string()))?
+        .map(|(entity, _)| entity.raw())
+        .collect::<BTreeSet<_>>();
+    for (actual, authored) in snapshot.entities.iter().zip(expected.entities.iter()) {
+        let mut authored = authored.clone();
+        if item_ids.contains(&actual.id) {
+            authored.contained_in = actual.contained_in;
+        }
+        if actual != &authored {
+            return Err(error(
+                "world_entity_identity_mismatch",
+                format!(
+                    "durable entity {} disagrees with compiled content",
+                    actual.id
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_immutable_components(
+    actual: &EntityState,
+    canonical: &EntityState,
+) -> Result<(), WorldStateError> {
+    macro_rules! require_equal {
+        ($component:ty) => {{
+            let actual = actual
+                .components::<$component>()
+                .map_err(|detail| error("world_component_restore", detail.to_string()))?
+                .map(|(entity, value)| (entity, value.clone()))
+                .collect::<Vec<_>>();
+            let expected = canonical
+                .components::<$component>()
+                .map_err(|detail| error("world_component_restore", detail.to_string()))?
+                .map(|(entity, value)| (entity, value.clone()))
+                .collect::<Vec<_>>();
+            if actual != expected {
+                return Err(error(
+                    "world_component_identity_mismatch",
+                    <$component>::LABEL,
+                ));
+            }
+        }};
+    }
+    require_equal!(AbilityScoresComponent);
+    require_equal!(ActorBuildComponent);
+    require_equal!(CollapsedPartyComponent);
+    require_equal!(StatsComponent);
+    require_equal!(IntrinsicSourcesComponent);
+    require_equal!(ActiveEffectsComponent);
+    require_equal!(ItemComponent);
+    Ok(())
 }
 
 fn entry_cell(floor: &GeneratedFloor) -> Result<WorldCell, WorldStateError> {

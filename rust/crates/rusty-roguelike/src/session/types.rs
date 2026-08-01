@@ -3,9 +3,10 @@ use ts_rs::TS;
 
 use crate::{RelativeStep, RoguelikeId, WorldView};
 
-pub const SESSION_VIEW_SCHEMA_VERSION: u32 = 2;
+pub const SESSION_VIEW_SCHEMA_VERSION: u32 = 3;
 pub const MAX_SESSION_ACTIVATIONS: usize = 64;
 pub const MAX_SESSION_RECEIPTS: usize = 256;
+pub const MAX_SESSION_LOG_ENTRIES: usize = 4_096;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
@@ -554,6 +555,17 @@ pub enum TurnReceipt {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
+pub struct SessionLogEntry {
+    #[ts(type = "number")]
+    pub id: u64,
+    #[ts(type = "number")]
+    pub revision: u64,
+    pub receipt: TurnReceipt,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
 pub struct SessionView {
     pub schema_version: u32,
     #[ts(type = "number")]
@@ -568,6 +580,7 @@ pub struct SessionView {
     pub preparation: Option<PreparationView>,
     pub decision: Option<PartyDecisionView>,
     pub latest_receipts: Vec<TurnReceipt>,
+    pub log: Vec<SessionLogEntry>,
     pub world: WorldView,
 }
 

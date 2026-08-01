@@ -128,6 +128,165 @@ fn session_command_dto_is_closed_and_preserves_the_typed_action() {
 }
 
 #[test]
+fn complete_save_reopens_preparation_exploration_and_active_combat_exactly() {
+    let mut session = GameSession::new(
+        WorldState::new(
+            generate_authored_floor(SEED).unwrap(),
+            starter_ruleset().unwrap(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let preparation = session.encode_save().unwrap();
+    let reopened = GameSession::decode_save(&preparation).unwrap();
+    assert_eq!(reopened.view().unwrap(), session.view().unwrap());
+    assert_eq!(reopened.encode_save().unwrap(), preparation);
+
+    complete_preparation(&mut session);
+    let exploration = session.encode_save().unwrap();
+    let reopened = GameSession::decode_save(&exploration).unwrap();
+    assert_eq!(reopened.view().unwrap(), session.view().unwrap());
+    assert_eq!(reopened.encode_save().unwrap(), exploration);
+
+    route_to_first_encounter(&mut session);
+    let combat = session.view().unwrap();
+    assert!(combat
+        .order
+        .iter()
+        .any(|activation| activation.side == TurnSide::Opposition));
+    let encoded = session.encode_save().unwrap();
+    let reopened = GameSession::decode_save(&encoded).unwrap();
+    assert_eq!(reopened.view().unwrap(), combat);
+    assert_eq!(reopened.encode_save().unwrap(), encoded);
+}
+
+#[test]
+fn complete_save_rejects_unknown_incompatible_stale_and_impossible_facts() {
+    let session = GameSession::new(
+        WorldState::new(
+            generate_authored_floor(SEED).unwrap(),
+            starter_ruleset().unwrap(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let canonical = session.encode_save().unwrap();
+    let value: serde_json::Value = serde_json::from_str(&canonical).unwrap();
+
+    let mut unknown = value.clone();
+    unknown["floor"]["bounds"]["browserHint"] = serde_json::json!(true);
+    assert_eq!(
+        GameSession::decode_save(&serde_json::to_string(&unknown).unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "session_save_noncanonical"
+    );
+
+    let mut incompatible = value.clone();
+    incompatible["rustyEngineRevision"] = serde_json::json!("forged");
+    assert_eq!(
+        GameSession::decode_save(&serde_json::to_string(&incompatible).unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "session_save_engine_mismatch"
+    );
+
+    let mut disconnected = value.clone();
+    disconnected["floor"]["walkableCells"]
+        .as_array_mut()
+        .unwrap()
+        .pop();
+    assert_eq!(
+        GameSession::decode_save(&serde_json::to_string(&disconnected).unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "session_save_floor_mismatch"
+    );
+
+    let mut stale = value.clone();
+    stale["session"]["revision"] = serde_json::json!(1);
+    assert_eq!(
+        GameSession::decode_save(&serde_json::to_string(&stale).unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "session_save_log_invalid"
+    );
+
+    let mut missing = value.clone();
+    missing["session"].as_object_mut().unwrap().remove("round");
+    assert_eq!(
+        GameSession::decode_save(&serde_json::to_string(&missing).unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "session_save_decode"
+    );
+
+    let mut plausible_but_unreachable = value.clone();
+    plausible_but_unreachable["session"]["targetCursors"]["201"] = serde_json::json!(0);
+    assert_eq!(
+        GameSession::decode_save(&serde_json::to_string(&plausible_but_unreachable).unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "session_save_replay_invalid"
+    );
+
+    let mut impossible = value;
+    let tracks = impossible["entityState"]["registeredComponents"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|component| {
+            component["typeId"]
+                .as_str()
+                .is_some_and(|id| id.contains("tracks"))
+        })
+        .unwrap();
+    let party_tracks = tracks["values"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|entry| entry["entity"] == serde_json::json!(101))
+        .unwrap();
+    party_tracks["value"]["values"][0]["current"] = serde_json::json!(999);
+    assert!(matches!(
+        GameSession::decode_save(&serde_json::to_string(&impossible).unwrap())
+            .err()
+            .unwrap()
+            .code(),
+        "session_save_world_invalid" | "session_save_damage_history_invalid"
+    ));
+    assert_eq!(session.encode_save().unwrap(), canonical);
+}
+
+#[test]
+fn complete_save_reopens_a_terminal_expedition() {
+    let mut session = GameSession::new(
+        WorldState::new(
+            generate_authored_floor(SEED).unwrap(),
+            starter_ruleset().unwrap(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    complete_preparation(&mut session);
+    autoplay_to_terminal(&mut session);
+    assert_ne!(
+        session.view().unwrap().outcome,
+        crate::SessionOutcome::Ongoing
+    );
+    let encoded = session.encode_save().unwrap();
+    let reopened = GameSession::decode_save(&encoded).unwrap();
+    assert_eq!(reopened.view().unwrap(), session.view().unwrap());
+    assert_eq!(reopened.encode_save().unwrap(), encoded);
+}
+
+#[test]
 fn preparation_loadout_is_engine_backed_typed_and_atomic() {
     let mut session =
         GameSession::new(WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap())
@@ -470,6 +629,152 @@ fn turn_right(session: &mut GameSession) -> crate::SessionView {
         .unwrap()
 }
 
+fn route_to_first_encounter(session: &mut GameSession) {
+    const ROUTE: &str = "
+      right right right right forward forward right right forward forward
+      right right right right right right right right right backward
+      right right right right right right right right right right
+      right right right right right right right right right right
+      right right right right right right backward
+      right right right right right right right right right right
+      right right forward
+    ";
+    for token in ROUTE.split_whitespace() {
+        let step = match token {
+            "forward" => RelativeStep::Forward,
+            "backward" => RelativeStep::Backward,
+            "left" => RelativeStep::Left,
+            "right" => RelativeStep::Right,
+            _ => unreachable!("fixed route token"),
+        };
+        let view = session.view().unwrap();
+        let actor = view.current.unwrap().entity_id;
+        session
+            .command(SessionCommand::Step {
+                actor_entity_id: actor,
+                expected_revision: view.revision,
+                step,
+            })
+            .unwrap();
+    }
+}
+
+fn autoplay_to_terminal(session: &mut GameSession) {
+    for _ in 0..2_000 {
+        let view = session.view().unwrap();
+        if view.outcome != crate::SessionOutcome::Ongoing {
+            return;
+        }
+        let decision = view.decision.unwrap();
+        if let Some(action) = decision
+            .actions
+            .iter()
+            .find(|action| !action.legal_target_entity_ids.is_empty())
+        {
+            session
+                .command(SessionCommand::UseAction {
+                    actor_entity_id: decision.actor_entity_id,
+                    expected_revision: decision.expected_revision,
+                    action_id: action.action_id.clone(),
+                    target_entity_id: action.legal_target_entity_ids[0],
+                })
+                .unwrap();
+            continue;
+        }
+        let durable = session.world.durable_state().unwrap();
+        let party = durable.party.position();
+        let facing = durable.party.facing();
+        let goals = durable
+            .enemies
+            .iter()
+            .filter(|enemy| {
+                session
+                    .world
+                    .entities()
+                    .component::<gameplay_mechanics::TracksComponent>(EntityId::new(
+                        enemy.entity_id,
+                    ))
+                    .unwrap()
+                    .and_then(|tracks| tracks.current(&crate::vitality_track_id()))
+                    .is_some_and(|value| value.get() > 0)
+            })
+            .map(|enemy| enemy.world.position())
+            .collect::<BTreeSet<_>>();
+        let step = decision.legal_steps.iter().copied().min_by_key(|step| {
+            navigation_distance(
+                relative_destination(party, facing, *step),
+                &goals,
+                session.world.floor(),
+            )
+        });
+        if let Some(step) = step {
+            session
+                .command(SessionCommand::Step {
+                    actor_entity_id: decision.actor_entity_id,
+                    expected_revision: decision.expected_revision,
+                    step,
+                })
+                .unwrap();
+        } else {
+            session
+                .command(SessionCommand::TurnRight {
+                    actor_entity_id: decision.actor_entity_id,
+                    expected_revision: decision.expected_revision,
+                })
+                .unwrap();
+        }
+    }
+    panic!("autoplay did not reach a terminal outcome within its fixed bound");
+}
+
+fn relative_destination(
+    origin: crate::WorldCell,
+    facing: crate::Facing,
+    step: RelativeStep,
+) -> crate::WorldCell {
+    let forward = facing.forward();
+    let right = facing.right_axis();
+    let delta = match step {
+        RelativeStep::Forward => forward,
+        RelativeStep::Backward => (-forward.0, -forward.1),
+        RelativeStep::Right => right,
+        RelativeStep::Left => (-right.0, -right.1),
+    };
+    crate::WorldCell {
+        x: origin.x + delta.0,
+        y: origin.y + delta.1,
+    }
+}
+
+fn navigation_distance(
+    start: crate::WorldCell,
+    goals: &BTreeSet<crate::WorldCell>,
+    floor: &crate::GeneratedFloor,
+) -> usize {
+    let walkable = floor
+        .walkable_cells
+        .iter()
+        .map(crate::WorldCell::from)
+        .collect::<BTreeSet<_>>();
+    let mut visited = BTreeSet::from([start]);
+    let mut queue = VecDeque::from([(start, 0_usize)]);
+    while let Some((cell, distance)) = queue.pop_front() {
+        if goals.contains(&cell) {
+            return distance;
+        }
+        for (dx, dy) in [(0, -1), (1, 0), (0, 1), (-1, 0)] {
+            let next = crate::WorldCell {
+                x: cell.x + dx,
+                y: cell.y + dy,
+            };
+            if walkable.contains(&next) && visited.insert(next) {
+                queue.push_back((next, distance + 1));
+            }
+        }
+    }
+    usize::MAX
+}
+
 fn turn_left(session: &mut GameSession) -> crate::SessionView {
     let view = session.view().unwrap();
     session
@@ -684,3 +989,4 @@ fn package_for_test(candidate: RoguelikeRulesCandidate) -> gameplay_rules::Admit
     )
     .unwrap()
 }
+use std::collections::{BTreeSet, VecDeque};

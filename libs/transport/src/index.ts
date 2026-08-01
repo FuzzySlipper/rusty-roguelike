@@ -47,6 +47,14 @@ export class SessionTransport {
     );
   }
 
+  async save(): Promise<SessionView> {
+    return this.decode(await this.http.post('/api/v1/session/save', {}));
+  }
+
+  async reopen(): Promise<SessionView> {
+    return this.decode(await this.http.post('/api/v1/session/reopen', {}));
+  }
+
   private async decode(response: {
     readonly ok: boolean;
     readonly status: number;

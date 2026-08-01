@@ -31,6 +31,7 @@ async fn main() -> Result<()> {
     let session = new_expedition()?;
     let state = AppState {
         session: Arc::new(Mutex::new(session)),
+        save_slot: Arc::new(Mutex::new(None)),
     };
     let app = Router::new()
         .route(
@@ -43,6 +44,8 @@ async fn main() -> Result<()> {
         )
         .route("/api/v1/session", get(session_view))
         .route("/api/v1/session/commands", post(session_command))
+        .route("/api/v1/session/save", post(save_session))
+        .route("/api/v1/session/reopen", post(reopen_session))
         .route("/api/v1/session/restart", post(restart_session))
         .with_state(state)
         .fallback_service(ServeDir::new(&options.static_root).fallback(ServeFile::new(index)));
@@ -58,6 +61,7 @@ async fn main() -> Result<()> {
 #[derive(Clone)]
 struct AppState {
     session: Arc<Mutex<GameSession>>,
+    save_slot: Arc<Mutex<Option<String>>>,
 }
 
 async fn session_view(
@@ -86,6 +90,41 @@ async fn restart_session(
 ) -> Result<Json<SessionView>, (StatusCode, Json<SessionErrorDto>)> {
     let replacement = new_expedition()
         .map_err(|error| internal_error("session_restart_failed", error.to_string()))?;
+    let view = replacement
+        .view()
+        .map_err(|error| classified_error(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    *state.session.lock().await = replacement;
+    Ok(Json(view))
+}
+
+async fn save_session(
+    State(state): State<AppState>,
+) -> Result<Json<SessionView>, (StatusCode, Json<SessionErrorDto>)> {
+    let (encoded, view) = {
+        let session = state.session.lock().await;
+        let encoded = session
+            .encode_save()
+            .map_err(|error| classified_error(StatusCode::CONFLICT, error))?;
+        let view = session
+            .view()
+            .map_err(|error| classified_error(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+        (encoded, view)
+    };
+    *state.save_slot.lock().await = Some(encoded);
+    Ok(Json(view))
+}
+
+async fn reopen_session(
+    State(state): State<AppState>,
+) -> Result<Json<SessionView>, (StatusCode, Json<SessionErrorDto>)> {
+    let encoded = state.save_slot.lock().await.clone().ok_or_else(|| {
+        internal_error(
+            "session_save_missing",
+            "no session has been saved in this host process".to_owned(),
+        )
+    })?;
+    let replacement = GameSession::decode_save(&encoded)
+        .map_err(|error| classified_error(StatusCode::CONFLICT, error))?;
     let view = replacement
         .view()
         .map_err(|error| classified_error(StatusCode::INTERNAL_SERVER_ERROR, error))?;

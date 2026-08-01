@@ -18,6 +18,7 @@ import {
   type PartyDecisionView,
   type PartyMemberStatusView,
   type SessionErrorDto,
+  type SessionLogEntry,
   type SessionView,
   type TurnReceipt,
   type VisibleActorView,
@@ -171,6 +172,7 @@ const SESSION_VIEW_KEYS = [
   'current',
   'decision',
   'latestReceipts',
+  'log',
   'order',
   'outcome',
   'party',
@@ -286,6 +288,7 @@ const LOADOUT_MOVED_RECEIPT_KEYS = [
   'toOwnerEntityId',
 ] as const;
 const EXPEDITION_BEGAN_RECEIPT_KEYS = ['kind'] as const;
+const SESSION_LOG_ENTRY_KEYS = ['id', 'receipt', 'revision'] as const;
 
 export function decodeSessionView(value: unknown): SessionView {
   requireExactRecord(value, SESSION_VIEW_KEYS, 'session view');
@@ -475,6 +478,37 @@ export function decodeSessionView(value: unknown): SessionView {
       case 'expeditionBegan':
         break;
     }
+  }
+  if (
+    !Array.isArray(value['log']) ||
+    value['log'].length > SESSION_VIEW_LIMITS.maxLogEntries
+  ) {
+    throw new Error('session log is not a bounded array');
+  }
+  let expectedLogId = 1;
+  for (const entry of value['log']) {
+    requireExactRecord(entry, SESSION_LOG_ENTRY_KEYS, 'session log entry');
+    requireSafeInteger(entry['id'], 1, Number.MAX_SAFE_INTEGER, 'log identity');
+    requireSafeInteger(
+      entry['revision'],
+      1,
+      Number(value['revision']),
+      'log revision',
+    );
+    if (entry['id'] !== expectedLogId) {
+      throw new Error('session log identities are not canonical');
+    }
+    expectedLogId += 1;
+    decodeTurnReceipt(entry['receipt']);
+  }
+  const latestLogReceipts = (value['log'] as SessionLogEntry[])
+    .filter((entry) => entry.revision === value['revision'])
+    .map((entry) => entry.receipt);
+  if (
+    JSON.stringify(latestLogReceipts) !==
+    JSON.stringify(value['latestReceipts'])
+  ) {
+    throw new Error('latest receipts disagree with the durable session log');
   }
   decodeWorldView(value['world']);
   return value as SessionView;

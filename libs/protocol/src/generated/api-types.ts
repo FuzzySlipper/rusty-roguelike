@@ -97,10 +97,11 @@ export type VisibleActorView = { actorId: RoguelikeId, entityId: number, name: s
 
 export type WorldView = { schemaVersion: number, revision: number, floorId: string, facing: Facing, discoveredCellCount: number, cells: Array<WorldViewCell>, visibleActors: Array<VisibleActorView>, };
 
-export const SESSION_VIEW_SCHEMA_VERSION = 2 as const;
+export const SESSION_VIEW_SCHEMA_VERSION = 3 as const;
 export const SESSION_VIEW_LIMITS = Object.freeze({
 maxActivations: 64,
 maxReceipts: 256,
+maxLogEntries: 4096,
 } as const);
 
 export type TurnSide = "party" | "opposition";
@@ -147,4 +148,6 @@ export type SessionErrorDto = { code: string, detail: string, };
 
 export type TurnReceipt = { "kind": "loadoutMoved", itemEntityId: number, fromOwnerEntityId: number, toOwnerEntityId: number, destinationSlotId: string | null, } | { "kind": "expeditionBegan" } | { "kind": "partyMoved", actorEntityId: number, step: RelativeStep, } | { "kind": "partyTurned", actorEntityId: number, direction: PartyTurnDirection, } | { "kind": "partyAttacked", actorEntityId: number, targetEntityId: number, actionId: RoguelikeId, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionAttacked", actorEntityId: number, actionId: RoguelikeId, target: PartySquareTargetReceipt, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionMoved", actorEntityId: number, } | { "kind": "oppositionPassed", actorEntityId: number, };
 
-export type SessionView = { schemaVersion: number, revision: number, phase: SessionPhase, round: number, outcome: SessionOutcome, current: ActivationView | null, order: Array<ActivationView>, party: Array<PartyMemberStatusView>, preparation: PreparationView | null, decision: PartyDecisionView | null, latestReceipts: Array<TurnReceipt>, world: WorldView, };
+export type SessionLogEntry = { id: number, revision: number, receipt: TurnReceipt, };
+
+export type SessionView = { schemaVersion: number, revision: number, phase: SessionPhase, round: number, outcome: SessionOutcome, current: ActivationView | null, order: Array<ActivationView>, party: Array<PartyMemberStatusView>, preparation: PreparationView | null, decision: PartyDecisionView | null, latestReceipts: Array<TurnReceipt>, log: Array<SessionLogEntry>, world: WorldView, };
