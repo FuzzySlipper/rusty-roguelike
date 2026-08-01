@@ -138,6 +138,16 @@ export function decodeWorldView(value: unknown): WorldView {
   const entityIds = new Set<number>();
   for (const actor of value['visibleActors']) {
     decodeVisibleActor(actor);
+    if (
+      !value['cells'].some(
+        (cell) =>
+          cell.kind === 'floor' &&
+          cell.lateral === actor.lateral &&
+          cell.depth === actor.depth,
+      )
+    ) {
+      throw new Error('visible actor does not occupy a projected floor fact');
+    }
     if (entityIds.has(actor.entityId)) {
       throw new Error('world view contains duplicate visible actors');
     }

@@ -51,9 +51,21 @@ const WORLD_VIEW = {
   visibleActors: [],
 };
 
+const VISIBLE_ACTOR = {
+  actorId: 'enemy.scout',
+  entityId: 201,
+  name: 'Scout',
+  lateral: 0,
+  depth: 1,
+  participating: true,
+};
+
 describe('decodeWorldView', () => {
   it('accepts the bounded relative Rust projection', () => {
     expect(decodeWorldView(WORLD_VIEW)).toEqual(WORLD_VIEW);
+    expect(
+      decodeWorldView({ ...WORLD_VIEW, visibleActors: [VISIBLE_ACTOR] }),
+    ).toEqual({ ...WORLD_VIEW, visibleActors: [VISIBLE_ACTOR] });
   });
 
   it('rejects absolute or occluded topology and malformed actor facts', () => {
@@ -109,5 +121,23 @@ describe('decodeWorldView', () => {
         ],
       }),
     ).toThrow('participation fact');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        visibleActors: [{ ...VISIBLE_ACTOR, depth: 3 }],
+      }),
+    ).toThrow('projected floor fact');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        visibleActors: [{ ...VISIBLE_ACTOR, depth: 2 }],
+      }),
+    ).toThrow('projected floor fact');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        visibleActors: [{ ...VISIBLE_ACTOR, lateral: 1 }],
+      }),
+    ).toThrow('projected floor fact');
   });
 });
