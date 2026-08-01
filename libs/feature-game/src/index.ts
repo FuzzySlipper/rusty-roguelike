@@ -644,9 +644,7 @@ type Drawer = 'party' | 'inventory' | null;
                   @if (drawer(); as open) {
                     <section
                       [attr.id]="
-                        open === 'party'
-                          ? 'party-drawer'
-                          : 'inventory-drawer'
+                        open === 'party' ? 'party-drawer' : 'inventory-drawer'
                       "
                       class="panel drawer"
                       role="region"
