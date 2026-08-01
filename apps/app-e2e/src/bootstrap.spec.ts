@@ -57,10 +57,9 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await expect(
     page.getByRole('button', { name: 'Begin expedition' }),
   ).toBeEnabled();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Session saved.');
+  await saveAndWait(page);
   await issueAndWait(page, stage, 'Begin expedition');
-  await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+  await reopenAndWait(page);
   await expect(stage).toHaveAttribute('data-session-revision', '7');
   await expect(
     page.getByRole('heading', { name: 'Prepare the expedition' }),
@@ -91,16 +90,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     RUSTY_PROCGEN_REVISION,
   );
   await expect(page.locator('canvas')).toBeVisible();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.locator('.persistence-notice')).toHaveText(
-    'Session saved.',
-  );
+  await saveAndWait(page);
   await issueAndWait(page, stage, 'Step right');
-  await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+  await reopenAndWait(page);
   await expect(stage).toHaveAttribute('data-session-revision', '8');
-  await expect(page.locator('.persistence-notice')).toContainText(
-    'Saved session reopened.',
-  );
 
   const partyTrigger = page.getByRole('button', { name: 'Party' });
   await partyTrigger.click();
@@ -151,12 +144,9 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     await expect(initiative).toContainText('Goblin Scrapper');
     await expect(initiative).not.toContainText('Ember Watcher');
     const combatRevision = await stage.getAttribute('data-session-revision');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.locator('.persistence-notice')).toHaveText(
-      'Session saved.',
-    );
+    await saveAndWait(page);
     await issueAndWait(page, stage, 'Turn right');
-    await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+    await reopenAndWait(page);
     await expect(stage).toHaveAttribute(
       'data-session-revision',
       String(combatRevision),
@@ -210,11 +200,8 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     await expect(rulesLog).toContainText(/round-robin-living/u);
 
     const terminalRevision = await stage.getAttribute('data-session-revision');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.locator('.persistence-notice')).toHaveText(
-      'Session saved.',
-    );
-    await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+    await saveAndWait(page);
+    await reopenAndWait(page);
     await expect(stage).toHaveAttribute(
       'data-session-revision',
       String(terminalRevision),
@@ -356,6 +343,46 @@ async function issueAndWait(
     'data-session-revision',
     String(revision + 1),
   );
+}
+
+async function saveAndWait(page: Page): Promise<void> {
+  await persistenceRequestAndWait(
+    page,
+    'Save',
+    '/api/v1/session/save',
+    'Session saved.',
+  );
+}
+
+async function reopenAndWait(page: Page): Promise<void> {
+  await persistenceRequestAndWait(
+    page,
+    'Reopen',
+    '/api/v1/session/reopen',
+    'Saved session reopened.',
+  );
+}
+
+async function persistenceRequestAndWait(
+  page: Page,
+  action: 'Reopen' | 'Save',
+  pathname: string,
+  notice: string,
+): Promise<void> {
+  const response = page.waitForResponse(
+    (candidate) =>
+      new URL(candidate.url()).pathname === pathname &&
+      candidate.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: action, exact: true }).click();
+  expect((await response).ok()).toBe(true);
+  await expect(
+    page.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Reopen', exact: true }),
+  ).toBeEnabled();
+  await expect(page.locator('.persistence-notice')).toHaveText(notice);
 }
 
 async function assertSeparated(
