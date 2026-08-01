@@ -21,10 +21,10 @@
 | `rust/crates/rusty-roguelike/src/session/types.rs`              | Session commands, activation/order views, receipts, and classified failures | Rust session tests                                    |
 | `rust/crates/rusty-roguelike/src/session/roll.rs`               | Seeded/static authoritative action-roll source                              | Rust roll atomicity tests                             |
 | `rust/crates/rusty-roguelike/src/session/runtime.rs`            | Initiative order, cursor, bounded automatic settlement, and terminal state  | Rust session lifecycle tests                          |
-| `rust/crates/rusty-roguelike/src/session/resolution.rs`         | Party commands, Engine mechanics attacks, and opposition legal progression  | Rust movement/action/no-legal tests                   |
+| `rust/crates/rusty-roguelike/src/session/resolution.rs`         | Party commands, Engine attacks, member selection, and opposition AI         | Rust movement/action/target-fairness tests            |
 | `rust/crates/rusty-roguelike/src/lib.rs`                        | Private module facade and public Rust API                                   | `cargo test --manifest-path rust/Cargo.toml --locked` |
 | `rust/crates/rusty-roguelike/src/bin/host.rs`                   | Same-origin static/API Rust host                                            | real Playwright smoke                                 |
-| `libs/protocol/`                                                | Generated bootstrap/rules/world DTOs and strict unknown-JSON admission      | Vitest; `pnpm run protocol:check`                     |
+| `libs/protocol/`                                                | Generated bootstrap/rules/world/session DTOs and strict JSON admission      | Vitest; `pnpm run protocol:check`                     |
 | `libs/platform/`                                                | Browser HTTP, resize, and device-pixel-ratio ports                          | typecheck; consumers                                  |
 | `libs/transport/`                                               | Typed bootstrap transport                                                   | Vitest                                                |
 | `libs/store/`                                                   | Angular async bootstrap state                                               | Vitest; browser smoke                                 |

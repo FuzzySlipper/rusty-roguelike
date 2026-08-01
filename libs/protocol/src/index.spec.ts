@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   decodeBootstrapReadout,
+  decodeSessionView,
   decodeWorldView,
   RUSTY_ENGINE_REVISION,
   RUSTY_PROCGEN_REVISION,
@@ -139,5 +140,116 @@ describe('decodeWorldView', () => {
         visibleActors: [{ ...VISIBLE_ACTOR, lateral: 1 }],
       }),
     ).toThrow('projected floor fact');
+  });
+});
+
+const ACTIVATION = {
+  entityId: 202,
+  actorId: 'enemy.goblin-scout',
+  name: 'Goblin Scout',
+  side: 'opposition',
+  initiative: 14,
+};
+
+const OPPOSITION_ATTACK = {
+  kind: 'oppositionAttacked',
+  actorEntityId: 202,
+  actionId: 'rusty-blade',
+  target: {
+    selectedMemberEntityId: 101,
+    selectionPolicy: 'round-robin-living',
+    eligibleMemberCount: 3,
+  },
+  d20: 15,
+  abilityModifier: 2,
+  attackTotal: 17,
+  defense: 14,
+  hit: true,
+  damageRolls: [4],
+  damageBonus: 1,
+  requestedDamage: 5,
+  appliedDamage: 5,
+};
+
+const SESSION_VIEW = {
+  schemaVersion: 1,
+  revision: 4,
+  round: 2,
+  outcome: 'ongoing',
+  current: ACTIVATION,
+  order: [ACTIVATION],
+  latestReceipts: [OPPOSITION_ATTACK],
+  world: WORLD_VIEW,
+};
+
+describe('decodeSessionView', () => {
+  it('accepts the complete Rust-selected party-square attack receipt', () => {
+    expect(decodeSessionView(SESSION_VIEW)).toEqual(SESSION_VIEW);
+  });
+
+  it('closes tagged receipts and party-member selection facts', () => {
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        latestReceipts: [{ ...OPPOSITION_ATTACK, browserTarget: 102 }],
+      }),
+    ).toThrow('missing or unknown');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        latestReceipts: [
+          {
+            ...OPPOSITION_ATTACK,
+            target: {
+              ...OPPOSITION_ATTACK.target,
+              selectionPolicy: 'browser-choice',
+            },
+          },
+        ],
+      }),
+    ).toThrow('selection policy');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        latestReceipts: [
+          {
+            ...OPPOSITION_ATTACK,
+            target: {
+              ...OPPOSITION_ATTACK.target,
+              eligibleMemberCount: 0,
+            },
+          },
+        ],
+      }),
+    ).toThrow('eligible party member count');
+  });
+
+  it('rejects forged roll arithmetic, damage, and activation lifecycle', () => {
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        latestReceipts: [{ ...OPPOSITION_ATTACK, attackTotal: 18 }],
+      }),
+    ).toThrow('inconsistent arithmetic');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        latestReceipts: [
+          { ...OPPOSITION_ATTACK, requestedDamage: 4, appliedDamage: 5 },
+        ],
+      }),
+    ).toThrow('more damage');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        current: { ...ACTIVATION, entityId: 999 },
+      }),
+    ).toThrow('absent from the activation order');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        outcome: 'victory',
+      }),
+    ).toThrow('terminal session');
   });
 });

@@ -69,8 +69,15 @@ round rebuild, and automatic settlement has a fixed bound. Seeded action rolls
 come from the pinned Engine RNG service; authored static rolls are consumed in
 order and must match the selected action's dice. The current catalog authors no
 reactions, so there is no acknowledgement pause. Enemy attacks intentionally
-remain no-legal until task #6490 supplies the party-square-to-member targeting
-policy rather than inventing an aggregate party target.
+target the collapsed party square rather than an aggregate party resource. For
+each enemy, Rust selects one living party member in authored party order using
+a per-enemy round-robin cursor, then evaluates that member's defense and applies
+damage to that member through the named Engine services. The staged cursor,
+rolls, damage, and full resolution receipt publish atomically. Receipts expose
+the selected member, selection policy, eligible count, rolls, modifiers,
+defense, and requested versus applied damage; the browser displays those facts
+and never chooses the recipient. The starter catalog has no area or multi-member
+effect, so no area targeting policy is implied.
 
 Durable actor abilities, builds, and collapsed-party membership use registered
 `entity-state` components. Defense modifiers, vitality bounds, damage kinds,
@@ -123,7 +130,8 @@ admitted before it can replace the current floor, so malformed, incompatible,
 or exhausted results cannot partially publish state.
 
 The browser still exposes only the bootstrap readout and blank retained scene.
-Rust now owns world state, its generated projection contract, and the live
-in-memory initiative session, while transport and playable rendering enter in
-later reviewed tasks; the phase boundary is recorded in
+Rust now owns world state, its generated projection contract, the live in-memory
+initiative session, and a generated strict session projection including complete
+target-resolution receipts. Transport and playable rendering enter in later
+reviewed tasks; the phase boundary is recorded in
 [known limitations](known-limitations.md).

@@ -10,8 +10,11 @@ and an occlusion-safe generated world protocol.
 It also owns an in-memory initiative session with exactly one movement/action
 per activation, authoritative seeded/static rolls, direct Engine stat/damage
 resolution, automatic opposition movement, and bounded no-legal progression.
+Opposition attacks now target the collapsed party square, select a living member
+with Rust-owned per-enemy round-robin fairness, and publish a complete strictly
+decoded resolution receipt. The current catalog does not author area or
+multi-member effects.
 
-- Enemy party-square/member targeting is task #6490.
 - The playable renderer-first interface begins in task #6491.
 - Preparation, inventory, and party inspection are task #6492.
 - Complete saves and full protocol hardening are task #6493.
@@ -19,7 +22,6 @@ resolution, automatic opposition movement, and bounded no-legal progression.
 
 The admitted floor and compiled rules now form a Rust `WorldState` and
 `GameSession`, but the host does not yet publish the session or accept gameplay
-commands. Opposition can move and explicitly pass, but cannot attack until
-#6490 owns deterministic party-member selection. Complete durable session
-serialization belongs to #6493. The abstract scene remains visible and honest
-about those boundaries; it is not presented as implemented gameplay.
+commands. Complete durable session serialization, including the per-enemy target
+cursor, belongs to #6493. The abstract scene remains visible and honest about
+those boundaries; it is not presented as implemented gameplay.

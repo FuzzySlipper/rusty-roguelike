@@ -43,7 +43,7 @@ export type DamageTypeCandidate = { id: RoguelikeId, };
 
 export type DamageCandidate = { kind: RoguelikeId, dice: number, sides: number, bonus: number, };
 
-export type ActionTargetCandidate = "self-only" | "hostile-cell" | "ally-cell";
+export type ActionTargetCandidate = "self-only" | "hostile-cell" | "hostile-party-square" | "ally-cell";
 
 export type MovementCandidate = { steps: number, };
 
@@ -94,3 +94,23 @@ export type WorldViewCell = { lateral: number, depth: number, kind: WorldViewCel
 export type VisibleActorView = { actorId: RoguelikeId, entityId: number, name: string, lateral: number, depth: number, participating: boolean, };
 
 export type WorldView = { schemaVersion: number, revision: number, floorId: string, facing: Facing, discoveredCellCount: number, cells: Array<WorldViewCell>, visibleActors: Array<VisibleActorView>, };
+
+export const SESSION_VIEW_SCHEMA_VERSION = 1 as const;
+export const SESSION_VIEW_LIMITS = Object.freeze({
+maxActivations: 64,
+maxReceipts: 256,
+} as const);
+
+export type TurnSide = "party" | "opposition";
+
+export type SessionOutcome = "ongoing" | "victory" | "defeat";
+
+export type PartyMemberSelectionPolicy = "round-robin-living";
+
+export type PartySquareTargetReceipt = { selectedMemberEntityId: number, selectionPolicy: PartyMemberSelectionPolicy, eligibleMemberCount: number, };
+
+export type ActivationView = { entityId: number, actorId: RoguelikeId, name: string, side: TurnSide, initiative: number, };
+
+export type TurnReceipt = { "kind": "partyMoved", actorEntityId: number, } | { "kind": "partyTurned", actorEntityId: number, } | { "kind": "partyAttacked", actorEntityId: number, targetEntityId: number, actionId: RoguelikeId, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionAttacked", actorEntityId: number, actionId: RoguelikeId, target: PartySquareTargetReceipt, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionMoved", actorEntityId: number, } | { "kind": "oppositionPassed", actorEntityId: number, };
+
+export type SessionView = { schemaVersion: number, revision: number, round: number, outcome: SessionOutcome, current: ActivationView | null, order: Array<ActivationView>, latestReceipts: Array<TurnReceipt>, world: WorldView, };

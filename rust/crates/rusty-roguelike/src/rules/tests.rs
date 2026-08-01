@@ -20,6 +20,14 @@ fn starter_catalog_compiles_with_one_activation_actions_and_exact_party() {
         rules.actions()[&RoguelikeId::parse("move").unwrap()].effect,
         ActionEffectDefinition::Movement { steps: 1 }
     ));
+    assert_eq!(
+        rules.actions()[&RoguelikeId::parse("aimed-shot").unwrap()].target,
+        ActionTargetCandidate::HostileCell
+    );
+    assert_eq!(
+        rules.actions()[&RoguelikeId::parse("rusty-blade").unwrap()].target,
+        ActionTargetCandidate::HostilePartySquare
+    );
     assert!(rules
         .actions()
         .values()
@@ -39,6 +47,16 @@ fn strict_candidate_and_semantic_compiler_reject_unknown_or_multi_effect_actions
     let package = package_for_test(candidate);
     let error = RoguelikeRuleset::compile(vec![package]).unwrap_err();
     assert!(format!("{error}").contains("exactly one movement or attack"));
+
+    let mut candidate = starter_candidate().unwrap();
+    candidate
+        .actions
+        .iter_mut()
+        .find(|action| action.id.as_str() == "rusty-blade")
+        .unwrap()
+        .target = ActionTargetCandidate::HostileCell;
+    let error = RoguelikeRuleset::compile(vec![package_for_test(candidate)]).unwrap_err();
+    assert!(format!("{error}").contains("incompatible targets"));
 }
 
 #[test]

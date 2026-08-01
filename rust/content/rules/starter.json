@@ -118,7 +118,7 @@
       "id": "rusty-blade",
       "name": "Rusty Blade",
       "tags": ["monster", "melee"],
-      "target": "hostile-cell",
+      "target": "hostile-party-square",
       "movement": null,
       "attack": {
         "ability": "finesse",
@@ -131,7 +131,7 @@
       "id": "ember-shot",
       "name": "Ember Shot",
       "tags": ["monster", "fire", "ranged"],
-      "target": "hostile-cell",
+      "target": "hostile-party-square",
       "movement": null,
       "attack": {
         "ability": "spirit",

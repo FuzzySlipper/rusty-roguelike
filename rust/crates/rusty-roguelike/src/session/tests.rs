@@ -1,3 +1,9 @@
+use core_ids::EntityId;
+use gameplay_mechanics::{
+    MechanicsScalar, OperationId, SourceInstanceId, SourceInstanceIdentity, TrackService,
+    TrackSetPolicy, TrackSetRequest,
+};
+
 use crate::{
     admit_roguelike_candidate, generate_authored_floor, starter_candidate, starter_ruleset,
     EnemyParticipation, EnemyWorldComponent, FloorBounds, FloorCell, FloorFeature,
@@ -55,10 +61,9 @@ fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
     assert_eq!(after_mira.current.as_ref().unwrap().entity_id, 101);
     assert!(after_mira.latest_receipts.iter().any(|receipt| matches!(
         receipt,
-        TurnReceipt::OppositionMoved {
-            actor_entity_id: 202
-        } | TurnReceipt::OppositionPassed {
-            actor_entity_id: 202
+        TurnReceipt::OppositionAttacked {
+            actor_entity_id: 202,
+            ..
         }
     )));
 }
@@ -66,7 +71,7 @@ fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
 #[test]
 fn adjacent_no_legal_opposition_passes_and_newly_seen_actor_joins_next_round() {
     let floor = open_arena();
-    let rules = starter_ruleset().unwrap();
+    let rules = rules_without_goblin_attack();
     let seeded = WorldState::new(floor.clone(), rules).unwrap();
     let mut durable = seeded.durable_state().unwrap();
     durable.enemies[0].world = EnemyWorldComponent::new(
@@ -81,7 +86,7 @@ fn adjacent_no_legal_opposition_passes_and_newly_seen_actor_joins_next_round() {
         EnemyParticipation::Dormant,
     )
     .unwrap();
-    let world = WorldState::restore(floor, starter_ruleset().unwrap(), durable).unwrap();
+    let world = WorldState::restore(floor, rules_without_goblin_attack(), durable).unwrap();
     let mut session = GameSession::new(world).unwrap();
     assert!(!session
         .view()
@@ -170,6 +175,10 @@ fn defeated_participant_leaves_the_live_order_without_blocking_the_round() {
             damage: vec![8],
         },
         StaticRollCandidate {
+            d20: 1,
+            damage: vec![1],
+        },
+        StaticRollCandidate {
             d20: 20,
             damage: vec![8],
         },
@@ -215,6 +224,51 @@ fn defeated_participant_leaves_the_live_order_without_blocking_the_round() {
     assert!(after_defeat.current.is_none());
 }
 
+#[test]
+fn party_square_targeting_rotates_fairly_and_logs_the_complete_member_resolution() {
+    let mut session = single_enemy_party_square_session();
+    turn_right(&mut session);
+    let first = turn_left(&mut session);
+    let (first_target, first_eligible) = opposition_target(&first);
+    assert_eq!(first_target, 101);
+    assert_eq!(first_eligible, 3);
+    let first_receipt = first
+        .latest_receipts
+        .iter()
+        .find(|receipt| matches!(receipt, TurnReceipt::OppositionAttacked { .. }))
+        .unwrap();
+    assert!(matches!(
+        first_receipt,
+        TurnReceipt::OppositionAttacked {
+            actor_entity_id: 202,
+            action_id,
+            target,
+            damage_rolls,
+            requested_damage,
+            applied_damage,
+            ..
+        } if action_id.as_str() == "ember-shot"
+            && target.selection_policy == crate::PartyMemberSelectionPolicy::RoundRobinLiving
+            && damage_rolls.len() == 1
+            && applied_damage <= requested_damage
+    ));
+
+    turn_right(&mut session);
+    turn_left(&mut session);
+    let second = turn_right(&mut session);
+    assert_eq!(opposition_target(&second).0, 102);
+}
+
+#[test]
+fn party_square_targeting_skips_incapacitated_members_without_browser_choice() {
+    let mut session = single_enemy_party_square_session();
+    incapacitate(&mut session, 101);
+    let after_kestrel = turn_right(&mut session);
+    assert!(!after_kestrel.order.iter().any(|slot| slot.entity_id == 101));
+    let attacked = turn_left(&mut session);
+    assert_eq!(opposition_target(&attacked), (102, 2));
+}
+
 fn turn_right(session: &mut GameSession) -> crate::SessionView {
     let view = session.view().unwrap();
     session
@@ -233,6 +287,55 @@ fn turn_left(session: &mut GameSession) -> crate::SessionView {
             expected_revision: view.revision,
         })
         .unwrap()
+}
+
+fn opposition_target(view: &crate::SessionView) -> (u64, u8) {
+    view.latest_receipts
+        .iter()
+        .find_map(|receipt| match receipt {
+            TurnReceipt::OppositionAttacked { target, .. } => Some((
+                target.selected_member_entity_id,
+                target.eligible_member_count,
+            )),
+            _ => None,
+        })
+        .expect("automatic opposition attack receipt")
+}
+
+fn incapacitate(session: &mut GameSession, entity_id: u64) {
+    let operation = OperationId::parse(format!("test.incapacitate.{entity_id}")).unwrap();
+    let catalog = session.world.rules().mechanics().clone();
+    TrackService::set_under_policy(
+        session.world.entities_mut(),
+        &catalog,
+        TrackSetRequest {
+            operation: operation.clone(),
+            source: SourceInstanceIdentity::Request {
+                operation,
+                instance: SourceInstanceId::parse("test.incapacitate").unwrap(),
+            },
+            entity: EntityId::new(entity_id),
+            track: crate::vitality_track_id(),
+            value: MechanicsScalar::zero(),
+            policy: TrackSetPolicy::RejectOutOfBounds,
+            expected_revision: None,
+        },
+    )
+    .unwrap();
+}
+
+fn single_enemy_party_square_session() -> GameSession {
+    let floor = open_arena();
+    let rules = single_enemy_rules();
+    let seeded = WorldState::new(floor.clone(), rules).unwrap();
+    let mut durable = seeded.durable_state().unwrap();
+    durable.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        crate::WorldCell { x: 2, y: 1 },
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    GameSession::new(WorldState::restore(floor, single_enemy_rules(), durable).unwrap()).unwrap()
 }
 
 fn open_arena() -> crate::GeneratedFloor {
@@ -278,6 +381,26 @@ fn static_rules_single_enemy(rolls: Vec<StaticRollCandidate>) -> RoguelikeRulese
         seed: None,
         rolls,
     };
+    RoguelikeRuleset::compile(vec![package_for_test(candidate)]).unwrap()
+}
+
+fn single_enemy_rules() -> RoguelikeRuleset {
+    let mut candidate = starter_candidate().unwrap();
+    candidate
+        .actors
+        .retain(|actor| actor.side == crate::ActorSideCandidate::Party || actor.entity_id == 202);
+    RoguelikeRuleset::compile(vec![package_for_test(candidate)]).unwrap()
+}
+
+fn rules_without_goblin_attack() -> RoguelikeRuleset {
+    let mut candidate = starter_candidate().unwrap();
+    candidate
+        .actors
+        .iter_mut()
+        .find(|actor| actor.entity_id == 201)
+        .unwrap()
+        .actions
+        .retain(|action| action.as_str() == "move");
     RoguelikeRuleset::compile(vec![package_for_test(candidate)]).unwrap()
 }
 

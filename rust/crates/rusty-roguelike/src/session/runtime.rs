@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use core_ids::EntityId;
 use gameplay_mechanics::TracksComponent;
 
@@ -6,6 +8,7 @@ use crate::{vitality_track_id, ActorDefinition, ActorSideCandidate, RoguelikeId,
 use super::roll::RollSource;
 use super::{
     ActivationView, PartyCommand, SessionError, SessionOutcome, SessionView, TurnReceipt, TurnSide,
+    SESSION_VIEW_SCHEMA_VERSION,
 };
 
 const MAX_AUTOMATIC_SETTLEMENTS: usize = 256;
@@ -28,6 +31,7 @@ pub struct GameSession {
     pub(super) revision: u64,
     pub(super) outcome: SessionOutcome,
     pub(super) latest_receipts: Vec<TurnReceipt>,
+    pub(super) target_cursors: BTreeMap<u64, usize>,
 }
 
 impl GameSession {
@@ -42,6 +46,7 @@ impl GameSession {
             revision: 0,
             outcome: SessionOutcome::Ongoing,
             latest_receipts: vec![],
+            target_cursors: BTreeMap::new(),
         };
         session.rebuild_order()?;
         session.refresh_outcome()?;
@@ -92,6 +97,7 @@ impl GameSession {
 
     pub fn view(&self) -> Result<SessionView, SessionError> {
         Ok(SessionView {
+            schema_version: SESSION_VIEW_SCHEMA_VERSION,
             revision: self.revision,
             round: self.round,
             outcome: self.outcome,
@@ -128,6 +134,7 @@ impl GameSession {
             revision: self.revision,
             outcome: self.outcome,
             latest_receipts: self.latest_receipts.clone(),
+            target_cursors: self.target_cursors.clone(),
         })
     }
 
@@ -193,6 +200,7 @@ impl GameSession {
                 return Ok(());
             }
             self.resolve_opposition(slot.entity)?;
+            self.prune_defeated_from_order()?;
             self.advance()?;
         }
         Err(error(

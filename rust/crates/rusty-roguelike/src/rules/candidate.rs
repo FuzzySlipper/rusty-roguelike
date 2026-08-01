@@ -98,6 +98,7 @@ pub struct DamageCandidate {
 pub enum ActionTargetCandidate {
     SelfOnly,
     HostileCell,
+    HostilePartySquare,
     AllyCell,
 }
 

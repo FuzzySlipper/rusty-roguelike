@@ -5,12 +5,26 @@ use gameplay_mechanics::{
 };
 
 use crate::{
-    defense_stat_id, vitality_track_id, ActionEffectDefinition, ActorDefinition,
-    ActorSideCandidate, RoguelikeId,
+    defense_stat_id, vitality_track_id, ActionDefinition, ActionEffectDefinition,
+    ActionTargetCandidate, ActorDefinition, ActorSideCandidate, RoguelikeId,
 };
 
 use super::runtime::{error, GameSession};
-use super::{PartyCommand, SessionError, TurnReceipt};
+use super::{
+    PartyCommand, PartyMemberSelectionPolicy, PartySquareTargetReceipt, SessionError, TurnReceipt,
+};
+
+struct ResolvedAttack {
+    d20: u8,
+    ability_modifier: i16,
+    attack_total: i16,
+    defense: i16,
+    hit: bool,
+    damage_rolls: Vec<u16>,
+    damage_bonus: i16,
+    requested_damage: u16,
+    applied_damage: u16,
+}
 
 impl GameSession {
     pub(super) fn resolve_party_command(
@@ -80,13 +94,13 @@ impl GameSession {
                 "Roguelike actions must consume exactly one activation",
             ));
         }
-        let ActionEffectDefinition::Attack {
-            ability,
-            defense,
-            damage,
-            range,
-        } = action.effect
-        else {
+        if action.target != ActionTargetCandidate::HostileCell {
+            return Err(error(
+                "session_party_target_mode_invalid",
+                "party actions must target an enemy cell rather than the party square",
+            ));
+        }
+        let ActionEffectDefinition::Attack { range, .. } = &action.effect else {
             return Err(error(
                 "session_action_requires_step",
                 "movement actions are issued through a one-cell movement command",
@@ -130,7 +144,7 @@ impl GameSession {
         if self
             .world
             .clear_distance(party_position, target_position)
-            .is_none_or(|distance| distance > u32::from(range))
+            .is_none_or(|distance| distance > u32::from(*range))
         {
             return Err(error(
                 "session_target_out_of_range",
@@ -138,17 +152,58 @@ impl GameSession {
             ));
         }
 
+        let resolved = self.resolve_attack(actor, target, action_id, &action)?;
+        self.latest_receipts.push(TurnReceipt::PartyAttacked {
+            actor_entity_id: actor.entity_id,
+            target_entity_id: target.raw(),
+            action_id: action_id.clone(),
+            d20: resolved.d20,
+            ability_modifier: resolved.ability_modifier,
+            attack_total: resolved.attack_total,
+            defense: resolved.defense,
+            hit: resolved.hit,
+            damage_rolls: resolved.damage_rolls,
+            damage_bonus: resolved.damage_bonus,
+            requested_damage: resolved.requested_damage,
+            applied_damage: resolved.applied_damage,
+        });
+        Ok(())
+    }
+
+    fn resolve_attack(
+        &mut self,
+        actor: &ActorDefinition,
+        target: EntityId,
+        action_id: &RoguelikeId,
+        action: &ActionDefinition,
+    ) -> Result<ResolvedAttack, SessionError> {
+        let ActionEffectDefinition::Attack {
+            ability,
+            defense,
+            damage,
+            ..
+        } = &action.effect
+        else {
+            return Err(error(
+                "session_action_not_attack",
+                "attack resolution received a non-attack action",
+            ));
+        };
         let roll = self.roll.attack(damage.dice, damage.sides)?;
         let ability_score = actor
             .abilities
             .iter()
-            .find(|score| score.ability == ability)
+            .find(|score| &score.ability == ability)
             .ok_or_else(|| error("session_ability_missing", ability.to_string()))?
             .score;
-        let attack_total = i16::from(roll.d20) + ability_modifier(ability_score);
+        let ability_modifier = ability_modifier(ability_score);
+        let attack_total = i16::from(roll.d20) + ability_modifier;
         let operation = OperationId::parse(format!(
             "turn.{}.{}.{}.{}",
-            self.round, self.revision, actor.entity_id, target_actor.entity_id
+            self.round,
+            self.revision,
+            actor.entity_id,
+            target.raw()
         ))
         .map_err(|detail| error("session_operation_invalid", detail.to_string()))?;
         let catalog = self.world.rules().mechanics().clone();
@@ -156,7 +211,7 @@ impl GameSession {
             self.world.entities(),
             &catalog,
             target,
-            &defense_stat_id(&defense),
+            &defense_stat_id(defense),
             &operation,
             &[],
         )
@@ -211,37 +266,143 @@ impl GameSession {
         } else {
             0
         };
-        self.latest_receipts.push(TurnReceipt::PartyAttacked {
-            actor_entity_id: actor.entity_id,
-            target_entity_id: target.raw(),
-            action_id: action_id.clone(),
+        Ok(ResolvedAttack {
             d20: roll.d20,
+            ability_modifier,
             attack_total,
             defense: defense_value,
             hit,
-            damage: u16::try_from(applied_damage).unwrap_or(u16::MAX),
-        });
-        Ok(())
+            damage_rolls: roll.damage,
+            damage_bonus: damage.bonus,
+            requested_damage: u16::try_from(requested_damage)
+                .expect("compiled attack damage fits u16"),
+            applied_damage: u16::try_from(applied_damage).expect("applied damage fits u16"),
+        })
     }
 
     pub(super) fn resolve_opposition(&mut self, entity: EntityId) -> Result<(), SessionError> {
-        let moved = self
+        let actor = self.actor(entity.raw())?.clone();
+        let party = self
             .world
-            .move_enemy_toward_party(entity)
-            .map_err(|detail| error("session_opposition_move_failed", detail.to_string()))?;
+            .party_position()
+            .map_err(|detail| error("session_world_read", detail.to_string()))?;
+        let origin = self
+            .world
+            .enemy_position(entity)
+            .map_err(|detail| error("session_world_read", detail.to_string()))?;
+        let distance = self.world.clear_distance(origin, party);
+        let mut legal_attacks = actor
+            .actions
+            .iter()
+            .filter_map(|id| {
+                let action = self.world.rules().actions().get(id)?;
+                let ActionEffectDefinition::Attack { range, .. } = action.effect else {
+                    return None;
+                };
+                (action.target == ActionTargetCandidate::HostilePartySquare
+                    && distance.is_some_and(|distance| distance <= u32::from(range)))
+                .then(|| (id.clone(), action.clone()))
+            })
+            .collect::<Vec<_>>();
+        legal_attacks.sort_by(|left, right| left.0.cmp(&right.0));
+        if let Some((action_id, action)) = legal_attacks.into_iter().next() {
+            let (target, target_receipt) = self.select_party_member(entity)?;
+            let resolved = self.resolve_attack(&actor, target, &action_id, &action)?;
+            self.latest_receipts.push(TurnReceipt::OppositionAttacked {
+                actor_entity_id: entity.raw(),
+                action_id,
+                target: target_receipt,
+                d20: resolved.d20,
+                ability_modifier: resolved.ability_modifier,
+                attack_total: resolved.attack_total,
+                defense: resolved.defense,
+                hit: resolved.hit,
+                damage_rolls: resolved.damage_rolls,
+                damage_bonus: resolved.damage_bonus,
+                requested_damage: resolved.requested_damage,
+                applied_damage: resolved.applied_damage,
+            });
+            return Ok(());
+        }
+
+        let can_move = actor.actions.iter().any(|id| {
+            self.world.rules().actions().get(id).is_some_and(|action| {
+                action.target == ActionTargetCandidate::SelfOnly
+                    && matches!(action.effect, ActionEffectDefinition::Movement { steps: 1 })
+            })
+        });
+        let moved = if can_move {
+            self.world
+                .move_enemy_toward_party(entity)
+                .map_err(|detail| error("session_opposition_move_failed", detail.to_string()))?
+        } else {
+            false
+        };
         self.latest_receipts.push(if moved {
             TurnReceipt::OppositionMoved {
                 actor_entity_id: entity.raw(),
             }
         } else {
-            // Enemy-to-party-member target selection lands in #6490. Until then an
-            // adjacent enemy has no authored legal action, and its activation is
-            // explicitly consumed so the deterministic round cannot deadlock.
+            // An actor with neither a clear authored attack nor an available
+            // Engine-routed step explicitly consumes its activation.
             TurnReceipt::OppositionPassed {
                 actor_entity_id: entity.raw(),
             }
         });
         Ok(())
+    }
+
+    fn select_party_member(
+        &mut self,
+        attacker: EntityId,
+    ) -> Result<(EntityId, PartySquareTargetReceipt), SessionError> {
+        let members = self
+            .world
+            .rules()
+            .party()
+            .members
+            .iter()
+            .map(|id| self.world.rules().actors()[id].entity_id)
+            .collect::<Vec<_>>();
+        let mut eligible_member_count = 0;
+        for entity in &members {
+            if self.is_alive(EntityId::new(*entity))? {
+                eligible_member_count += 1;
+            }
+        }
+        if eligible_member_count == 0 {
+            return Err(error(
+                "session_party_target_unavailable",
+                "no living party member can receive the party-square effect",
+            ));
+        }
+        let start = self
+            .target_cursors
+            .get(&attacker.raw())
+            .copied()
+            .unwrap_or_default()
+            % members.len();
+        for offset in 0..members.len() {
+            let index = (start + offset) % members.len();
+            let entity = EntityId::new(members[index]);
+            if self.is_alive(entity)? {
+                self.target_cursors
+                    .insert(attacker.raw(), (index + 1) % members.len());
+                return Ok((
+                    entity,
+                    PartySquareTargetReceipt {
+                        selected_member_entity_id: entity.raw(),
+                        selection_policy: PartyMemberSelectionPolicy::RoundRobinLiving,
+                        eligible_member_count: u8::try_from(eligible_member_count)
+                            .expect("party size fits u8"),
+                    },
+                ));
+            }
+        }
+        Err(error(
+            "session_party_target_unavailable",
+            "no living party member can receive the party-square effect",
+        ))
     }
 
     fn require_movement_action(&self, actor: &ActorDefinition) -> Result<(), SessionError> {

@@ -6,9 +6,14 @@ import {
   ROGUELIKE_LIMITS,
   RUSTY_ENGINE_REVISION,
   RUSTY_PROCGEN_REVISION,
+  SESSION_VIEW_LIMITS,
+  SESSION_VIEW_SCHEMA_VERSION,
   WORLD_VIEW_SCHEMA_VERSION,
   WORLD_VIEW_LIMITS,
+  type ActivationView,
   type BootstrapReadoutDto,
+  type SessionView,
+  type TurnReceipt,
   type VisibleActorView,
   type WorldView,
   type WorldViewCell,
@@ -156,6 +161,232 @@ export function decodeWorldView(value: unknown): WorldView {
   return value as WorldView;
 }
 
+const SESSION_VIEW_KEYS = [
+  'current',
+  'latestReceipts',
+  'order',
+  'outcome',
+  'revision',
+  'round',
+  'schemaVersion',
+  'world',
+] as const;
+const ACTIVATION_KEYS = [
+  'actorId',
+  'entityId',
+  'initiative',
+  'name',
+  'side',
+] as const;
+const SIMPLE_RECEIPT_KEYS = ['actorEntityId', 'kind'] as const;
+const PARTY_ATTACK_RECEIPT_KEYS = [
+  'abilityModifier',
+  'actionId',
+  'actorEntityId',
+  'appliedDamage',
+  'attackTotal',
+  'd20',
+  'damageBonus',
+  'damageRolls',
+  'defense',
+  'hit',
+  'kind',
+  'requestedDamage',
+  'targetEntityId',
+] as const;
+const OPPOSITION_ATTACK_RECEIPT_KEYS = [
+  'abilityModifier',
+  'actionId',
+  'actorEntityId',
+  'appliedDamage',
+  'attackTotal',
+  'd20',
+  'damageBonus',
+  'damageRolls',
+  'defense',
+  'hit',
+  'kind',
+  'requestedDamage',
+  'target',
+] as const;
+const PARTY_SQUARE_TARGET_KEYS = [
+  'eligibleMemberCount',
+  'selectedMemberEntityId',
+  'selectionPolicy',
+] as const;
+
+export function decodeSessionView(value: unknown): SessionView {
+  requireExactRecord(value, SESSION_VIEW_KEYS, 'session view');
+  if (value['schemaVersion'] !== SESSION_VIEW_SCHEMA_VERSION) {
+    throw new Error('session view has an unsupported schema');
+  }
+  requireSafeInteger(value['revision'], 0, Number.MAX_SAFE_INTEGER, 'revision');
+  requireSafeInteger(value['round'], 1, Number.MAX_SAFE_INTEGER, 'round');
+  if (!['ongoing', 'victory', 'defeat'].includes(String(value['outcome']))) {
+    throw new Error('session view has an invalid outcome');
+  }
+  if (
+    !Array.isArray(value['order']) ||
+    value['order'].length > SESSION_VIEW_LIMITS.maxActivations
+  ) {
+    throw new Error('activation order is not a bounded array');
+  }
+  const activationIds = new Set<number>();
+  for (const activation of value['order']) {
+    decodeActivation(activation);
+    if (activationIds.has(activation.entityId)) {
+      throw new Error('activation order contains duplicate entities');
+    }
+    activationIds.add(activation.entityId);
+  }
+  if (value['outcome'] === 'ongoing') {
+    const current = value['current'];
+    decodeActivation(current);
+    if (
+      !value['order'].some(
+        (activation) =>
+          activation.entityId === current.entityId &&
+          activation.actorId === current.actorId &&
+          activation.name === current.name &&
+          activation.side === current.side &&
+          activation.initiative === current.initiative,
+      )
+    ) {
+      throw new Error('current activation is absent from the activation order');
+    }
+  } else if (value['current'] !== null || value['order'].length !== 0) {
+    throw new Error('terminal session exposes a live activation');
+  }
+  if (
+    !Array.isArray(value['latestReceipts']) ||
+    value['latestReceipts'].length > SESSION_VIEW_LIMITS.maxReceipts
+  ) {
+    throw new Error('turn receipts are not a bounded array');
+  }
+  for (const receipt of value['latestReceipts']) {
+    decodeTurnReceipt(receipt);
+  }
+  decodeWorldView(value['world']);
+  return value as SessionView;
+}
+
+function decodeActivation(value: unknown): asserts value is ActivationView {
+  requireExactRecord(value, ACTIVATION_KEYS, 'activation');
+  requireEntityId(value['entityId'], 'activation entity identity');
+  requireId(value['actorId'], 'activation actor identity');
+  requireBoundedText(
+    value['name'],
+    1,
+    ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+    'activation name',
+  );
+  if (value['side'] !== 'party' && value['side'] !== 'opposition') {
+    throw new Error('activation has an invalid side');
+  }
+  requireI16(value['initiative'], 'initiative');
+}
+
+function decodeTurnReceipt(value: unknown): asserts value is TurnReceipt {
+  if (!isRecord(value) || typeof value['kind'] !== 'string') {
+    throw new Error('turn receipt must be a tagged object');
+  }
+  switch (value['kind']) {
+    case 'partyMoved':
+    case 'partyTurned':
+    case 'oppositionMoved':
+    case 'oppositionPassed':
+      requireExactRecord(value, SIMPLE_RECEIPT_KEYS, 'turn receipt');
+      requireEntityId(value['actorEntityId'], 'receipt actor identity');
+      return;
+    case 'partyAttacked':
+      requireExactRecord(
+        value,
+        PARTY_ATTACK_RECEIPT_KEYS,
+        'party attack receipt',
+      );
+      requireEntityId(value['targetEntityId'], 'receipt target identity');
+      decodeAttackReceipt(value);
+      return;
+    case 'oppositionAttacked':
+      requireExactRecord(
+        value,
+        OPPOSITION_ATTACK_RECEIPT_KEYS,
+        'opposition attack receipt',
+      );
+      decodePartySquareTarget(value['target']);
+      decodeAttackReceipt(value);
+      return;
+    default:
+      throw new Error('turn receipt has an unsupported kind');
+  }
+}
+
+function decodeAttackReceipt(value: Record<string, unknown>): void {
+  requireEntityId(value['actorEntityId'], 'receipt actor identity');
+  requireId(value['actionId'], 'receipt action identity');
+  requireSafeInteger(value['d20'], 1, 20, 'attack d20');
+  requireI16(value['abilityModifier'], 'attack ability modifier');
+  requireI16(value['attackTotal'], 'attack total');
+  requireI16(value['defense'], 'attack defense');
+  requireI16(value['damageBonus'], 'damage bonus');
+  if (
+    value['attackTotal'] !==
+    Number(value['d20']) + Number(value['abilityModifier'])
+  ) {
+    throw new Error('attack receipt has inconsistent arithmetic');
+  }
+  if (typeof value['hit'] !== 'boolean') {
+    throw new Error('attack receipt has an invalid hit fact');
+  }
+  if (
+    !Array.isArray(value['damageRolls']) ||
+    value['damageRolls'].length < 1 ||
+    value['damageRolls'].length > ROGUELIKE_LIMITS.maxDamageDice
+  ) {
+    throw new Error('damage rolls are not a bounded array');
+  }
+  for (const roll of value['damageRolls']) {
+    requireSafeInteger(
+      roll,
+      1,
+      ROGUELIKE_LIMITS.maxDamageDieSides,
+      'damage roll',
+    );
+  }
+  requireSafeInteger(value['requestedDamage'], 0, 65_535, 'requested damage');
+  requireSafeInteger(value['appliedDamage'], 0, 65_535, 'applied damage');
+  if (Number(value['appliedDamage']) > Number(value['requestedDamage'])) {
+    throw new Error('attack receipt applies more damage than requested');
+  }
+  if (
+    value['hit'] === false &&
+    (value['requestedDamage'] !== 0 || value['appliedDamage'] !== 0)
+  ) {
+    throw new Error('miss receipt contains applied damage');
+  }
+}
+
+function decodePartySquareTarget(value: unknown): void {
+  requireExactRecord(
+    value,
+    PARTY_SQUARE_TARGET_KEYS,
+    'party-square target receipt',
+  );
+  requireEntityId(
+    value['selectedMemberEntityId'],
+    'selected party member identity',
+  );
+  if (value['selectionPolicy'] !== 'round-robin-living') {
+    throw new Error('party-square target has an invalid selection policy');
+  }
+  requireSafeInteger(
+    value['eligibleMemberCount'],
+    1,
+    SESSION_VIEW_LIMITS.maxActivations,
+    'eligible party member count',
+  );
+}
+
 function decodeWorldCell(value: unknown): asserts value is WorldViewCell {
   requireExactRecord(value, WORLD_CELL_KEYS, 'world view cell');
   requireRelativePosition(value);
@@ -242,6 +473,21 @@ function requireSafeInteger(
     value > maximum
   ) {
     throw new Error(`${label} is outside its accepted integer range`);
+  }
+}
+
+function requireEntityId(value: unknown, label: string): void {
+  requireSafeInteger(value, 1, Number.MAX_SAFE_INTEGER, label);
+}
+
+function requireI16(value: unknown, label: string): void {
+  requireSafeInteger(value, -32_768, 32_767, label);
+}
+
+function requireId(value: unknown, label: string): asserts value is string {
+  requireBoundedText(value, 1, ROGUELIKE_LIMITS.maxIdBytes, label);
+  if (!ID_PATTERN.test(value)) {
+    throw new Error(`${label} is invalid`);
   }
 }
 

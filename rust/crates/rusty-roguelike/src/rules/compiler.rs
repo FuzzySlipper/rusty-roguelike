@@ -162,7 +162,11 @@ fn compile_candidate(
                     || !(-100..=100).contains(&attack.damage.bonus)
                     || attack.range == 0
                     || attack.range > MAX_ROGUELIKE_RANGE
-                    || value.target != ActionTargetCandidate::HostileCell
+                    || !matches!(
+                        value.target,
+                        ActionTargetCandidate::HostileCell
+                            | ActionTargetCandidate::HostilePartySquare
+                    )
                 {
                     return semantic(
                         format!("$/payload/actions/{}", value.id),
@@ -387,15 +391,29 @@ fn compile_candidate(
             .iter()
             .filter_map(|id| items[id].slot)
             .collect::<Vec<_>>();
+        let targets_match_side = value.actions.iter().all(|id| {
+            let target = actions[id].target;
+            match value.side {
+                ActorSideCandidate::Party => matches!(
+                    target,
+                    ActionTargetCandidate::SelfOnly | ActionTargetCandidate::HostileCell
+                ),
+                ActorSideCandidate::Opposition => matches!(
+                    target,
+                    ActionTargetCandidate::SelfOnly | ActionTargetCandidate::HostilePartySquare
+                ),
+            }
+        });
         if value.actions.len() > action_slots
             || value.feats.len() > feat_slots
             || value.actions.iter().any(|id| !granted_actions.contains(id))
             || value.feats.iter().any(|id| !granted_feats.contains(id))
             || !is_unique(&occupied_slots)
+            || !targets_match_side
         {
             return semantic(
                 format!("$/payload/actors/{}", value.id),
-                "actor exceeds class slots, selects ungranted entries, or double-equips a slot",
+                "actor exceeds class slots, selects ungranted entries, uses incompatible targets, or double-equips a slot",
             );
         }
         let origin = definition_origin(package, "actor", &value.id)?;
