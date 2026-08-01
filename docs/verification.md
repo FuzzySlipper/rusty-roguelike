@@ -11,10 +11,19 @@ The gate proves exact dependency carriers, Rust formatting/tests/clippy, strict
 protocol generation, browser boundaries, lint/typecheck/unit tests, production
 build, and real Rust-served Chromium at desktop and mobile sizes.
 
+The desktop browser path equips the complete authored stash, proves the
+equipment-granted Focus Orb action, enters the generated floor, observes dormant
+enemies join only after discovery and a round rebuild, resolves both hostile
+groups without a modal combat screen, inspects Rust-selected party-member damage,
+saves/reopens active combat, reaches victory, and reopens the terminal save. The
+mobile path repeats preparation and lifecycle controls, keyboard input,
+responsive panel separation, 44-pixel controls, and viewport containment.
+
 Use an isolated port when another product host owns the default:
 
 ```bash
 E2E_PORT=4429 pnpm run verify:browser
 ```
 
-The browser report under `dist/.playwright/` contains the inspected screenshots.
+The browser report under `dist/.playwright/` contains the named preparation and
+expedition screenshots for both viewport projects.

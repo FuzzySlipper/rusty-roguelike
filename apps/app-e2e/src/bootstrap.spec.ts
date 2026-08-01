@@ -21,6 +21,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   page,
   request,
 }, testInfo) => {
+  test.setTimeout(240_000);
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   const failedRequests: string[] = [];
@@ -73,6 +74,9 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await expect(
     page.getByRole('navigation', { name: 'Initiative order' }),
   ).toBeVisible();
+  const objective = page.getByRole('status', { name: 'Floor objective' });
+  await expect(objective).toContainText('Purge the ember den');
+  await expect(objective).toContainText('both dormant raiders');
   await expect(
     page.getByRole('region', { name: 'Available actions' }),
   ).toBeVisible();
@@ -94,7 +98,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await issueAndWait(page, stage, 'Step right');
   await page.getByRole('button', { name: 'Reopen', exact: true }).click();
   await expect(stage).toHaveAttribute('data-session-revision', '8');
-  await expect(page.getByRole('status')).toContainText(
+  await expect(page.locator('.persistence-notice')).toContainText(
     'Saved session reopened.',
   );
 
@@ -121,6 +125,8 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   const packs = page.getByRole('region', { name: 'Field packs' });
   await packs.getByRole('tab', { name: 'Kestrel' }).click();
   await expect(packs).toContainText('Shortbow');
+  await packs.getByRole('tab', { name: 'Mira' }).click();
+  await expect(packs).toContainText('Focus Orb');
   await page.getByRole('button', { name: 'Close panel' }).click();
   await expect(packsTrigger).toBeFocused();
 
@@ -139,6 +145,11 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
       );
     }
     await expect(stage).toHaveAttribute('data-visible-enemies', '1');
+    const initiative = page.getByRole('navigation', {
+      name: 'Initiative order',
+    });
+    await expect(initiative).toContainText('Goblin Scrapper');
+    await expect(initiative).not.toContainText('Ember Watcher');
     const combatRevision = await stage.getAttribute('data-session-revision');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.locator('.persistence-notice')).toHaveText(
@@ -152,8 +163,9 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     );
     await issueAndWait(page, stage, 'Turn right');
     await expect(stage).toHaveAttribute('data-visible-enemies', '2');
+    await expect(initiative).not.toContainText('Ember Watcher');
 
-    const action = page.getByRole('button', { name: '1 · Arcane Bolt' });
+    const action = page.getByRole('button', { name: /Mind Spike/u });
     await expect(action).toBeEnabled();
     await action.click();
     await expect(action).toHaveAttribute('aria-pressed', 'true');
@@ -189,9 +201,33 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     const latest = rulesLog.locator('details').last();
     await latest.locator('summary').click();
     await expect(latest).toContainText(/d20 .* defense/);
+
+    expect(await settleFloorToVictory(page, stage, initiative)).toBe(true);
+    await expect(stage).toHaveAttribute('data-session-outcome', 'victory');
+    await expect(objective).toContainText('Ember den secured');
+    await expect(objective).toContainText('floor is complete');
+    await expect(rulesLog).toContainText(/was targeted/u);
+    await expect(rulesLog).toContainText(/round-robin-living/u);
+
+    const terminalRevision = await stage.getAttribute('data-session-revision');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.locator('.persistence-notice')).toHaveText(
+      'Session saved.',
+    );
+    await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+    await expect(stage).toHaveAttribute(
+      'data-session-revision',
+      String(terminalRevision),
+    );
+    await expect(stage).toHaveAttribute('data-session-outcome', 'victory');
+    await expect(objective).toContainText('Ember den secured');
   } else {
     await page.keyboard.press('e');
     await expect(stage).toHaveAttribute('data-session-revision', '9');
+    await assertVerticallySeparated(
+      objective,
+      page.getByRole('complementary', { name: 'Party vitality' }),
+    );
     await assertSeparated(
       page.getByRole('region', { name: 'Available actions' }),
       page.getByRole('navigation', { name: 'Movement and facing' }),
@@ -274,6 +310,39 @@ async function equipParty(
   await expect(stash).toContainText('0 / 32');
 }
 
+async function settleFloorToVictory(
+  page: Page,
+  stage: Locator,
+  initiative: Locator,
+): Promise<boolean> {
+  const actions = page.getByRole('region', { name: 'Available actions' });
+  let emberJoined = false;
+  for (let activation = 0; activation < 80; activation += 1) {
+    emberJoined ||=
+      (await initiative.textContent())?.includes('Ember Watcher') ?? false;
+    if ((await stage.getAttribute('data-session-outcome')) === 'victory') {
+      return emberJoined;
+    }
+    const legalActions = actions.locator('button:enabled');
+    if ((await legalActions.count()) > 0) {
+      const revision = Number(
+        await stage.getAttribute('data-session-revision'),
+      );
+      await legalActions.last().click();
+      const target = actions.locator('.target-row button:enabled').first();
+      await expect(target).toBeVisible();
+      await target.click();
+      await expect(stage).toHaveAttribute(
+        'data-session-revision',
+        String(revision + 1),
+      );
+    } else {
+      await issueAndWait(page, stage, 'Turn right');
+    }
+  }
+  throw new Error('bounded browser expedition did not reach victory');
+}
+
 async function issueAndWait(
   page: Page,
   stage: Locator,
@@ -304,4 +373,18 @@ async function assertSeparated(
   }
   expect(leftBox.x + leftBox.width).toBeLessThanOrEqual(middleBox.x);
   expect(middleBox.x + middleBox.width).toBeLessThanOrEqual(rightBox.x);
+}
+
+async function assertVerticallySeparated(
+  top: Locator,
+  bottom: Locator,
+): Promise<void> {
+  const [topBox, bottomBox] = await Promise.all([
+    top.boundingBox(),
+    bottom.boundingBox(),
+  ]);
+  if (topBox === null || bottomBox === null) {
+    throw new Error('responsive status panels must have browser bounds');
+  }
+  expect(topBox.y + topBox.height).toBeLessThanOrEqual(bottomBox.y);
 }

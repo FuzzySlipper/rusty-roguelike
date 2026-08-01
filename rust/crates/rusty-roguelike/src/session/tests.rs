@@ -286,9 +286,9 @@ fn complete_save_reopens_a_terminal_expedition() {
     .unwrap();
     complete_preparation(&mut session);
     autoplay_to_terminal(&mut session);
-    assert_ne!(
+    assert_eq!(
         session.view().unwrap().outcome,
-        crate::SessionOutcome::Ongoing
+        crate::SessionOutcome::Victory
     );
     let encoded = session.encode_save().unwrap();
     let reopened = GameSession::decode_save(&encoded).unwrap();

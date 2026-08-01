@@ -57,6 +57,12 @@ Combat never changes to a modal tactical board. The first-person renderer,
 party status, action controls, and log remain one composition throughout
 exploration and initiative resolution.
 
+The bounded starter-floor objective is to defeat both authored dormant raiders.
+Rust derives victory only from authoritative actor vitality; the browser's
+objective panel merely presents the current `SessionOutcome`. Terminal sessions
+accept no further gameplay commands, but their complete state can still be saved
+and reopened through the host lifecycle.
+
 ## Rules compilation
 
 `rust/content/rules/starter.json` is inert authored policy. Rust strictly decodes

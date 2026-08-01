@@ -122,6 +122,35 @@ type Drawer = 'party' | 'inventory' | null;
         color: var(--rr-text);
       }
 
+      .objective {
+        left: 50%;
+        padding: 0.5rem 0.7rem;
+        position: absolute;
+        text-align: center;
+        top: 3.75rem;
+        transform: translateX(-50%);
+      }
+
+      .objective strong,
+      .objective span {
+        display: block;
+      }
+
+      .objective strong {
+        font-size: 0.82rem;
+      }
+
+      .objective span {
+        color: var(--rr-muted);
+        font-size: 0.7rem;
+        margin-top: 0.15rem;
+      }
+
+      .objective.complete {
+        border-color: var(--rr-accent);
+        box-shadow: 0 0 30px rgb(126 229 210 / 0.18);
+      }
+
       .expedition-tools {
         display: flex;
         gap: 0.4rem;
@@ -375,6 +404,13 @@ type Drawer = 'party' | 'inventory' | null;
           transform: none;
         }
 
+        .objective {
+          left: 0.5rem;
+          max-width: calc(52vw - 0.75rem);
+          text-align: left;
+          transform: none;
+        }
+
         .expedition-tools {
           right: 0.5rem;
           top: 3.65rem;
@@ -397,7 +433,7 @@ type Drawer = 'party' | 'inventory' | null;
           left: 0.5rem;
           max-width: calc(100vw - 1rem);
           overflow-x: auto;
-          top: 7rem;
+          top: 9rem;
         }
 
         .member {
@@ -469,6 +505,7 @@ type Drawer = 'party' | 'inventory' | null;
               <section
                 class="stage"
                 [attr.data-session-revision]="state.value.revision"
+                [attr.data-session-outcome]="state.value.outcome"
                 [attr.data-visible-enemies]="
                   state.value.world.visibleActors.length
                 "
@@ -524,6 +561,30 @@ type Drawer = 'party' | 'inventory' | null;
                         </span>
                       }
                     </nav>
+
+                    <section
+                      class="panel objective"
+                      [class.complete]="state.value.outcome === 'victory'"
+                      aria-label="Floor objective"
+                      role="status"
+                    >
+                      @switch (state.value.outcome) {
+                        @case ('victory') {
+                          <strong>Ember den secured</strong>
+                          <span
+                            >Every hostile is down. The floor is complete.</span
+                          >
+                        }
+                        @case ('defeat') {
+                          <strong>Expedition lost</strong>
+                          <span>The party can no longer continue.</span>
+                        }
+                        @default {
+                          <strong>Purge the ember den</strong>
+                          <span>Find and defeat both dormant raiders.</span>
+                        }
+                      }
+                    </section>
 
                     <div class="expedition-tools">
                       <button

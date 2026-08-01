@@ -23,7 +23,9 @@ multi-member effects.
 - Expedition loadouts are intentionally read-only. A later equipment-in-turn
   design must assign an explicit activation cost before mutation can be admitted;
   this phase does not treat opening Packs as a free equipment action.
-- End-to-end floor certification is task #6494.
+- The bounded floor authors all current items into the preparation stash; it does
+  not yet author dropped loot or consumables. Certification proves collecting
+  that stash into legal loadouts and using its granted actions in the expedition.
 
 The admitted floor and compiled rules form the live Rust `WorldState` and
 `GameSession`; the host publishes their strict projection and accepts typed,
@@ -33,3 +35,11 @@ RNG and target cursors, inventory/equipment, progression facts, terminal state,
 and the complete bounded Rust log. The current same-origin host save slot is
 intentionally process-local; durable filesystem/profile selection belongs to a
 future native host rather than the browser presentation layer.
+
+The real-host product proof now completes the bounded floor: it empties the
+shared stash into legal equipment, begins the continuous initiative expedition,
+observes each hidden raider join only after discovery and the next round rebuild,
+uses an equipment-granted action, records Rust-selected party-member damage,
+saves and reopens active combat, reaches Rust-owned victory, and reopens the
+terminal save. The objective panel is a presentation of `SessionOutcome`; it
+does not own a parallel completion rule.
