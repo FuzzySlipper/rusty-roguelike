@@ -64,15 +64,23 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   );
   await expect(page.locator('canvas')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Party' }).click();
-  const party = page.getByRole('dialog', { name: 'Party quick view' });
+  const partyTrigger = page.getByRole('button', { name: 'Party' });
+  await partyTrigger.click();
+  await expect(partyTrigger).toBeFocused();
+  await expect(partyTrigger).toHaveAttribute('aria-expanded', 'true');
+  const party = page.getByRole('region', { name: 'Party quick view' });
   await expect(party).toContainText('Kestrel');
   await expect(party).toContainText('Vitality');
-  await page.getByRole('button', { name: 'Close panel' }).click();
-  await page.getByRole('button', { name: 'Packs' }).click();
-  const packs = page.getByRole('dialog', { name: 'Field packs' });
+  await page.keyboard.press('Escape');
+  await expect(party).toBeHidden();
+  await expect(partyTrigger).toBeFocused();
+  await expect(partyTrigger).toHaveAttribute('aria-expanded', 'false');
+  const packsTrigger = page.getByRole('button', { name: 'Packs' });
+  await packsTrigger.click();
+  const packs = page.getByRole('region', { name: 'Field packs' });
   await expect(packs).toContainText('Shortbow');
   await page.getByRole('button', { name: 'Close panel' }).click();
+  await expect(packsTrigger).toBeFocused();
 
   if (testInfo.project.name === 'desktop-chromium') {
     for (const step of ROUTE_TO_FIRST_ENCOUNTER) {

@@ -474,10 +474,22 @@ type Drawer = 'party' | 'inventory' | null;
                   </nav>
 
                   <div class="expedition-tools">
-                    <button type="button" (click)="openDrawer('party')">
+                    <button
+                      #partyTrigger
+                      type="button"
+                      aria-controls="party-drawer"
+                      [attr.aria-expanded]="drawer() === 'party'"
+                      (click)="openDrawer('party')"
+                    >
                       Party
                     </button>
-                    <button type="button" (click)="openDrawer('inventory')">
+                    <button
+                      #inventoryTrigger
+                      type="button"
+                      aria-controls="inventory-drawer"
+                      [attr.aria-expanded]="drawer() === 'inventory'"
+                      (click)="openDrawer('inventory')"
+                    >
                       Packs
                     </button>
                   </div>
@@ -631,8 +643,13 @@ type Drawer = 'party' | 'inventory' | null;
 
                   @if (drawer(); as open) {
                     <section
+                      [attr.id]="
+                        open === 'party'
+                          ? 'party-drawer'
+                          : 'inventory-drawer'
+                      "
                       class="panel drawer"
-                      role="dialog"
+                      role="region"
                       [attr.aria-label]="
                         open === 'party' ? 'Party quick view' : 'Field packs'
                       "
@@ -735,6 +752,11 @@ export class GameShellComponent implements OnInit, OnDestroy {
     );
   });
   private readonly rulesLog = viewChild<ElementRef<HTMLElement>>('rulesLog');
+  private readonly partyTrigger =
+    viewChild<ElementRef<HTMLButtonElement>>('partyTrigger');
+  private readonly inventoryTrigger =
+    viewChild<ElementRef<HTMLButtonElement>>('inventoryTrigger');
+  private restoreDrawerFocus: Exclude<Drawer, null> | null = null;
   private stopKeyboard: (() => void) | null = null;
 
   constructor() {
@@ -756,6 +778,14 @@ export class GameShellComponent implements OnInit, OnDestroy {
       if (panel !== undefined) {
         panel.scrollTop = panel.scrollHeight;
       }
+      const restore = this.restoreDrawerFocus;
+      if (this.drawer() === null && restore !== null) {
+        this.restoreDrawerFocus = null;
+        (restore === 'party'
+          ? this.partyTrigger()
+          : this.inventoryTrigger()
+        )?.nativeElement.focus();
+      }
     });
   }
 
@@ -775,10 +805,12 @@ export class GameShellComponent implements OnInit, OnDestroy {
   }
 
   protected openDrawer(drawer: Exclude<Drawer, null>): void {
+    this.restoreDrawerFocus = null;
     this.drawer.set(drawer);
   }
 
   protected closeDrawer(): void {
+    this.restoreDrawerFocus = this.drawer();
     this.drawer.set(null);
   }
 
@@ -911,12 +943,18 @@ export class GameShellComponent implements OnInit, OnDestroy {
   }
 
   private keydown(event: KeyboardEvent): void {
+    if (this.drawer() !== null) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeDrawer();
+      }
+      return;
+    }
     if (
       event.defaultPrevented ||
       event.altKey ||
       event.ctrlKey ||
-      event.metaKey ||
-      this.drawer() !== null
+      event.metaKey
     ) {
       return;
     }
