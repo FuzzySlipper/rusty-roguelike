@@ -1,0 +1,11 @@
+:root {
+  color-scheme: dark;
+  --rr-bg: #05090c;
+  --rr-panel: rgb(8 16 20 / 0.9);
+  --rr-line: rgb(126 229 210 / 0.24);
+  --rr-accent: #7ee5d2;
+  --rr-text: #eef8f6;
+  --rr-muted: #9fb6b2;
+  --rr-danger: #ff907f;
+  --rr-font: Inter, ui-sans-serif, system-ui, sans-serif;
+}

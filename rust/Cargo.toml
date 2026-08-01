@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/rusty-roguelike"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+version = "0.1.0"
+
+[workspace.dependencies]
+anyhow = "1.0.98"
+axum = "0.8.4"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread"] }
+tower-http = { version = "0.6.6", features = ["fs"] }
+rusty-procgen-preflight = { git = "https://github.com/FuzzySlipper/rusty-procgen", rev = "1540ed9deb43cb259b94778cca2c2188ac635f03", package = "rusty-procgen-preflight" }

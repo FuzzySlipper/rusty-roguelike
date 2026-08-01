@@ -1,0 +1,16 @@
+{
+  "name": "protocol",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/protocol/src",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:protocol"],
+  "targets": {
+    "lint": { "executor": "@nx/eslint:lint" },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p libs/protocol/tsconfig.lib.json --noEmit"
+      }
+    }
+  }
+}

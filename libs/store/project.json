@@ -1,0 +1,14 @@
+{
+  "name": "store",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/store/src",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:store"],
+  "targets": {
+    "lint": { "executor": "@nx/eslint:lint" },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc -p libs/store/tsconfig.lib.json --noEmit" }
+    }
+  }
+}

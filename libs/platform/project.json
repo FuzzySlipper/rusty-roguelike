@@ -1,0 +1,16 @@
+{
+  "name": "platform",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/platform/src",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:platform"],
+  "targets": {
+    "lint": { "executor": "@nx/eslint:lint" },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p libs/platform/tsconfig.lib.json --noEmit"
+      }
+    }
+  }
+}

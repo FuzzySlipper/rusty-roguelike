@@ -1,0 +1,16 @@
+{
+  "name": "renderer",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/renderer/src",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:renderer"],
+  "targets": {
+    "lint": { "executor": "@nx/eslint:lint" },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p libs/renderer/tsconfig.lib.json --noEmit"
+      }
+    }
+  }
+}
