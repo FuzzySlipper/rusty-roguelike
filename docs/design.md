@@ -58,6 +58,25 @@ items, and equipment use an admitted `gameplay-mechanics` catalog and named
 Engine services directly. This repository owns their Roguelike vocabulary and
 does not wrap those mechanisms in a shared RPG facade.
 
+## Collapsed-party world state
+
+The admitted floor is projected into Engine voxel, navigation, and collision
+services. Rust stores one party pose and facing for the whole collapsed party;
+one accepted relative step relocates that pose atomically. Party discovery and
+each enemy's floor position and dormant/participating state are durable
+registered components. Every admitted walkable cell and every restored durable
+position must be reachable from the authored entry through the same Engine
+navigation projection used by movement.
+
+Visibility is a bounded forward view derived by Engine collision raycasts.
+Seeing a dormant enemy promotes it permanently into encounter participation;
+turning away removes it from the current visible projection without putting it
+back to sleep. The browser-facing `WorldView` contains only relative visible
+floor/wall cells, visible actors, facing, and a discovery count. It does not
+contain the party's absolute square, the discovery set, enemy positions, or
+hidden topology. The generated TypeScript decoder rejects unknown absolute or
+out-of-cone facts rather than becoming another visibility authority.
+
 ## Upstream ownership
 
 `dependency-sources.json` is the canonical source selection. Rusty Engine is
@@ -84,5 +103,6 @@ admitted before it can replace the current floor, so malformed, incompatible,
 or exhausted results cannot partially publish state.
 
 The browser still exposes only the bootstrap readout and blank retained scene.
-Session visibility and playable projection enter in later reviewed tasks; the
+Rust now owns world state and its generated projection contract, while live
+session transport and playable rendering enter in later reviewed tasks; the
 phase boundary is recorded in [known limitations](known-limitations.md).

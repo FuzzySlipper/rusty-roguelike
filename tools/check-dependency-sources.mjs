@@ -10,9 +10,15 @@ const ENGINE_PACKAGES = [
 
 const ENGINE_RUST_CRATES = [
   'core-ids',
+  'core-space',
+  'core-voxel',
   'entity-state',
   'gameplay-mechanics',
   'gameplay-rules',
+  'svc-collision',
+  'svc-pathfinding',
+  'svc-spatial',
+  'svc-volume',
 ];
 
 export function validateDependencySources({
