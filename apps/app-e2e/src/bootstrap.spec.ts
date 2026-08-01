@@ -88,6 +88,9 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   );
   await expect(page.locator('canvas')).toBeVisible();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('.persistence-notice')).toHaveText(
+    'Session saved.',
+  );
   await issueAndWait(page, stage, 'Step right');
   await page.getByRole('button', { name: 'Reopen', exact: true }).click();
   await expect(stage).toHaveAttribute('data-session-revision', '8');
@@ -138,6 +141,9 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     await expect(stage).toHaveAttribute('data-visible-enemies', '1');
     const combatRevision = await stage.getAttribute('data-session-revision');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.locator('.persistence-notice')).toHaveText(
+      'Session saved.',
+    );
     await issueAndWait(page, stage, 'Turn right');
     await page.getByRole('button', { name: 'Reopen', exact: true }).click();
     await expect(stage).toHaveAttribute(
