@@ -123,6 +123,12 @@ impl EnemyWorldComponent {
         value.participation = EnemyParticipation::Participating;
         value
     }
+
+    pub(super) fn with_position(&self, position: WorldCell) -> Self {
+        let mut value = self.clone();
+        value.position = position;
+        value
+    }
 }
 
 impl EntityComponent for EnemyWorldComponent {}

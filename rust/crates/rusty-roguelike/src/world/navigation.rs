@@ -161,6 +161,53 @@ impl FloorSpatial {
         Ok(())
     }
 
+    pub(super) fn path(
+        &self,
+        start: WorldCell,
+        goal: WorldCell,
+    ) -> Result<Vec<WorldCell>, WorldStateError> {
+        self.require_reachable(start, goal)?;
+        let readout = find_path(
+            &self.navigation,
+            NavPathQuery {
+                start: self.voxel(start),
+                goal: self.voxel(goal),
+                max_visited: self.walkable.len(),
+            },
+        )
+        .map_err(|detail| error("world_navigation_failed", format!("{detail:?}")))?;
+        if readout.outcome != NavPathOutcome::Reached {
+            return Err(error(
+                "world_position_disconnected",
+                format!("position {},{} is disconnected", goal.x, goal.y),
+            ));
+        }
+        readout
+            .path
+            .into_iter()
+            .map(|cell| {
+                let x = i32::try_from(cell.x)
+                    .ok()
+                    .and_then(|local| self.min_x.checked_add(local))
+                    .ok_or_else(|| error("world_grid_invalid", "path x coordinate overflows"))?;
+                let y = i32::try_from(cell.z)
+                    .ok()
+                    .and_then(|local| self.min_y.checked_add(local))
+                    .ok_or_else(|| error("world_grid_invalid", "path y coordinate overflows"))?;
+                Ok(WorldCell { x, y })
+            })
+            .collect()
+    }
+
+    pub(super) fn clear_distance(&self, origin: WorldCell, target: WorldCell) -> Option<u32> {
+        self.line_is_clear(origin, target).then(|| {
+            origin
+                .x
+                .abs_diff(target.x)
+                .saturating_add(origin.y.abs_diff(target.y))
+        })
+    }
+
     pub(super) fn visible_floor_cells(&self, origin: WorldCell, facing: Facing) -> Vec<WorldCell> {
         let mut visible = self
             .walkable

@@ -1,7 +1,8 @@
 use core_ids::EntityId;
 use entity_state::{EntityComponent, EntityState};
+use gameplay_mechanics::TracksComponent;
 
-use crate::{ActorSideCandidate, GeneratedFloor, RoguelikeRuleset};
+use crate::{vitality_track_id, ActorSideCandidate, GeneratedFloor, RoguelikeRuleset};
 
 use super::navigation::{relative, FloorSpatial};
 use super::{
@@ -67,6 +68,16 @@ pub(super) fn project_world(
                 Ok(world) => world,
                 Err(error) => return Some(Err(error)),
             };
+            let tracks = match component::<TracksComponent>(entities, entity) {
+                Ok(tracks) => tracks,
+                Err(error) => return Some(Err(error)),
+            };
+            if tracks
+                .current(&vitality_track_id())
+                .is_none_or(|value| value.get() <= 0)
+            {
+                return None;
+            }
             if !visible_set.contains(&world.position()) {
                 return None;
             }

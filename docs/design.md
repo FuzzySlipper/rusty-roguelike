@@ -52,6 +52,26 @@ modifiers. They intentionally omit D20's multi-budget activation model. Movement
 and every attack compile with the same fixed activation cost of one. The later
 session runtime owns when that activation is spent.
 
+## Initiative session
+
+`GameSession` owns one continuous, non-modal initiative order. Finesse orders
+live party members and permanently participating enemies, with entity identity
+as the stable tie break. A successful relative step, rotation, or selected
+attack consumes the current party member's sole activation; party movement
+relocates the collapsed party square. Failed and stale commands operate on a
+cloned candidate session and publish neither world state, turn cursor, nor roll
+consumption.
+
+Opposition activations settle automatically through Engine-routed movement to
+the next party decision. An actor with no currently legal action explicitly
+passes, defeated actors are removed, newly revealed actors join on the next
+round rebuild, and automatic settlement has a fixed bound. Seeded action rolls
+come from the pinned Engine RNG service; authored static rolls are consumed in
+order and must match the selected action's dice. The current catalog authors no
+reactions, so there is no acknowledgement pause. Enemy attacks intentionally
+remain no-legal until task #6490 supplies the party-square-to-member targeting
+policy rather than inventing an aggregate party target.
+
 Durable actor abilities, builds, and collapsed-party membership use registered
 `entity-state` components. Defense modifiers, vitality bounds, damage kinds,
 items, and equipment use an admitted `gameplay-mechanics` catalog and named
@@ -103,6 +123,7 @@ admitted before it can replace the current floor, so malformed, incompatible,
 or exhausted results cannot partially publish state.
 
 The browser still exposes only the bootstrap readout and blank retained scene.
-Rust now owns world state and its generated projection contract, while live
-session transport and playable rendering enter in later reviewed tasks; the
-phase boundary is recorded in [known limitations](known-limitations.md).
+Rust now owns world state, its generated projection contract, and the live
+in-memory initiative session, while transport and playable rendering enter in
+later reviewed tasks; the phase boundary is recorded in
+[known limitations](known-limitations.md).

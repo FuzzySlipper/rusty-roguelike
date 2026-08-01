@@ -18,6 +18,7 @@ gameplay-mechanics = { git = "https://github.com/FuzzySlipper/rusty-engine", rev
 gameplay-rules = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
 svc-collision = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
 svc-pathfinding = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
+svc-rng = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
 svc-spatial = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
 svc-volume = { git = "https://github.com/FuzzySlipper/rusty-engine", rev = "fb608e323a8b44a55195f5720101224ff37fd5db" }
 serde = { version = "1.0.219", features = ["derive"] }

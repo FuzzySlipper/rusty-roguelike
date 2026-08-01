@@ -6,9 +6,10 @@
   `fb608e323a8b44a55195f5720101224ff37fd5db`. The product consumes its public
   retained renderer packages plus exact `core-ids`, `entity-state`,
   `gameplay-rules`, `gameplay-mechanics`, `core-space`, `core-voxel`,
-  `svc-volume`, `svc-spatial`, `svc-pathfinding`, and `svc-collision` Rust crates
-  directly. The latter services own the floor's voxel, navigation, movement,
-  and visibility projections; the game retains Roguelike policy and state.
+  `svc-volume`, `svc-spatial`, `svc-pathfinding`, `svc-collision`, and `svc-rng`
+  Rust crates directly. Those services own the floor's voxel, navigation,
+  movement, visibility, and deterministic random mechanisms; the game retains
+  Roguelike policy, action resolution, and state.
 - Rusty Procgen: `https://github.com/FuzzySlipper/rusty-procgen` at
   `1540ed9deb43cb259b94778cca2c2188ac635f03`. Rust links the public
   filesystem-free `rusty_procgen_preflight::core::ProcgenCore` facade.

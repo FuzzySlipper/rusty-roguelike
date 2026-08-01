@@ -27,6 +27,7 @@ gameplay-mechanics.workspace = true
 gameplay-rules.workspace = true
 svc-collision.workspace = true
 svc-pathfinding.workspace = true
+svc-rng.workspace = true
 svc-spatial.workspace = true
 svc-volume.workspace = true
 rusty-procgen-preflight.workspace = true

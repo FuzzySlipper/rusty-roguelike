@@ -17,6 +17,7 @@ const ENGINE_RUST_CRATES = [
   'gameplay-rules',
   'svc-collision',
   'svc-pathfinding',
+  'svc-rng',
   'svc-spatial',
   'svc-volume',
 ];

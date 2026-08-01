@@ -2,10 +2,16 @@ use std::collections::BTreeSet;
 
 use core_ids::EntityId;
 use entity_state::{EntityAuthoringService, EntityComponent, EntityDefinition, EntityState};
+use gameplay_mechanics::{
+    validate_state_against_catalog, ActiveEffectsComponent, EquipmentComponent,
+    IntrinsicSourceBinding, IntrinsicSourcesComponent, MechanicsScalar, SourceInstanceId,
+    StatValue, StatsComponent, TrackValue, TracksComponent,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbilityScore, AbilityScoresComponent, ActorBuildComponent, ActorSideCandidate,
+    defense_stat_id, feat_source_id, vitality_maximum_stat_id, vitality_track_id, AbilityScore,
+    AbilityScoresComponent, ActorBuildComponent, ActorDefinition, ActorSideCandidate,
     CollapsedPartyComponent, FloorFeatureKind, GeneratedFloor, RoguelikeRuleset,
 };
 
@@ -80,6 +86,7 @@ impl WorldState {
                 )
                 .map_err(|detail| error("world_actor_seed", detail.to_string()))?,
             )?;
+            attach_mechanics(&mut entities, &rules, actor)?;
             attach(
                 &mut entities,
                 entity,
@@ -93,6 +100,8 @@ impl WorldState {
                 .map_err(|detail| error("world_actor_seed", detail.to_string()))?,
             )?;
         }
+        validate_state_against_catalog(&entities, rules.mechanics())
+            .map_err(|detail| error("world_mechanics_seed", detail.to_string()))?;
 
         let member_entity_ids = rules
             .party()
@@ -306,7 +315,8 @@ impl WorldState {
             .values()
             .filter(|actor| actor.side == ActorSideCandidate::Opposition)
         {
-            if self.enemy(EntityId::new(actor.entity_id))?.position() == destination {
+            let entity = EntityId::new(actor.entity_id);
+            if self.actor_alive(entity)? && self.enemy(entity)?.position() == destination {
                 return Err(error(
                     "world_step_occupied",
                     "party movement cannot enter an occupied actor cell",
@@ -338,6 +348,87 @@ impl WorldState {
 
     pub fn entities(&self) -> &EntityState {
         &self.entities
+    }
+
+    pub(crate) fn fork(&self) -> Result<Self, WorldStateError> {
+        Ok(Self {
+            floor: self.floor.clone(),
+            rules: self.rules.clone(),
+            entities: self.entities.clone(),
+            spatial: FloorSpatial::build(&self.floor)?,
+            party_entity: self.party_entity,
+        })
+    }
+
+    pub(crate) fn rules(&self) -> &RoguelikeRuleset {
+        &self.rules
+    }
+
+    pub(crate) fn entities_mut(&mut self) -> &mut EntityState {
+        &mut self.entities
+    }
+
+    pub(crate) fn party_position(&self) -> Result<WorldCell, WorldStateError> {
+        Ok(self.party()?.position())
+    }
+
+    pub(crate) fn enemy_position(&self, entity: EntityId) -> Result<WorldCell, WorldStateError> {
+        Ok(self.enemy(entity)?.position())
+    }
+
+    pub(crate) fn participating_enemies(&self) -> Result<Vec<EntityId>, WorldStateError> {
+        self.rules
+            .actors()
+            .values()
+            .filter(|actor| actor.side == ActorSideCandidate::Opposition)
+            .filter_map(|actor| {
+                let entity = EntityId::new(actor.entity_id);
+                match self.enemy(entity) {
+                    Ok(world) if world.participation() == EnemyParticipation::Participating => {
+                        Some(Ok(entity))
+                    }
+                    Ok(_) => None,
+                    Err(error) => Some(Err(error)),
+                }
+            })
+            .collect()
+    }
+
+    pub(crate) fn clear_distance(&self, origin: WorldCell, target: WorldCell) -> Option<u32> {
+        self.spatial.clear_distance(origin, target)
+    }
+
+    pub(crate) fn move_enemy_toward_party(
+        &mut self,
+        entity: EntityId,
+    ) -> Result<bool, WorldStateError> {
+        let enemy = self.enemy(entity)?.clone();
+        let party = self.party_position()?;
+        let path = self.spatial.path(enemy.position(), party)?;
+        let Some(destination) = path.get(1).copied() else {
+            return Ok(false);
+        };
+        if destination == party {
+            return Ok(false);
+        }
+        for actor in self
+            .rules
+            .actors()
+            .values()
+            .filter(|actor| actor.side == ActorSideCandidate::Opposition)
+        {
+            let other = EntityId::new(actor.entity_id);
+            if other != entity
+                && self.actor_alive(other)?
+                && self.enemy_position(other)? == destination
+            {
+                return Ok(false);
+            }
+        }
+        let mut staged = self.entities.clone();
+        replace(&mut staged, entity, enemy.with_position(destination))?;
+        self.entities = staged;
+        Ok(true)
     }
 
     pub const fn party_entity(&self) -> EntityId {
@@ -427,6 +518,13 @@ impl WorldState {
     fn enemy(&self, entity: EntityId) -> Result<&EnemyWorldComponent, WorldStateError> {
         component(&self.entities, entity)
     }
+
+    fn actor_alive(&self, entity: EntityId) -> Result<bool, WorldStateError> {
+        let tracks = component::<TracksComponent>(&self.entities, entity)?;
+        Ok(tracks
+            .current(&vitality_track_id())
+            .is_some_and(|value| value.get() > 0))
+    }
 }
 
 fn entry_cell(floor: &GeneratedFloor) -> Result<WorldCell, WorldStateError> {
@@ -467,6 +565,100 @@ fn distance(left: WorldCell, right: WorldCell) -> i64 {
     i64::from(left.x.abs_diff(right.x)) + i64::from(left.y.abs_diff(right.y))
 }
 
+fn attach_mechanics(
+    entities: &mut EntityState,
+    rules: &RoguelikeRuleset,
+    actor: &ActorDefinition,
+) -> Result<(), WorldStateError> {
+    let entity = EntityId::new(actor.entity_id);
+    let catalog_version = rules.mechanics().version().clone();
+    let ability = |id: &crate::RoguelikeId| {
+        actor
+            .abilities
+            .iter()
+            .find(|score| &score.ability == id)
+            .map(|score| ability_modifier(score.score))
+            .unwrap_or_default()
+    };
+    let mut stats = rules
+        .defenses()
+        .values()
+        .map(|defense| {
+            let modifier = defense
+                .abilities
+                .iter()
+                .map(ability)
+                .max()
+                .unwrap_or_default();
+            StatValue::new(
+                defense_stat_id(&defense.id),
+                MechanicsScalar::new(i64::from(defense.base + modifier))
+                    .expect("compiled defense values fit Engine scalar"),
+            )
+        })
+        .collect::<Vec<_>>();
+    stats.push(StatValue::new(
+        vitality_maximum_stat_id(),
+        MechanicsScalar::new(i64::from(actor.vitality))
+            .expect("compiled vitality fits Engine scalar"),
+    ));
+    attach(
+        entities,
+        entity,
+        StatsComponent::new(catalog_version.clone(), stats)
+            .map_err(|detail| error("world_mechanics_seed", detail.to_string()))?,
+    )?;
+    attach(
+        entities,
+        entity,
+        TracksComponent::new(
+            catalog_version.clone(),
+            vec![TrackValue::new(
+                vitality_track_id(),
+                MechanicsScalar::new(i64::from(actor.vitality))
+                    .expect("compiled vitality fits Engine scalar"),
+            )],
+        )
+        .map_err(|detail| error("world_mechanics_seed", detail.to_string()))?,
+    )?;
+    attach(
+        entities,
+        entity,
+        IntrinsicSourcesComponent::new(
+            catalog_version.clone(),
+            actor
+                .feats
+                .iter()
+                .map(|feat| {
+                    IntrinsicSourceBinding::new(
+                        SourceInstanceId::parse(format!("feat.{feat}"))
+                            .expect("compiled feat ids form mechanics ids"),
+                        feat_source_id(feat),
+                    )
+                })
+                .collect(),
+        )
+        .map_err(|detail| error("world_mechanics_seed", detail.to_string()))?,
+    )?;
+    attach(
+        entities,
+        entity,
+        ActiveEffectsComponent::new(catalog_version.clone(), vec![])
+            .map_err(|detail| error("world_mechanics_seed", detail.to_string()))?,
+    )?;
+    attach(
+        entities,
+        entity,
+        EquipmentComponent::new(catalog_version, vec![])
+            .map_err(|detail| error("world_mechanics_seed", detail.to_string()))?,
+    )?;
+    Ok(())
+}
+
+fn ability_modifier(score: i16) -> i16 {
+    (score - 10).div_euclid(2)
+}
+
 fn attach<T: EntityComponent>(
     state: &mut EntityState,
     entity: EntityId,
@@ -495,7 +687,7 @@ fn replace<T: EntityComponent + PartialEq>(
     Ok(())
 }
 
-fn component<T: EntityComponent>(
+pub(crate) fn component<T: EntityComponent>(
     state: &EntityState,
     entity: EntityId,
 ) -> Result<&T, WorldStateError> {
