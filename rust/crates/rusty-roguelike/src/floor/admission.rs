@@ -243,6 +243,12 @@ fn require_result_validation(output: &ProcgenFloorOutput) -> Result<(), FloorAdm
             "the accepted result omitted its piece plan",
         )
     })?;
+    let placement = output.result.placement.as_ref().ok_or_else(|| {
+        FloorAdmissionError::new(
+            "procgen_placement_missing",
+            "the accepted result omitted its placement",
+        )
+    })?;
     if geometry.candidate_id != output.candidate.candidate_id
         || plan.candidate_id != output.candidate.candidate_id
         || output.source_geometry.candidate_id != output.candidate.candidate_id
@@ -253,7 +259,38 @@ fn require_result_validation(output: &ProcgenFloorOutput) -> Result<(), FloorAdm
             "the accepted artifact chain does not retain one candidate identity",
         );
     }
+
+    let fresh_geometry = ProcgenCore::validate_geometry(geometry);
+    if !fresh_geometry.ok {
+        return rejected(
+            "procgen_fresh_geometry_invalid",
+            diagnostic_summary(&fresh_geometry.diagnostics),
+        );
+    }
+    let fresh_placement = ProcgenCore::validate_placement(placement);
+    if !fresh_placement.ok {
+        return rejected(
+            "procgen_fresh_placement_invalid",
+            diagnostic_summary(&fresh_placement.diagnostics),
+        );
+    }
+    let fresh_built_flow =
+        ProcgenCore::validate_built_flow(&output.candidate, geometry, plan, placement);
+    if !fresh_built_flow.ok {
+        return rejected(
+            "procgen_fresh_built_flow_invalid",
+            diagnostic_summary(&fresh_built_flow.diagnostics),
+        );
+    }
     Ok(())
+}
+
+fn diagnostic_summary(diagnostics: &[rusty_procgen_preflight::Diagnostic]) -> String {
+    diagnostics
+        .iter()
+        .map(|diagnostic| format!("{}: {}", diagnostic.code, diagnostic.detail))
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 fn admit_walkable_cells(placement: &PiecePlacement) -> Result<Vec<FloorCell>, FloorAdmissionError> {

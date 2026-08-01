@@ -93,7 +93,7 @@ fn malformed_procgen_output_and_rejected_generation_publish_nothing() {
         admit_procgen_floor(&inputs, forged)
             .expect_err("duplicate output must be rejected")
             .code(),
-        "duplicate_walkable_cell"
+        "procgen_fresh_placement_invalid"
     );
 
     let mut rejected_inputs = authored_inputs(SEED).expect("authored inputs");
@@ -117,5 +117,42 @@ fn failed_replacement_is_atomic() {
         .replace_generated(FloorGenerationRequest { seed: u64::MAX })
         .expect_err("derived seed overflow must reject");
     assert_eq!(error.code(), "generation_seed_range");
+    assert_eq!(state.current(), Some(&admitted));
+}
+
+#[test]
+fn stale_green_receipts_cannot_publish_invalid_procgen_artifacts() {
+    let mut state = FloorState::default();
+    let admitted = state
+        .replace_generated(FloorGenerationRequest { seed: SEED })
+        .expect("initial floor")
+        .clone();
+    let inputs = authored_inputs(SEED).expect("authored inputs");
+    let mut output = run_procgen(&inputs).expect("accepted Procgen output");
+    output
+        .result
+        .placement
+        .as_mut()
+        .expect("accepted placement")
+        .realization_search
+        .realization_attempts = 0;
+    output.provenance.procgen_result_hash =
+        ProcgenCore::canonical_hash(&output.result).expect("forged result hash");
+    output.provenance.accepted_placement_hash = ProcgenCore::canonical_hash(
+        output
+            .result
+            .placement
+            .as_ref()
+            .expect("forged accepted placement"),
+    )
+    .expect("forged placement hash");
+
+    let error = state
+        .replace_procgen_output(&inputs, output)
+        .expect_err("fresh Procgen validation must reject stale receipts");
+    assert_eq!(error.code(), "procgen_fresh_placement_invalid");
+    assert!(error
+        .detail()
+        .contains("piece_realization_search_evidence_invalid"));
     assert_eq!(state.current(), Some(&admitted));
 }

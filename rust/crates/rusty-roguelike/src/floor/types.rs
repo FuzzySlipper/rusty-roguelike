@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use super::{generation::generate_floor, FloorAdmissionError};
+use super::{
+    admission::admit_procgen_floor,
+    authoring::{authored_inputs, AuthoredGenerationInputs},
+    generation::{run_procgen, ProcgenFloorOutput},
+    FloorAdmissionError,
+};
 
 pub const FLOOR_SCHEMA_VERSION: u32 = 1;
 
@@ -121,7 +126,17 @@ impl FloorState {
         &mut self,
         request: FloorGenerationRequest,
     ) -> Result<&GeneratedFloor, FloorAdmissionError> {
-        let proposed = generate_floor(request)?;
+        let inputs = authored_inputs(request.seed)?;
+        let output = run_procgen(&inputs)?;
+        self.replace_procgen_output(&inputs, output)
+    }
+
+    pub(crate) fn replace_procgen_output(
+        &mut self,
+        inputs: &AuthoredGenerationInputs,
+        output: ProcgenFloorOutput,
+    ) -> Result<&GeneratedFloor, FloorAdmissionError> {
+        let proposed = admit_procgen_floor(inputs, output)?;
         self.current = Some(proposed);
         Ok(self
             .current
