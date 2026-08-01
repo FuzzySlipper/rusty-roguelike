@@ -5,9 +5,10 @@ Its party occupies one square behind the camera, visible participants resolve
 single-action activations in initiative order, and combat stays in the
 exploration renderer rather than switching to a tactical screen.
 
-The first milestone is an intentionally blank, real Rust-served renderer shell.
-It proves the public Rusty Engine and Rusty Procgen dependency boundaries that
-later gameplay milestones build upon.
+The current foundation combines an intentionally blank, real Rust-served
+renderer shell with deterministic Rust-owned admission of a compact floor from
+the public Rusty Procgen core. Later milestones connect that admitted floor to
+the collapsed-party session and playable browser projection.
 
 ```bash
 pnpm install --frozen-lockfile

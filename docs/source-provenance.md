@@ -12,6 +12,21 @@
 `dependency-sources.json` and both lockfiles are the executable identity proof.
 There are no sibling path fallbacks.
 
+## Procgen authoring inputs
+
+The first-floor intent and bounded policies are Rusty Roguelike-owned. The
+compact catalog selectively adapts the public catalog schema and two room
+shapes from Rusty Procgen's `fixtures/shape-catalogs/2d-basic.json` at the
+pinned revision: `shape.room.flow_junction.spaced_8_exit` and
+`shape.room.pocket.9x9_west_south`. The remaining small threshold and corridor
+shapes are game-authored data. The generation code invokes only public
+`ProcgenCore` operations; it does not reproduce Procgen placement or routing
+algorithms.
+
+The lock/key seed intent was informed by Rusty Procgen's
+`fixtures/intents/first-slice.intent.json` at the same revision and was
+rewritten for this game's one-floor contract.
+
 ## Donor evidence
 
 The initial Nx/Angular package seams, Rust static-host pattern, retained abstract

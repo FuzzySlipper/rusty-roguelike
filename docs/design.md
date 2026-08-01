@@ -46,6 +46,21 @@ never shells out to its CLI or copies its algorithms. A missing reusable
 generation capability must be demonstrated by this consumer and fixed
 upstream.
 
-The bootstrap host intentionally exposes only an immutable dependency readout
-and a blank retained scene. Gameplay enters in the following reviewed tasks;
-the phase boundary is recorded in [known limitations](known-limitations.md).
+## Generated-floor admission
+
+The authored seed intent, layout policy, catalog, and bounded catalog-aware
+policy live under `rust/content/procgen`. Rust parses them into Procgen's public
+types and runs the complete filesystem-free `ProcgenCore` pipeline in memory.
+The game admits only a successful unit-cell, four-way, bounded, connected
+lock/key floor with the expected entry, goal, key, gate, and portal semantics.
+
+Every admitted floor retains the exact Procgen revision, authored seed and
+derived stage seeds, selected attempt, plus canonical hashes for all authored,
+intermediate, accepted, and result artifacts. Admission recomputes those hashes
+before trusting geometry. A proposed generation is fully generated and
+admitted before it can replace the current floor, so malformed, incompatible,
+or exhausted results cannot partially publish state.
+
+The browser still exposes only the bootstrap readout and blank retained scene.
+Session visibility and playable projection enter in later reviewed tasks; the
+phase boundary is recorded in [known limitations](known-limitations.md).

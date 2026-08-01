@@ -1,0 +1,13 @@
+{
+  "kind": "rusty_procgen.geometry_layout_policy.v1",
+  "schemaVersion": 1,
+  "initialRoomMargin": 40,
+  "initialColumnGap": 48,
+  "initialRowGap": 32,
+  "roomMarginGrowth": 24,
+  "columnGapGrowth": 24,
+  "rowGapGrowth": 16,
+  "maxSpacingTiers": 4,
+  "roomOrderAttemptsPerTier": 4,
+  "maxSearchAttempts": 64
+}

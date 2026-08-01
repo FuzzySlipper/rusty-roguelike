@@ -1,18 +1,24 @@
 # Agent code atlas
 
-| Path                                                            | Owner                                                                     | Focused proof                                         |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `dependency-sources.json`, `tools/check-dependency-sources.mjs` | Exact public Engine and Procgen identities and carrier audit              | `pnpm run check:dependencies`                         |
-| `rust/crates/rusty-roguelike/src/lib.rs`                        | Rust bootstrap readout, Procgen library linkage, generated protocol owner | `cargo test --manifest-path rust/Cargo.toml --locked` |
-| `rust/crates/rusty-roguelike/src/bin/host.rs`                   | Same-origin static/API Rust host                                          | real Playwright smoke                                 |
-| `libs/protocol/`                                                | Generated DTO and strict unknown-JSON admission                           | Vitest; `pnpm run protocol:check`                     |
-| `libs/platform/`                                                | Browser HTTP, resize, and device-pixel-ratio ports                        | typecheck; consumers                                  |
-| `libs/transport/`                                               | Typed bootstrap transport                                                 | Vitest                                                |
-| `libs/store/`                                                   | Angular async bootstrap state                                             | Vitest; browser smoke                                 |
-| `libs/renderer/`                                                | Retained abstract bootstrap frame and public Engine surface lifecycle     | Vitest; real WebGL smoke                              |
-| `libs/feature-game/`                                            | Full-window renderer and presentation overlay composition                 | real browser smoke                                    |
-| `libs/theme/`                                                   | Product tokens and global geometry                                        | build; browser smoke                                  |
-| `apps/app/`                                                     | Angular application binding only                                          | build                                                 |
-| `apps/app-e2e/`                                                 | Real Rust-served desktop/mobile certification                             | `pnpm run verify:browser`                             |
+| Path                                                            | Owner                                                                      | Focused proof                                         |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `dependency-sources.json`, `tools/check-dependency-sources.mjs` | Exact public Engine and Procgen identities and carrier audit               | `pnpm run check:dependencies`                         |
+| `rust/content/procgen/`                                         | Authored seed intent, compact shape catalog, and bounded generation policy | Rust floor tests                                      |
+| `rust/crates/rusty-roguelike/src/bootstrap.rs`                  | Immutable dependency readout and generated bootstrap protocol owner        | Rust bootstrap tests                                  |
+| `rust/crates/rusty-roguelike/src/floor/authoring.rs`            | Strict embedded authoring input decoding                                   | Rust floor tests                                      |
+| `rust/crates/rusty-roguelike/src/floor/generation.rs`           | Direct public `ProcgenCore` generation pipeline and provenance capture     | Rust floor tests                                      |
+| `rust/crates/rusty-roguelike/src/floor/admission.rs`            | Roguelike-owned bounded topology, semantic, and provenance admission       | Rust floor tests                                      |
+| `rust/crates/rusty-roguelike/src/floor/types.rs`                | Admitted floor DTO, exact provenance, and atomic floor replacement         | Rust floor tests                                      |
+| `rust/crates/rusty-roguelike/src/lib.rs`                        | Private module facade and public Rust API                                  | `cargo test --manifest-path rust/Cargo.toml --locked` |
+| `rust/crates/rusty-roguelike/src/bin/host.rs`                   | Same-origin static/API Rust host                                           | real Playwright smoke                                 |
+| `libs/protocol/`                                                | Generated DTO and strict unknown-JSON admission                            | Vitest; `pnpm run protocol:check`                     |
+| `libs/platform/`                                                | Browser HTTP, resize, and device-pixel-ratio ports                         | typecheck; consumers                                  |
+| `libs/transport/`                                               | Typed bootstrap transport                                                  | Vitest                                                |
+| `libs/store/`                                                   | Angular async bootstrap state                                              | Vitest; browser smoke                                 |
+| `libs/renderer/`                                                | Retained abstract bootstrap frame and public Engine surface lifecycle      | Vitest; real WebGL smoke                              |
+| `libs/feature-game/`                                            | Full-window renderer and presentation overlay composition                  | real browser smoke                                    |
+| `libs/theme/`                                                   | Product tokens and global geometry                                         | build; browser smoke                                  |
+| `apps/app/`                                                     | Angular application binding only                                           | build                                                 |
+| `apps/app-e2e/`                                                 | Real Rust-served desktop/mobile certification                              | `pnpm run verify:browser`                             |
 
 Do not use this atlas instead of the owning design or executable contract.
