@@ -1,0 +1,11 @@
+{
+  "project": "rusty-roguelike",
+  "serve": {
+    "command": "RUSTY_ROGUELIKE_ADDRESS={host}:{port} pnpm run serve:local",
+    "preferredPort": 4417,
+    "healthUrl": "/healthz",
+    "readyText": "\"status\":\"ok\"",
+    "reusePolicy": "broker_owned",
+    "startupTimeout": "240s"
+  }
+}
