@@ -12,7 +12,8 @@ import {
   WORLD_VIEW_LIMITS,
   type ActivationView,
   type BootstrapReadoutDto,
-  type CarriedItemView,
+  type LoadoutItemView,
+  type LoadoutView,
   type LegalActionView,
   type PartyDecisionView,
   type PartyMemberStatusView,
@@ -173,6 +174,8 @@ const SESSION_VIEW_KEYS = [
   'order',
   'outcome',
   'party',
+  'phase',
+  'preparation',
   'revision',
   'round',
   'schemaVersion',
@@ -187,15 +190,44 @@ const ACTIVATION_KEYS = [
   'side',
 ] as const;
 const PARTY_STATUS_KEYS = [
+  'abilities',
+  'actions',
   'actorId',
-  'carriedItems',
+  'classId',
+  'classLevel',
+  'className',
   'conscious',
   'currentVitality',
+  'defenses',
   'entityId',
+  'experience',
+  'feats',
+  'level',
+  'loadout',
   'maximumVitality',
   'name',
+  'title',
 ] as const;
-const CARRIED_ITEM_KEYS = ['itemId', 'name'] as const;
+const ABILITY_KEYS = ['abilityId', 'modifier', 'score'] as const;
+const DEFENSE_KEYS = ['defenseId', 'value'] as const;
+const FEAT_KEYS = ['description', 'featId', 'name'] as const;
+const CHARACTER_ACTION_KEYS = ['actionId', 'name'] as const;
+const LOADOUT_KEYS = [
+  'capacity',
+  'equipmentSlots',
+  'inventorySlots',
+  'ownerEntityId',
+] as const;
+const LOADOUT_ITEM_KEYS = [
+  'entityId',
+  'equipmentSlotId',
+  'equippedSlotId',
+  'itemId',
+  'name',
+] as const;
+const LOADOUT_CAPACITY_KEYS = ['maximum', 'used'] as const;
+const EQUIPMENT_SLOT_KEYS = ['equipped', 'label', 'slotId'] as const;
+const PREPARATION_KEYS = ['ready', 'stash'] as const;
 const PARTY_DECISION_KEYS = [
   'actions',
   'actorEntityId',
@@ -246,6 +278,14 @@ const PARTY_SQUARE_TARGET_KEYS = [
   'selectedMemberEntityId',
   'selectionPolicy',
 ] as const;
+const LOADOUT_MOVED_RECEIPT_KEYS = [
+  'destinationSlotId',
+  'fromOwnerEntityId',
+  'itemEntityId',
+  'kind',
+  'toOwnerEntityId',
+] as const;
+const EXPEDITION_BEGAN_RECEIPT_KEYS = ['kind'] as const;
 
 export function decodeSessionView(value: unknown): SessionView {
   requireExactRecord(value, SESSION_VIEW_KEYS, 'session view');
@@ -254,6 +294,9 @@ export function decodeSessionView(value: unknown): SessionView {
   }
   requireSafeInteger(value['revision'], 0, Number.MAX_SAFE_INTEGER, 'revision');
   requireSafeInteger(value['round'], 1, Number.MAX_SAFE_INTEGER, 'round');
+  if (!['preparation', 'expedition'].includes(String(value['phase']))) {
+    throw new Error('session view has an invalid phase');
+  }
   if (!['ongoing', 'victory', 'defeat'].includes(String(value['outcome']))) {
     throw new Error('session view has an invalid outcome');
   }
@@ -271,7 +314,16 @@ export function decodeSessionView(value: unknown): SessionView {
     }
     activationIds.add(activation.entityId);
   }
-  if (value['outcome'] === 'ongoing') {
+  if (value['phase'] === 'preparation') {
+    if (
+      value['outcome'] !== 'ongoing' ||
+      value['current'] !== null ||
+      value['order'].length !== 0 ||
+      value['decision'] !== null
+    ) {
+      throw new Error('preparation exposes an expedition activation');
+    }
+  } else if (value['outcome'] === 'ongoing') {
     const current = value['current'];
     decodeActivation(current);
     if (
@@ -297,12 +349,25 @@ export function decodeSessionView(value: unknown): SessionView {
     throw new Error('party status is not a bounded array');
   }
   const partyIds = new Set<number>();
+  const loadoutItemIds = new Set<number>();
+  let stashOwnerId: number | null = null;
   for (const member of value['party']) {
     decodePartyMemberStatus(member);
     if (partyIds.has(member.entityId)) {
       throw new Error('party status contains duplicate entities');
     }
     partyIds.add(member.entityId);
+    if (member.loadout.ownerEntityId !== member.entityId) {
+      throw new Error('party loadout owner disagrees with member identity');
+    }
+    for (const item of member.loadout.inventorySlots.filter(
+      (candidate): candidate is LoadoutItemView => candidate !== null,
+    )) {
+      if (loadoutItemIds.has(item.entityId)) {
+        throw new Error('party loadouts contain a duplicate item entity');
+      }
+      loadoutItemIds.add(item.entityId);
+    }
   }
   for (const activation of value['order']) {
     const member = value['party'].find(
@@ -318,7 +383,7 @@ export function decodeSessionView(value: unknown): SessionView {
       throw new Error('activation side disagrees with party identity');
     }
   }
-  if (value['outcome'] === 'ongoing') {
+  if (value['phase'] === 'expedition' && value['outcome'] === 'ongoing') {
     const decision = value['decision'];
     const current = value['current'];
     decodePartyDecision(decision, value['world']);
@@ -333,6 +398,39 @@ export function decodeSessionView(value: unknown): SessionView {
   } else if (value['decision'] !== null) {
     throw new Error('terminal session exposes a party decision');
   }
+  if (value['phase'] === 'preparation') {
+    requireExactRecord(value['preparation'], PREPARATION_KEYS, 'preparation');
+    decodeLoadout(value['preparation']['stash'], false);
+    if (typeof value['preparation']['ready'] !== 'boolean') {
+      throw new Error('preparation has an invalid ready fact');
+    }
+    const stash = value['preparation']['stash'];
+    stashOwnerId = stash.ownerEntityId;
+    if (partyIds.has(stash.ownerEntityId)) {
+      throw new Error('shared stash reuses a party owner');
+    }
+    for (const item of stash.inventorySlots.filter(
+      (candidate): candidate is LoadoutItemView => candidate !== null,
+    )) {
+      if (loadoutItemIds.has(item.entityId)) {
+        throw new Error('shared stash duplicates a party item entity');
+      }
+      loadoutItemIds.add(item.entityId);
+    }
+    const allPartyItemsEquipped = (
+      value['party'] as PartyMemberStatusView[]
+    ).every((member) =>
+      member.loadout.inventorySlots
+        .filter((candidate): candidate is LoadoutItemView => candidate !== null)
+        .every((item) => item.equippedSlotId !== null),
+    );
+    const expectedReady = stash.capacity.used === 0 && allPartyItemsEquipped;
+    if (value['preparation']['ready'] !== expectedReady) {
+      throw new Error('preparation ready fact disagrees with loadout state');
+    }
+  } else if (value['preparation'] !== null) {
+    throw new Error('expedition exposes the remote preparation stash');
+  }
   if (
     !Array.isArray(value['latestReceipts']) ||
     value['latestReceipts'].length > SESSION_VIEW_LIMITS.maxReceipts
@@ -341,15 +439,41 @@ export function decodeSessionView(value: unknown): SessionView {
   }
   for (const receipt of value['latestReceipts']) {
     decodeTurnReceipt(receipt);
-    if (
-      (receipt.kind.startsWith('party') &&
-        !partyIds.has(receipt.actorEntityId)) ||
-      (receipt.kind.startsWith('opposition') &&
-        partyIds.has(receipt.actorEntityId)) ||
-      (receipt.kind === 'oppositionAttacked' &&
-        !partyIds.has(receipt.target.selectedMemberEntityId))
-    ) {
-      throw new Error('turn receipt disagrees with party identity');
+    switch (receipt.kind) {
+      case 'partyMoved':
+      case 'partyTurned':
+      case 'partyAttacked':
+        if (!partyIds.has(receipt.actorEntityId)) {
+          throw new Error('turn receipt disagrees with party identity');
+        }
+        break;
+      case 'oppositionMoved':
+      case 'oppositionPassed':
+        if (partyIds.has(receipt.actorEntityId)) {
+          throw new Error('turn receipt disagrees with party identity');
+        }
+        break;
+      case 'oppositionAttacked':
+        if (
+          partyIds.has(receipt.actorEntityId) ||
+          !partyIds.has(receipt.target.selectedMemberEntityId)
+        ) {
+          throw new Error('turn receipt disagrees with party identity');
+        }
+        break;
+      case 'loadoutMoved':
+        if (
+          !loadoutItemIds.has(receipt.itemEntityId) ||
+          (!partyIds.has(receipt.fromOwnerEntityId) &&
+            stashOwnerId !== receipt.fromOwnerEntityId) ||
+          (!partyIds.has(receipt.toOwnerEntityId) &&
+            stashOwnerId !== receipt.toOwnerEntityId)
+        ) {
+          throw new Error('loadout receipt disagrees with projected ownership');
+        }
+        break;
+      case 'expeditionBegan':
+        break;
     }
   }
   decodeWorldView(value['world']);
@@ -380,6 +504,30 @@ function decodePartyMemberStatus(
     ROGUELIKE_LIMITS.maxAuthoredTextBytes,
     'party member name',
   );
+  requireBoundedText(
+    value['title'],
+    1,
+    ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+    'party member title',
+  );
+  requireSafeInteger(value['level'], 1, 20, 'party member level');
+  requireSafeInteger(
+    value['experience'],
+    0,
+    1_000_000_000,
+    'party member experience',
+  );
+  requireId(value['classId'], 'party member class identity');
+  requireBoundedText(
+    value['className'],
+    1,
+    ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+    'party member class name',
+  );
+  requireSafeInteger(value['classLevel'], 1, 20, 'party member class level');
+  if (Number(value['classLevel']) > Number(value['level'])) {
+    throw new Error('party class level exceeds character level');
+  }
   requireSafeInteger(value['currentVitality'], 0, 65_535, 'current vitality');
   requireSafeInteger(value['maximumVitality'], 1, 65_535, 'maximum vitality');
   if (Number(value['currentVitality']) > Number(value['maximumVitality'])) {
@@ -388,31 +536,193 @@ function decodePartyMemberStatus(
   if (value['conscious'] !== Number(value['currentVitality']) > 0) {
     throw new Error('party consciousness disagrees with vitality');
   }
-  if (
-    !Array.isArray(value['carriedItems']) ||
-    value['carriedItems'].length > ROGUELIKE_LIMITS.maxDefinitionsPerKind
-  ) {
-    throw new Error('carried items are not a bounded array');
-  }
-  const itemIds = new Set<string>();
-  for (const item of value['carriedItems']) {
-    decodeCarriedItem(item);
-    if (itemIds.has(item.itemId)) {
-      throw new Error('party member status contains duplicate carried items');
+  decodeBoundedUniqueReadouts(value['abilities'], 'abilities', (ability) => {
+    requireExactRecord(ability, ABILITY_KEYS, 'ability readout');
+    requireId(ability['abilityId'], 'ability identity');
+    requireSafeInteger(ability['score'], 1, 30, 'ability score');
+    requireI16(ability['modifier'], 'ability modifier');
+    if (
+      ability['modifier'] !== Math.floor((Number(ability['score']) - 10) / 2)
+    ) {
+      throw new Error('ability modifier disagrees with its score');
     }
-    itemIds.add(item.itemId);
+    return ability['abilityId'];
+  });
+  decodeBoundedUniqueReadouts(value['defenses'], 'defenses', (defense) => {
+    requireExactRecord(defense, DEFENSE_KEYS, 'defense readout');
+    requireId(defense['defenseId'], 'defense identity');
+    requireI16(defense['value'], 'defense value');
+    return defense['defenseId'];
+  });
+  decodeBoundedUniqueReadouts(value['feats'], 'feats', (feat) => {
+    requireExactRecord(feat, FEAT_KEYS, 'feat readout');
+    requireId(feat['featId'], 'feat identity');
+    requireBoundedText(
+      feat['name'],
+      1,
+      ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+      'feat name',
+    );
+    requireBoundedText(
+      feat['description'],
+      1,
+      ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+      'feat description',
+    );
+    return feat['featId'];
+  });
+  decodeBoundedUniqueReadouts(
+    value['actions'],
+    'character actions',
+    (action) => {
+      requireExactRecord(action, CHARACTER_ACTION_KEYS, 'character action');
+      requireId(action['actionId'], 'character action identity');
+      requireBoundedText(
+        action['name'],
+        1,
+        ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+        'character action name',
+      );
+      return action['actionId'];
+    },
+  );
+  decodeLoadout(value['loadout'], true);
+}
+
+function decodeBoundedUniqueReadouts(
+  value: unknown,
+  label: string,
+  decode: (entry: unknown) => string,
+): void {
+  if (
+    !Array.isArray(value) ||
+    value.length > ROGUELIKE_LIMITS.maxDefinitionsPerKind
+  ) {
+    throw new Error(`${label} are not a bounded array`);
+  }
+  const identities = new Set<string>();
+  for (const entry of value) {
+    const identity = decode(entry);
+    if (identities.has(identity)) {
+      throw new Error(`${label} contain duplicate identities`);
+    }
+    identities.add(identity);
   }
 }
 
-function decodeCarriedItem(value: unknown): asserts value is CarriedItemView {
-  requireExactRecord(value, CARRIED_ITEM_KEYS, 'carried item');
-  requireId(value['itemId'], 'carried item identity');
+function decodeLoadout(
+  value: unknown,
+  equipmentRequired: boolean,
+): asserts value is LoadoutView {
+  requireExactRecord(value, LOADOUT_KEYS, 'loadout');
+  requireEntityId(value['ownerEntityId'], 'loadout owner identity');
+  requireExactRecord(
+    value['capacity'],
+    LOADOUT_CAPACITY_KEYS,
+    'loadout capacity',
+  );
+  requireSafeInteger(
+    value['capacity']['maximum'],
+    1,
+    ROGUELIKE_LIMITS.maxDefinitionsPerKind,
+    'loadout maximum',
+  );
+  requireSafeInteger(
+    value['capacity']['used'],
+    0,
+    Number(value['capacity']['maximum']),
+    'loadout usage',
+  );
+  if (
+    !Array.isArray(value['inventorySlots']) ||
+    value['inventorySlots'].length !== value['capacity']['maximum']
+  ) {
+    throw new Error('inventory slots disagree with loadout capacity');
+  }
+  const items = new Map<number, LoadoutItemView>();
+  for (const item of value['inventorySlots']) {
+    if (item === null) {
+      continue;
+    }
+    decodeLoadoutItem(item);
+    if (items.has(item.entityId)) {
+      throw new Error('loadout contains duplicate item entities');
+    }
+    items.set(item.entityId, item);
+  }
+  if (items.size !== value['capacity']['used']) {
+    throw new Error('loadout usage disagrees with inventory slots');
+  }
+  if (!Array.isArray(value['equipmentSlots'])) {
+    throw new Error('equipment slots are not an array');
+  }
+  if (
+    (equipmentRequired && value['equipmentSlots'].length !== 3) ||
+    (!equipmentRequired && value['equipmentSlots'].length !== 0)
+  ) {
+    throw new Error('loadout has the wrong equipment slot set');
+  }
+  const slots = new Set<string>();
+  for (const slot of value['equipmentSlots']) {
+    requireExactRecord(slot, EQUIPMENT_SLOT_KEYS, 'equipment slot');
+    requireId(slot['slotId'], 'equipment slot identity');
+    requireBoundedText(
+      slot['label'],
+      1,
+      ROGUELIKE_LIMITS.maxAuthoredTextBytes,
+      'equipment slot label',
+    );
+    if (slots.has(slot['slotId'])) {
+      throw new Error('loadout contains duplicate equipment slots');
+    }
+    slots.add(slot['slotId']);
+    if (slot['equipped'] !== null) {
+      decodeLoadoutItem(slot['equipped']);
+      const inventory = items.get(slot['equipped'].entityId);
+      if (
+        inventory === undefined ||
+        inventory.itemId !== slot['equipped'].itemId ||
+        slot['equipped'].equipmentSlotId !== slot['slotId'] ||
+        slot['equipped'].equippedSlotId !== slot['slotId'] ||
+        inventory.equippedSlotId !== slot['slotId']
+      ) {
+        throw new Error('equipment assignment disagrees with inventory facts');
+      }
+    }
+  }
+  if (
+    [...items.values()].some(
+      (item) => item.equippedSlotId !== null && !slots.has(item.equippedSlotId),
+    )
+  ) {
+    throw new Error('inventory item references an unknown equipment slot');
+  }
+}
+
+function decodeLoadoutItem(value: unknown): asserts value is LoadoutItemView {
+  requireExactRecord(value, LOADOUT_ITEM_KEYS, 'loadout item');
+  requireEntityId(value['entityId'], 'loadout item entity identity');
+  requireId(value['itemId'], 'loadout item identity');
   requireBoundedText(
     value['name'],
     1,
     ROGUELIKE_LIMITS.maxAuthoredTextBytes,
-    'carried item name',
+    'loadout item name',
   );
+  for (const [field, label] of [
+    ['equipmentSlotId', 'equipment slot'],
+    ['equippedSlotId', 'equipped slot'],
+  ] as const) {
+    if (value[field] !== null) {
+      requireId(value[field], label);
+    }
+  }
+  if (
+    value['equippedSlotId'] !== null &&
+    value['equippedSlotId'] !== value['equipmentSlotId']
+  ) {
+    throw new Error('loadout item is equipped in an incompatible slot');
+  }
 }
 
 function decodePartyDecision(
@@ -515,6 +825,32 @@ function decodeTurnReceipt(value: unknown): asserts value is TurnReceipt {
     throw new Error('turn receipt must be a tagged object');
   }
   switch (value['kind']) {
+    case 'loadoutMoved':
+      requireExactRecord(
+        value,
+        LOADOUT_MOVED_RECEIPT_KEYS,
+        'loadout movement receipt',
+      );
+      requireEntityId(value['itemEntityId'], 'loadout receipt item identity');
+      requireEntityId(
+        value['fromOwnerEntityId'],
+        'loadout receipt source owner identity',
+      );
+      requireEntityId(
+        value['toOwnerEntityId'],
+        'loadout receipt destination owner identity',
+      );
+      if (value['destinationSlotId'] !== null) {
+        requireId(value['destinationSlotId'], 'loadout receipt slot identity');
+      }
+      return;
+    case 'expeditionBegan':
+      requireExactRecord(
+        value,
+        EXPEDITION_BEGAN_RECEIPT_KEYS,
+        'expedition start receipt',
+      );
+      return;
     case 'partyMoved':
       requireExactRecord(
         value,

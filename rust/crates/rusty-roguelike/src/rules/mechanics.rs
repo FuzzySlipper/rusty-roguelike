@@ -54,7 +54,7 @@ fn classification_id(slot: EquipmentSlotCandidate) -> ItemClassificationId {
         .expect("fixed mechanics id is valid")
 }
 
-fn inventory_capacity_id() -> CapacityMetricId {
+pub fn inventory_capacity_id() -> CapacityMetricId {
     CapacityMetricId::parse("inventory.slots").expect("fixed mechanics id is valid")
 }
 

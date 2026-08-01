@@ -40,6 +40,13 @@ revision `2ef818e180abf507b3af7fd9bc1029f1e0983237`. Names, contracts, code, and
 ownership were reduced and rewritten for this product. Rusty D20 is not a
 runtime, build, or test dependency.
 
+The preparation loadout interaction was informed by Rusty D20 revision
+`cba4918f96fe6a58a8e3e3682800a39ecaeaf9ca`, and the complete party inspection
+surface by revision `cfb9b69859718ecf9adf4623f5dba1a3ba887183`. Rusty Roguelike
+retains no copied protocol or runtime authority: it rewrites the interactions
+for unique Engine item entities, its own three-slot vocabulary, explicit
+preparation admission, and a read-only expedition boundary.
+
 The starter rules selectively adapt concepts from Ruleweaver revision
 `04ef26d0eef1ba478a2c39b78cca61fe82b15be5`, especially
 `docs/action-economy-conditions-targeting.md`, `docs/class-talent-system.md`,

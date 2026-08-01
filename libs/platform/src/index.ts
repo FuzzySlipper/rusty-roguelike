@@ -58,6 +58,56 @@ export function keyboardEventTargetsEditable(event: KeyboardEvent): boolean {
   );
 }
 
+const ROGUELIKE_ITEM_DRAG_TYPE = 'application/x-rusty-roguelike-loadout-item';
+
+export interface LoadoutDragPayload {
+  readonly itemEntityId: number;
+  readonly ownerEntityId: number;
+}
+
+export function writeLoadoutDrag(
+  transfer: DataTransfer | null,
+  payload: LoadoutDragPayload,
+): boolean {
+  if (transfer === null) {
+    return false;
+  }
+  transfer.effectAllowed = 'move';
+  transfer.setData(
+    ROGUELIKE_ITEM_DRAG_TYPE,
+    `${payload.itemEntityId}:${payload.ownerEntityId}`,
+  );
+  return true;
+}
+
+export function admitLoadoutDrag(transfer: DataTransfer | null): boolean {
+  return transfer?.types.includes(ROGUELIKE_ITEM_DRAG_TYPE) ?? false;
+}
+
+export function markLoadoutDragMove(transfer: DataTransfer | null): void {
+  if (transfer !== null) {
+    transfer.dropEffect = 'move';
+  }
+}
+
+export function readLoadoutDrag(
+  transfer: DataTransfer | null,
+): LoadoutDragPayload | null {
+  const encoded = transfer?.getData(ROGUELIKE_ITEM_DRAG_TYPE) ?? '';
+  const match = /^(\d{1,16}):(\d{1,16})$/.exec(encoded);
+  if (match === null) {
+    return null;
+  }
+  const itemEntityId = Number(match[1]);
+  const ownerEntityId = Number(match[2]);
+  return Number.isSafeInteger(itemEntityId) &&
+    itemEntityId > 0 &&
+    Number.isSafeInteger(ownerEntityId) &&
+    ownerEntityId > 0
+    ? { itemEntityId, ownerEntityId }
+    : null;
+}
+
 export function observeElementSize(
   element: Element,
   onSize: (size: { readonly width: number; readonly height: number }) => void,

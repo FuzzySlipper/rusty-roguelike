@@ -24,8 +24,8 @@ pub use identity::{
     RoguelikeId, RoguelikeIdentityError, MAX_ROGUELIKE_ID_BYTES, ROGUELIKE_ID_PATTERN,
 };
 pub use mechanics::{
-    defense_stat_id, equipment_slot_id, feat_source_id, item_definition_id, item_source_id,
-    vitality_maximum_stat_id, vitality_track_id,
+    defense_stat_id, equipment_slot_id, feat_source_id, inventory_capacity_id, item_definition_id,
+    item_source_id, vitality_maximum_stat_id, vitality_track_id,
 };
 
 #[cfg(test)]

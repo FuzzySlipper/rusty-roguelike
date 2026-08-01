@@ -172,8 +172,9 @@ const OPPOSITION_ATTACK = {
 };
 
 const SESSION_VIEW = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   revision: 4,
+  phase: 'expedition',
   round: 2,
   outcome: 'ongoing',
   current: ACTIVATION,
@@ -183,12 +184,57 @@ const SESSION_VIEW = {
       entityId: 102,
       actorId: 'party.kestrel',
       name: 'Kestrel',
+      title: 'Pathfinder',
+      level: 1,
+      experience: 0,
+      classId: 'scout',
+      className: 'Scout',
+      classLevel: 1,
       currentVitality: 18,
       maximumVitality: 18,
       conscious: true,
-      carriedItems: [{ itemId: 'item.longbow', name: 'Longbow' }],
+      abilities: [{ abilityId: 'finesse', score: 17, modifier: 3 }],
+      defenses: [{ defenseId: 'armor', value: 14 }],
+      feats: [
+        {
+          featId: 'defensive-mobility',
+          name: 'Defensive Mobility',
+          description: 'Stay difficult to pin down.',
+        },
+      ],
+      actions: [{ actionId: 'aimed-shot', name: 'Aimed Shot' }],
+      loadout: {
+        ownerEntityId: 102,
+        inventorySlots: [
+          {
+            entityId: 302,
+            itemId: 'longbow',
+            name: 'Longbow',
+            equipmentSlotId: 'weapon',
+            equippedSlotId: 'weapon',
+          },
+          null,
+        ],
+        equipmentSlots: [
+          { slotId: 'body', label: 'Body', equipped: null },
+          {
+            slotId: 'weapon',
+            label: 'Weapon',
+            equipped: {
+              entityId: 302,
+              itemId: 'longbow',
+              name: 'Longbow',
+              equipmentSlotId: 'weapon',
+              equippedSlotId: 'weapon',
+            },
+          },
+          { slotId: 'focus', label: 'Focus', equipped: null },
+        ],
+        capacity: { used: 1, maximum: 2 },
+      },
     },
   ],
+  preparation: null,
   decision: {
     actorEntityId: 102,
     expectedRevision: 4,
@@ -206,9 +252,101 @@ const SESSION_VIEW = {
   world: { ...WORLD_VIEW, visibleActors: [VISIBLE_ACTOR] },
 };
 
+const STASH_ITEM = {
+  entityId: 303,
+  itemId: 'leather-armor',
+  name: 'Leather Armor',
+  equipmentSlotId: 'body',
+  equippedSlotId: null,
+};
+
+const PREPARATION_VIEW = {
+  ...SESSION_VIEW,
+  revision: 0,
+  phase: 'preparation',
+  round: 1,
+  current: null,
+  order: [],
+  decision: null,
+  latestReceipts: [],
+  preparation: {
+    ready: false,
+    stash: {
+      ownerEntityId: 204,
+      inventorySlots: [STASH_ITEM, null],
+      equipmentSlots: [],
+      capacity: { used: 1, maximum: 2 },
+    },
+  },
+};
+
 describe('decodeSessionView', () => {
   it('accepts the complete Rust-selected party-square attack receipt', () => {
     expect(decodeSessionView(SESSION_VIEW)).toEqual(SESSION_VIEW);
+    expect(decodeSessionView(PREPARATION_VIEW)).toEqual(PREPARATION_VIEW);
+  });
+
+  it('strictly admits preparation, loadout ownership, capacity, and equipment facts', () => {
+    const member = SESSION_VIEW.party[0];
+    const feat = member?.feats[0];
+    if (member === undefined || feat === undefined) {
+      throw new Error('session fixture must include a party member and feat');
+    }
+    expect(() =>
+      decodeSessionView({
+        ...PREPARATION_VIEW,
+        preparation: {
+          ...PREPARATION_VIEW.preparation,
+          ready: true,
+        },
+      }),
+    ).toThrow('ready fact');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        party: [
+          {
+            ...member,
+            loadout: {
+              ...member.loadout,
+              capacity: { used: 2, maximum: 2 },
+            },
+          },
+        ],
+      }),
+    ).toThrow('usage disagrees');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        party: [
+          {
+            ...member,
+            loadout: {
+              ...member.loadout,
+              equipmentSlots: member.loadout.equipmentSlots.map((slot) =>
+                slot.slotId === 'weapon'
+                  ? {
+                      ...slot,
+                      equipped: { ...slot.equipped, entityId: 999 },
+                    }
+                  : slot,
+              ),
+            },
+          },
+        ],
+      }),
+    ).toThrow('equipment assignment');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        party: [
+          {
+            ...member,
+            feats: [{ ...feat, browserBonus: 2 }],
+          },
+        ],
+      }),
+    ).toThrow('missing or unknown');
   });
 
   it('closes tagged receipts and party-member selection facts', () => {

@@ -38,8 +38,9 @@ describe('BootstrapTransport', () => {
 });
 
 const TERMINAL_SESSION = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   revision: 3,
+  phase: 'expedition',
   round: 2,
   outcome: 'victory',
   current: null,
@@ -49,12 +50,38 @@ const TERMINAL_SESSION = {
       entityId: 101,
       actorId: 'party.brann',
       name: 'Brann',
+      title: 'Shield of the Lantern',
+      level: 1,
+      experience: 0,
+      classId: 'guardian',
+      className: 'Guardian',
+      classLevel: 1,
       currentVitality: 20,
       maximumVitality: 20,
       conscious: true,
-      carriedItems: [{ itemId: 'item.sword', name: 'Sword' }],
+      abilities: [{ abilityId: 'might', score: 16, modifier: 3 }],
+      defenses: [{ defenseId: 'armor', value: 16 }],
+      feats: [
+        {
+          featId: 'shield-discipline',
+          name: 'Shield Discipline',
+          description: 'Hold the line.',
+        },
+      ],
+      actions: [{ actionId: 'shield-bash', name: 'Shield Bash' }],
+      loadout: {
+        ownerEntityId: 101,
+        inventorySlots: [null, null, null],
+        equipmentSlots: [
+          { slotId: 'body', label: 'Body', equipped: null },
+          { slotId: 'weapon', label: 'Weapon', equipped: null },
+          { slotId: 'focus', label: 'Focus', equipped: null },
+        ],
+        capacity: { used: 0, maximum: 3 },
+      },
     },
   ],
+  preparation: null,
   decision: null,
   latestReceipts: [],
   world: {

@@ -7,9 +7,9 @@ use gameplay_mechanics::{
 use crate::{
     admit_roguelike_candidate, generate_authored_floor, starter_candidate, starter_ruleset,
     EnemyParticipation, EnemyWorldComponent, FloorBounds, FloorCell, FloorFeature,
-    FloorFeatureKind, PartyCommand, RelativeStep, RoguelikePackageEnvelope,
-    RoguelikeRulesCandidate, RoguelikeRuleset, RollPolicyCandidate, RollPolicyKindCandidate,
-    SessionCommandDto, StaticRollCandidate, TurnReceipt, TurnSide, WorldState,
+    FloorFeatureKind, RelativeStep, RoguelikePackageEnvelope, RoguelikeRulesCandidate,
+    RoguelikeRuleset, RollPolicyCandidate, RollPolicyKindCandidate, SessionCommand,
+    SessionCommandDto, SessionPhase, StaticRollCandidate, TurnReceipt, TurnSide, WorldState,
 };
 
 use super::GameSession;
@@ -21,6 +21,29 @@ fn view_projects_party_status_inventory_and_the_exact_current_decision() {
     let session =
         GameSession::new(WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap())
             .unwrap();
+    let preparation = session.view().unwrap();
+    assert_eq!(preparation.phase, SessionPhase::Preparation);
+    assert!(preparation.current.is_none());
+    assert_eq!(
+        preparation
+            .preparation
+            .as_ref()
+            .unwrap()
+            .stash
+            .capacity
+            .used,
+        7
+    );
+    assert!(preparation.party.iter().all(|member| {
+        member.level == 1
+            && member.class_level == 1
+            && !member.abilities.is_empty()
+            && !member.defenses.is_empty()
+            && !member.feats.is_empty()
+            && member.loadout.capacity.used == 0
+    }));
+    let mut session = session;
+    complete_preparation(&mut session);
     let view = session.view().unwrap();
     let current = view.current.as_ref().unwrap();
     let decision = view.decision.as_ref().unwrap();
@@ -29,7 +52,14 @@ fn view_projects_party_status_inventory_and_the_exact_current_decision() {
     assert!(view.party.iter().all(|member| {
         member.current_vitality <= member.maximum_vitality
             && member.conscious == (member.current_vitality > 0)
-            && !member.carried_items.is_empty()
+            && member.loadout.capacity.used > 0
+            && member
+                .loadout
+                .equipment_slots
+                .iter()
+                .filter(|slot| slot.equipped.is_some())
+                .count()
+                == usize::try_from(member.loadout.capacity.used).unwrap()
     }));
     assert_eq!(decision.actor_entity_id, current.entity_id);
     assert_eq!(decision.expected_revision, view.revision);
@@ -67,13 +97,121 @@ fn session_command_dto_is_closed_and_preserves_the_typed_action() {
         "ignoredLegality": true
     });
     assert!(serde_json::from_value::<SessionCommandDto>(forged).is_err());
+
+    let move_item: SessionCommandDto = serde_json::from_value(serde_json::json!({
+        "kind": "moveLoadoutItem",
+        "expectedRevision": 0,
+        "itemEntityId": 205,
+        "fromOwnerEntityId": 204,
+        "toOwnerEntityId": 101,
+        "destinationSlotId": "body"
+    }))
+    .unwrap();
+    assert!(matches!(
+        move_item,
+        SessionCommandDto::MoveLoadoutItem {
+            expected_revision: 0,
+            item_entity_id: 205,
+            from_owner_entity_id: 204,
+            to_owner_entity_id: 101,
+            ref destination_slot_id,
+        } if destination_slot_id.as_deref() == Some("body")
+    ));
+    assert!(
+        serde_json::from_value::<SessionCommandDto>(serde_json::json!({
+            "kind": "beginExpedition",
+            "expectedRevision": 0,
+            "browserReady": true
+        }))
+        .is_err()
+    );
+}
+
+#[test]
+fn preparation_loadout_is_engine_backed_typed_and_atomic() {
+    let mut session =
+        GameSession::new(WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap())
+            .unwrap();
+    let initial = session.view().unwrap();
+    let stash = &initial.preparation.as_ref().unwrap().stash;
+    let armor = stash
+        .inventory_slots
+        .iter()
+        .flatten()
+        .find(|item| item.item_id.as_str() == "scale-mail")
+        .unwrap()
+        .clone();
+    let before_armor = initial.party[0]
+        .defenses
+        .iter()
+        .find(|defense| defense.defense_id.as_str() == "armor")
+        .unwrap()
+        .value;
+
+    let invalid = session
+        .command(SessionCommand::MoveLoadoutItem {
+            expected_revision: initial.revision,
+            item_entity_id: armor.entity_id,
+            from_owner_entity_id: stash.owner_entity_id,
+            to_owner_entity_id: 101,
+            destination_slot_id: Some("focus".to_owned()),
+        })
+        .expect_err("armor cannot occupy a focus slot");
+    assert_eq!(invalid.code(), "session_loadout_slot_invalid");
+    assert_eq!(session.view().unwrap(), initial);
+
+    let moved = session
+        .command(SessionCommand::MoveLoadoutItem {
+            expected_revision: initial.revision,
+            item_entity_id: armor.entity_id,
+            from_owner_entity_id: stash.owner_entity_id,
+            to_owner_entity_id: 101,
+            destination_slot_id: armor.equipment_slot_id.clone(),
+        })
+        .unwrap();
+    assert_eq!(moved.preparation.as_ref().unwrap().stash.capacity.used, 6);
+    assert_eq!(
+        moved.party[0]
+            .defenses
+            .iter()
+            .find(|defense| defense.defense_id.as_str() == "armor")
+            .unwrap()
+            .value,
+        before_armor + 2
+    );
+    assert!(moved.party[0]
+        .loadout
+        .equipment_slots
+        .iter()
+        .any(|slot| slot.slot_id == "body" && slot.equipped.is_some()));
+
+    let stable = session.view().unwrap();
+    let stale = session
+        .command(SessionCommand::MoveLoadoutItem {
+            expected_revision: initial.revision,
+            item_entity_id: armor.entity_id,
+            from_owner_entity_id: 101,
+            to_owner_entity_id: 101,
+            destination_slot_id: None,
+        })
+        .expect_err("stale loadout commands reject before mutation");
+    assert_eq!(stale.code(), "session_revision_stale");
+    assert_eq!(session.view().unwrap(), stable);
+
+    let incomplete = session
+        .command(SessionCommand::BeginExpedition {
+            expected_revision: stable.revision,
+        })
+        .expect_err("the shared stash must be equipped first");
+    assert_eq!(incomplete.code(), "session_preparation_incomplete");
+    assert_eq!(session.view().unwrap(), stable);
 }
 
 #[test]
 fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
     let world = WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap();
     let before = world.durable_state().unwrap().party.position();
-    let mut session = GameSession::new(world).unwrap();
+    let mut session = prepared_session(world);
     let initial = session.view().unwrap();
 
     assert_eq!(
@@ -92,13 +230,13 @@ fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
     assert_eq!(initial.current.as_ref().unwrap().entity_id, 102);
 
     let next = session
-        .command(PartyCommand::Step {
+        .command(SessionCommand::Step {
             actor_entity_id: 102,
-            expected_revision: 0,
+            expected_revision: initial.revision,
             step: RelativeStep::Forward,
         })
         .unwrap();
-    assert_eq!(next.revision, 1);
+    assert_eq!(next.revision, initial.revision + 1);
     assert_eq!(next.current.as_ref().unwrap().entity_id, 103);
     assert_eq!(
         session.world().durable_state().unwrap().party.position().y,
@@ -141,7 +279,7 @@ fn adjacent_no_legal_opposition_passes_and_newly_seen_actor_joins_next_round() {
     )
     .unwrap();
     let world = WorldState::restore(floor, rules_without_goblin_attack(), durable).unwrap();
-    let mut session = GameSession::new(world).unwrap();
+    let mut session = prepared_session(world);
     assert!(!session
         .view()
         .unwrap()
@@ -176,12 +314,12 @@ fn selected_attack_consumes_one_activation_and_failed_static_roll_is_atomic() {
         damage: vec![6, 6],
     }]);
     let world = WorldState::new(open_arena(), rules).unwrap();
-    let mut session = GameSession::new(world).unwrap();
+    let mut session = prepared_session(world);
     let before = session.view().unwrap();
     let error = session
-        .command(PartyCommand::UseAction {
+        .command(SessionCommand::UseAction {
             actor_entity_id: 102,
-            expected_revision: 0,
+            expected_revision: before.revision,
             action_id: crate::RoguelikeId::parse("aimed-shot").unwrap(),
             target_entity_id: 202,
         })
@@ -190,12 +328,12 @@ fn selected_attack_consumes_one_activation_and_failed_static_roll_is_atomic() {
     assert_eq!(session.view().unwrap(), before);
 
     let mut session =
-        GameSession::new(WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap())
-            .unwrap();
+        prepared_session(WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap());
+    let before_attack = session.view().unwrap();
     let resolved = session
-        .command(PartyCommand::UseAction {
+        .command(SessionCommand::UseAction {
             actor_entity_id: 102,
-            expected_revision: 0,
+            expected_revision: before_attack.revision,
             action_id: crate::RoguelikeId::parse("aimed-shot").unwrap(),
             target_entity_id: 202,
         })
@@ -212,9 +350,9 @@ fn selected_attack_consumes_one_activation_and_failed_static_roll_is_atomic() {
 
     let stable = session.view().unwrap();
     let stale = session
-        .command(PartyCommand::TurnLeft {
+        .command(SessionCommand::TurnLeft {
             actor_entity_id: 103,
-            expected_revision: 0,
+            expected_revision: stable.revision - 1,
         })
         .expect_err("stale revision must reject");
     assert_eq!(stale.code(), "session_revision_stale");
@@ -247,15 +385,14 @@ fn defeated_participant_leaves_the_live_order_without_blocking_the_round() {
         EnemyParticipation::Participating,
     )
     .unwrap();
-    let mut session = GameSession::new(
+    let mut session = prepared_session(
         WorldState::restore(floor, static_rules_single_enemy(rolls), durable).unwrap(),
-    )
-    .unwrap();
+    );
     let attack = crate::RoguelikeId::parse("aimed-shot").unwrap();
     session
-        .command(PartyCommand::UseAction {
+        .command(SessionCommand::UseAction {
             actor_entity_id: 102,
-            expected_revision: 0,
+            expected_revision: session.view().unwrap().revision,
             action_id: attack.clone(),
             target_entity_id: 202,
         })
@@ -266,7 +403,7 @@ fn defeated_participant_leaves_the_live_order_without_blocking_the_round() {
     assert_eq!(current.round, 2);
     assert_eq!(current.current.as_ref().unwrap().entity_id, 102);
     let after_defeat = session
-        .command(PartyCommand::UseAction {
+        .command(SessionCommand::UseAction {
             actor_entity_id: 102,
             expected_revision: current.revision,
             action_id: attack,
@@ -326,7 +463,7 @@ fn party_square_targeting_skips_incapacitated_members_without_browser_choice() {
 fn turn_right(session: &mut GameSession) -> crate::SessionView {
     let view = session.view().unwrap();
     session
-        .command(PartyCommand::TurnRight {
+        .command(SessionCommand::TurnRight {
             actor_entity_id: view.current.unwrap().entity_id,
             expected_revision: view.revision,
         })
@@ -336,7 +473,7 @@ fn turn_right(session: &mut GameSession) -> crate::SessionView {
 fn turn_left(session: &mut GameSession) -> crate::SessionView {
     let view = session.view().unwrap();
     session
-        .command(PartyCommand::TurnLeft {
+        .command(SessionCommand::TurnLeft {
             actor_entity_id: view.current.unwrap().entity_id,
             expected_revision: view.revision,
         })
@@ -378,6 +515,46 @@ fn incapacitate(session: &mut GameSession, entity_id: u64) {
     .unwrap();
 }
 
+fn prepared_session(world: WorldState) -> GameSession {
+    let mut session = GameSession::new(world).unwrap();
+    complete_preparation(&mut session);
+    session
+}
+
+fn complete_preparation(session: &mut GameSession) {
+    let initial = session.view().unwrap();
+    let stash = initial.preparation.unwrap().stash;
+    for item in stash.inventory_slots.into_iter().flatten() {
+        let owner = session
+            .world
+            .rules()
+            .party()
+            .members
+            .iter()
+            .map(|actor_id| &session.world.rules().actors()[actor_id])
+            .find(|actor| actor.items.contains(&item.item_id))
+            .unwrap()
+            .entity_id;
+        let view = session.view().unwrap();
+        session
+            .command(SessionCommand::MoveLoadoutItem {
+                expected_revision: view.revision,
+                item_entity_id: item.entity_id,
+                from_owner_entity_id: stash.owner_entity_id,
+                to_owner_entity_id: owner,
+                destination_slot_id: item.equipment_slot_id,
+            })
+            .unwrap();
+    }
+    let view = session.view().unwrap();
+    assert!(view.preparation.as_ref().unwrap().ready);
+    session
+        .command(SessionCommand::BeginExpedition {
+            expected_revision: view.revision,
+        })
+        .unwrap();
+}
+
 fn single_enemy_party_square_session() -> GameSession {
     let floor = open_arena();
     let rules = single_enemy_rules();
@@ -389,7 +566,7 @@ fn single_enemy_party_square_session() -> GameSession {
         EnemyParticipation::Participating,
     )
     .unwrap();
-    GameSession::new(WorldState::restore(floor, single_enemy_rules(), durable).unwrap()).unwrap()
+    prepared_session(WorldState::restore(floor, single_enemy_rules(), durable).unwrap())
 }
 
 fn open_arena() -> crate::GeneratedFloor {

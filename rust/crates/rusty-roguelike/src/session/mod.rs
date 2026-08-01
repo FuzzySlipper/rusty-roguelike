@@ -1,3 +1,4 @@
+mod loadout;
 mod resolution;
 mod roll;
 mod runtime;
@@ -12,11 +13,20 @@ pub(crate) fn generated_session_typescript() -> String {
     let declarations = [
         TurnSide::decl(),
         SessionOutcome::decl(),
+        SessionPhase::decl(),
         PartyMemberSelectionPolicy::decl(),
         PartySquareTargetReceipt::decl(),
         ActivationView::decl(),
         PartyMemberStatusView::decl(),
-        CarriedItemView::decl(),
+        AbilityReadoutView::decl(),
+        DefenseReadoutView::decl(),
+        FeatReadoutView::decl(),
+        CharacterActionView::decl(),
+        LoadoutItemView::decl(),
+        LoadoutCapacityView::decl(),
+        EquipmentSlotView::decl(),
+        LoadoutView::decl(),
+        PreparationView::decl(),
         LegalActionView::decl(),
         PartyDecisionView::decl(),
         PartyTurnDirection::decl(),

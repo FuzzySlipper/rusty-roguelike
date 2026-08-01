@@ -29,11 +29,14 @@ import {
   type RulesLogEntry,
 } from '@rusty-roguelike/store';
 
+import { PartySheetComponent } from './party-sheet';
+import { PreparationComponent } from './preparation';
+
 type Drawer = 'party' | 'inventory' | null;
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [GameViewportComponent],
+  imports: [GameViewportComponent, PartySheetComponent, PreparationComponent],
   selector: 'rr-game-shell',
   standalone: true,
   styles: [
@@ -452,279 +455,269 @@ type Drawer = 'party' | 'inventory' | null;
                   [selectedActionId]="selectedActionId()"
                   (actorPicked)="pickTarget($event)"
                 />
-                <div class="hud">
-                  <nav class="panel initiative" aria-label="Initiative order">
-                    @for (
-                      activation of state.value.order;
-                      track activation.entityId
-                    ) {
-                      <span
-                        [class.current]="
-                          activation.entityId === state.value.current?.entityId
-                        "
-                        [attr.aria-current]="
-                          activation.entityId === state.value.current?.entityId
-                            ? 'step'
-                            : null
-                        "
-                      >
-                        {{ activation.name }} · {{ activation.initiative }}
-                      </span>
-                    }
-                  </nav>
-
-                  <div class="expedition-tools">
-                    <button
-                      #partyTrigger
-                      type="button"
-                      aria-controls="party-drawer"
-                      [attr.aria-expanded]="drawer() === 'party'"
-                      (click)="openDrawer('party')"
-                    >
-                      Party
-                    </button>
-                    <button
-                      #inventoryTrigger
-                      type="button"
-                      aria-controls="inventory-drawer"
-                      [attr.aria-expanded]="drawer() === 'inventory'"
-                      (click)="openDrawer('inventory')"
-                    >
-                      Packs
-                    </button>
-                  </div>
-
-                  <aside class="panel party-rail" aria-label="Party vitality">
-                    @for (member of state.value.party; track member.entityId) {
-                      <div class="member" [class.down]="!member.conscious">
-                        <header>
-                          <span>{{ member.name }}</span>
-                          <span
-                            >{{ member.currentVitality }}/{{
-                              member.maximumVitality
-                            }}</span
-                          >
-                        </header>
-                        <meter
-                          min="0"
-                          [max]="member.maximumVitality"
-                          [value]="member.currentVitality"
-                        >
-                          {{ member.currentVitality }} of
-                          {{ member.maximumVitality }}
-                        </meter>
-                      </div>
-                    }
-                  </aside>
-
-                  <section class="panel actions" aria-label="Available actions">
-                    <p class="panel-title">
-                      One action · {{ state.value.current?.name }}
-                    </p>
-                    <div class="action-row">
+                @if (state.value.phase === 'preparation') {
+                  <rr-preparation [view]="state.value" />
+                } @else {
+                  <div class="hud">
+                    <nav class="panel initiative" aria-label="Initiative order">
                       @for (
-                        action of state.value.decision?.actions ?? [];
-                        track action.actionId;
-                        let index = $index
+                        activation of state.value.order;
+                        track activation.entityId
                       ) {
-                        <button
-                          type="button"
-                          [class.selected]="
-                            selectedActionId() === action.actionId
+                        <span
+                          [class.current]="
+                            activation.entityId ===
+                            state.value.current?.entityId
                           "
-                          [disabled]="
-                            session.busy() ||
-                            action.legalTargetEntityIds.length === 0
+                          [attr.aria-current]="
+                            activation.entityId ===
+                            state.value.current?.entityId
+                              ? 'step'
+                              : null
                           "
-                          [attr.aria-pressed]="
-                            selectedActionId() === action.actionId
-                          "
-                          (click)="selectAction(action)"
                         >
-                          {{ index + 1 }} · {{ action.name }}
-                        </button>
+                          {{ activation.name }} · {{ activation.initiative }}
+                        </span>
                       }
+                    </nav>
+
+                    <div class="expedition-tools">
+                      <button
+                        #partyTrigger
+                        type="button"
+                        aria-controls="party-drawer"
+                        [attr.aria-expanded]="drawer() === 'party'"
+                        (click)="openDrawer('party')"
+                      >
+                        Party
+                      </button>
+                      <button
+                        #inventoryTrigger
+                        type="button"
+                        aria-controls="inventory-drawer"
+                        [attr.aria-expanded]="drawer() === 'inventory'"
+                        (click)="openDrawer('inventory')"
+                      >
+                        Packs
+                      </button>
                     </div>
-                    @if (selectedAction(); as action) {
-                      <div class="target-row" aria-label="Legal targets">
+
+                    <aside class="panel party-rail" aria-label="Party vitality">
+                      @for (
+                        member of state.value.party;
+                        track member.entityId
+                      ) {
+                        <div class="member" [class.down]="!member.conscious">
+                          <header>
+                            <span>{{ member.name }}</span>
+                            <span
+                              >{{ member.currentVitality }}/{{
+                                member.maximumVitality
+                              }}</span
+                            >
+                          </header>
+                          <meter
+                            min="0"
+                            [max]="member.maximumVitality"
+                            [value]="member.currentVitality"
+                          >
+                            {{ member.currentVitality }} of
+                            {{ member.maximumVitality }}
+                          </meter>
+                        </div>
+                      }
+                    </aside>
+
+                    <section
+                      class="panel actions"
+                      aria-label="Available actions"
+                    >
+                      <p class="panel-title">
+                        One action · {{ state.value.current?.name }}
+                      </p>
+                      <div class="action-row">
                         @for (
-                          targetId of action.legalTargetEntityIds;
-                          track targetId
+                          action of state.value.decision?.actions ?? [];
+                          track action.actionId;
+                          let index = $index
                         ) {
                           <button
                             type="button"
-                            [disabled]="session.busy()"
-                            (click)="useAction(action, targetId)"
+                            [class.selected]="
+                              selectedActionId() === action.actionId
+                            "
+                            [disabled]="
+                              session.busy() ||
+                              action.legalTargetEntityIds.length === 0
+                            "
+                            [attr.aria-pressed]="
+                              selectedActionId() === action.actionId
+                            "
+                            (click)="selectAction(action)"
                           >
-                            {{ targetName(targetId) }}
+                            {{ index + 1 }} · {{ action.name }}
                           </button>
                         }
                       </div>
+                      @if (selectedAction(); as action) {
+                        <div class="target-row" aria-label="Legal targets">
+                          @for (
+                            targetId of action.legalTargetEntityIds;
+                            track targetId
+                          ) {
+                            <button
+                              type="button"
+                              [disabled]="session.busy()"
+                              (click)="useAction(action, targetId)"
+                            >
+                              {{ targetName(targetId) }}
+                            </button>
+                          }
+                        </div>
+                      }
+                    </section>
+
+                    <nav
+                      class="panel movement"
+                      aria-label="Movement and facing"
+                    >
+                      <button
+                        class="forward"
+                        type="button"
+                        aria-label="Step forward"
+                        [disabled]="!canStep('forward') || session.busy()"
+                        (click)="step('forward')"
+                      >
+                        W
+                      </button>
+                      <button
+                        class="turn-left"
+                        type="button"
+                        aria-label="Turn left"
+                        [disabled]="
+                          !state.value.decision?.canTurn || session.busy()
+                        "
+                        (click)="turn('left')"
+                      >
+                        Q
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Step left"
+                        [disabled]="!canStep('left') || session.busy()"
+                        (click)="step('left')"
+                      >
+                        A
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Step right"
+                        [disabled]="!canStep('right') || session.busy()"
+                        (click)="step('right')"
+                      >
+                        D
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Turn right"
+                        [disabled]="
+                          !state.value.decision?.canTurn || session.busy()
+                        "
+                        (click)="turn('right')"
+                      >
+                        E
+                      </button>
+                      <button
+                        class="backward"
+                        type="button"
+                        aria-label="Step backward"
+                        [disabled]="!canStep('backward') || session.busy()"
+                        (click)="step('backward')"
+                      >
+                        S
+                      </button>
+                    </nav>
+
+                    <section
+                      #rulesLog
+                      class="panel rules-log"
+                      aria-label="Rules log"
+                      aria-live="polite"
+                    >
+                      <p class="panel-title">Rules log</p>
+                      @if (session.log().length === 0) {
+                        <p class="empty-log">
+                          The expedition is waiting for a command.
+                        </p>
+                      }
+                      @for (entry of session.log(); track entry.id) {
+                        <details
+                          class="log-entry"
+                          [title]="receiptDetail(entry)"
+                        >
+                          <summary>{{ receiptSummary(entry) }}</summary>
+                          <p class="log-detail">{{ receiptDetail(entry) }}</p>
+                        </details>
+                      }
+                    </section>
+
+                    @if (drawer(); as open) {
+                      <section
+                        [attr.id]="
+                          open === 'party' ? 'party-drawer' : 'inventory-drawer'
+                        "
+                        class="panel drawer"
+                        role="region"
+                        [attr.aria-label]="
+                          open === 'party' ? 'Party quick view' : 'Field packs'
+                        "
+                      >
+                        <header>
+                          <h2>
+                            {{
+                              open === 'party'
+                                ? 'Party quick view'
+                                : 'Field packs'
+                            }}
+                          </h2>
+                          <button
+                            type="button"
+                            aria-label="Close panel"
+                            (click)="closeDrawer()"
+                          >
+                            ×
+                          </button>
+                        </header>
+                        <rr-party-sheet
+                          [party]="state.value.party"
+                          [showLoadout]="open === 'inventory'"
+                        />
+                      </section>
                     }
-                  </section>
 
-                  <nav class="panel movement" aria-label="Movement and facing">
-                    <button
-                      class="forward"
-                      type="button"
-                      aria-label="Step forward"
-                      [disabled]="!canStep('forward') || session.busy()"
-                      (click)="step('forward')"
-                    >
-                      W
-                    </button>
-                    <button
-                      class="turn-left"
-                      type="button"
-                      aria-label="Turn left"
-                      [disabled]="
-                        !state.value.decision?.canTurn || session.busy()
-                      "
-                      (click)="turn('left')"
-                    >
-                      Q
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Step left"
-                      [disabled]="!canStep('left') || session.busy()"
-                      (click)="step('left')"
-                    >
-                      A
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Step right"
-                      [disabled]="!canStep('right') || session.busy()"
-                      (click)="step('right')"
-                    >
-                      D
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Turn right"
-                      [disabled]="
-                        !state.value.decision?.canTurn || session.busy()
-                      "
-                      (click)="turn('right')"
-                    >
-                      E
-                    </button>
-                    <button
-                      class="backward"
-                      type="button"
-                      aria-label="Step backward"
-                      [disabled]="!canStep('backward') || session.busy()"
-                      (click)="step('backward')"
-                    >
-                      S
-                    </button>
-                  </nav>
-
-                  <section
-                    #rulesLog
-                    class="panel rules-log"
-                    aria-label="Rules log"
-                    aria-live="polite"
-                  >
-                    <p class="panel-title">Rules log</p>
-                    @if (session.log().length === 0) {
-                      <p class="empty-log">
-                        The expedition is waiting for a command.
+                    @if (session.commandError(); as failure) {
+                      <p class="command-error" role="alert">
+                        @if (failure.code !== null) {
+                          <strong>{{ failure.code }}</strong> ·
+                        }
+                        {{ failure.detail }}
                       </p>
                     }
-                    @for (entry of session.log(); track entry.id) {
-                      <details class="log-entry" [title]="receiptDetail(entry)">
-                        <summary>{{ receiptSummary(entry) }}</summary>
-                        <p class="log-detail">{{ receiptDetail(entry) }}</p>
-                      </details>
-                    }
-                  </section>
 
-                  @if (drawer(); as open) {
-                    <section
-                      [attr.id]="
-                        open === 'party' ? 'party-drawer' : 'inventory-drawer'
-                      "
-                      class="panel drawer"
-                      role="region"
-                      [attr.aria-label]="
-                        open === 'party' ? 'Party quick view' : 'Field packs'
-                      "
-                    >
-                      <header>
-                        <h2>
-                          {{
-                            open === 'party'
-                              ? 'Party quick view'
-                              : 'Field packs'
-                          }}
-                        </h2>
-                        <button
-                          type="button"
-                          aria-label="Close panel"
-                          (click)="closeDrawer()"
-                        >
-                          ×
-                        </button>
-                      </header>
-                      <div class="drawer-grid">
-                        @for (
-                          member of state.value.party;
-                          track member.entityId
-                        ) {
-                          <article>
-                            <h3>{{ member.name }}</h3>
-                            @if (open === 'party') {
-                              <p>
-                                Vitality {{ member.currentVitality }} /
-                                {{ member.maximumVitality }} ·
-                                {{
-                                  member.conscious ? 'Ready' : 'Incapacitated'
-                                }}
-                              </p>
-                            } @else {
-                              @if (member.carriedItems.length === 0) {
-                                <p>No carried items.</p>
-                              } @else {
-                                <ul>
-                                  @for (
-                                    item of member.carriedItems;
-                                    track item.itemId
-                                  ) {
-                                    <li>{{ item.name }}</li>
-                                  }
-                                </ul>
-                              }
-                            }
-                          </article>
-                        }
-                      </div>
-                    </section>
-                  }
-
-                  @if (session.commandError(); as failure) {
-                    <p class="command-error" role="alert">
-                      @if (failure.code !== null) {
-                        <strong>{{ failure.code }}</strong> ·
+                    @if (bootstrap.state(); as bootstrapState) {
+                      @if (bootstrapState.status === 'ready') {
+                        <span class="system-readout" aria-hidden="true">
+                          <span data-testid="engine-revision">{{
+                            bootstrapState.value.rustyEngineRevision
+                          }}</span>
+                          <span data-testid="procgen-revision">{{
+                            bootstrapState.value.rustyProcgenRevision
+                          }}</span>
+                        </span>
                       }
-                      {{ failure.detail }}
-                    </p>
-                  }
-
-                  @if (bootstrap.state(); as bootstrapState) {
-                    @if (bootstrapState.status === 'ready') {
-                      <span class="system-readout" aria-hidden="true">
-                        <span data-testid="engine-revision">{{
-                          bootstrapState.value.rustyEngineRevision
-                        }}</span>
-                        <span data-testid="procgen-revision">{{
-                          bootstrapState.value.rustyProcgenRevision
-                        }}</span>
-                      </span>
                     }
-                  }
-                </div>
+                  </div>
+                }
               </section>
             }
           }
@@ -908,6 +901,10 @@ export class GameShellComponent implements OnInit, OnDestroy {
         return `R${entry.revision} · Opposition advanced`;
       case 'oppositionPassed':
         return `R${entry.revision} · Opposition passed`;
+      case 'loadoutMoved':
+        return `R${entry.revision} · Loadout updated`;
+      case 'expeditionBegan':
+        return `R${entry.revision} · Expedition began`;
     }
   }
 
@@ -926,6 +923,10 @@ export class GameShellComponent implements OnInit, OnDestroy {
         return `Actor ${receipt.actorEntityId}; one Engine-routed grid step.`;
       case 'oppositionPassed':
         return `Actor ${receipt.actorEntityId}; no legal attack or movement.`;
+      case 'loadoutMoved':
+        return `Item ${receipt.itemEntityId}; owner ${receipt.fromOwnerEntityId} to owner ${receipt.toOwnerEntityId}${receipt.destinationSlotId === null ? ' pack' : ` slot ${receipt.destinationSlotId}`}.`;
+      case 'expeditionBegan':
+        return 'Preparation completed; Rust admitted the expedition and settled to the first party decision.';
     }
   }
 

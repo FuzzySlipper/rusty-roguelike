@@ -7,8 +7,8 @@ use crate::{vitality_track_id, ActorDefinition, ActorSideCandidate, RoguelikeId,
 
 use super::roll::RollSource;
 use super::{
-    ActivationView, PartyCommand, SessionError, SessionOutcome, SessionView, TurnReceipt, TurnSide,
-    SESSION_VIEW_SCHEMA_VERSION,
+    ActivationView, SessionCommand, SessionError, SessionOutcome, SessionPhase, SessionView,
+    TurnReceipt, TurnSide, SESSION_VIEW_SCHEMA_VERSION,
 };
 
 const MAX_AUTOMATIC_SETTLEMENTS: usize = 256;
@@ -29,6 +29,7 @@ pub struct GameSession {
     pub(super) cursor: usize,
     pub(super) round: u64,
     pub(super) revision: u64,
+    pub(super) phase: SessionPhase,
     pub(super) outcome: SessionOutcome,
     pub(super) latest_receipts: Vec<TurnReceipt>,
     pub(super) target_cursors: BTreeMap<u64, usize>,
@@ -44,18 +45,18 @@ impl GameSession {
             cursor: 0,
             round: 1,
             revision: 0,
+            phase: SessionPhase::Preparation,
             outcome: SessionOutcome::Ongoing,
             latest_receipts: vec![],
             target_cursors: BTreeMap::new(),
         };
         session.rebuild_order()?;
         session.refresh_outcome()?;
-        session.settle_automatic()?;
         Ok(session)
     }
 
-    pub fn command(&mut self, command: PartyCommand) -> Result<SessionView, SessionError> {
-        if self.outcome != SessionOutcome::Ongoing {
+    pub fn command(&mut self, command: SessionCommand) -> Result<SessionView, SessionError> {
+        if self.phase == SessionPhase::Expedition && self.outcome != SessionOutcome::Ongoing {
             return Err(error(
                 "session_terminal",
                 "a terminal session accepts no further commands",
@@ -67,26 +68,50 @@ impl GameSession {
                 "the command revision does not match current authoritative state",
             ));
         }
-        let current = self.current_slot().ok_or_else(|| {
-            error(
-                "session_no_party_activation",
-                "the session has no current activation",
-            )
-        })?;
-        if current.side != TurnSide::Party || current.entity.raw() != command.actor_entity_id() {
-            return Err(error(
-                "session_actor_not_current",
-                "the command actor does not own the current party activation",
-            ));
-        }
-
         let mut staged = self.fork()?;
         staged.latest_receipts.clear();
-        staged.resolve_party_command(command)?;
-        staged.prune_defeated_from_order()?;
-        staged.advance()?;
-        staged.refresh_outcome()?;
-        staged.settle_automatic()?;
+        match command {
+            SessionCommand::MoveLoadoutItem {
+                item_entity_id,
+                from_owner_entity_id,
+                to_owner_entity_id,
+                destination_slot_id,
+                ..
+            } => staged.move_loadout_item(
+                item_entity_id,
+                from_owner_entity_id,
+                to_owner_entity_id,
+                destination_slot_id,
+            )?,
+            SessionCommand::BeginExpedition { .. } => staged.begin_expedition()?,
+            command => {
+                if staged.phase != SessionPhase::Expedition {
+                    return Err(error(
+                        "session_preparation_active",
+                        "expedition commands are unavailable during preparation",
+                    ));
+                }
+                let current = staged.current_slot().ok_or_else(|| {
+                    error(
+                        "session_no_party_activation",
+                        "the session has no current activation",
+                    )
+                })?;
+                if current.side != TurnSide::Party
+                    || Some(current.entity.raw()) != command.actor_entity_id()
+                {
+                    return Err(error(
+                        "session_actor_not_current",
+                        "the command actor does not own the current party activation",
+                    ));
+                }
+                staged.resolve_party_command(command)?;
+                staged.prune_defeated_from_order()?;
+                staged.advance()?;
+                staged.refresh_outcome()?;
+                staged.settle_automatic()?;
+            }
+        }
         staged.revision = staged
             .revision
             .checked_add(1)
@@ -99,17 +124,22 @@ impl GameSession {
         Ok(SessionView {
             schema_version: SESSION_VIEW_SCHEMA_VERSION,
             revision: self.revision,
+            phase: self.phase,
             round: self.round,
             outcome: self.outcome,
-            current: (self.outcome == SessionOutcome::Ongoing)
+            current: (self.phase == SessionPhase::Expedition
+                && self.outcome == SessionOutcome::Ongoing)
                 .then(|| self.current_slot().map(TurnSlot::view))
                 .flatten(),
-            order: if self.outcome == SessionOutcome::Ongoing {
+            order: if self.phase == SessionPhase::Expedition
+                && self.outcome == SessionOutcome::Ongoing
+            {
                 self.order.iter().map(TurnSlot::view).collect()
             } else {
                 vec![]
             },
             party: self.party_status()?,
+            preparation: self.preparation_view()?,
             decision: self.party_decision()?,
             latest_receipts: self.latest_receipts.clone(),
             world: self
@@ -134,6 +164,7 @@ impl GameSession {
             cursor: self.cursor,
             round: self.round,
             revision: self.revision,
+            phase: self.phase,
             outcome: self.outcome,
             latest_receipts: self.latest_receipts.clone(),
             target_cursors: self.target_cursors.clone(),
@@ -211,7 +242,7 @@ impl GameSession {
         ))
     }
 
-    fn rebuild_order(&mut self) -> Result<(), SessionError> {
+    pub(super) fn rebuild_order(&mut self) -> Result<(), SessionError> {
         let participating = self
             .world
             .participating_enemies()
@@ -249,7 +280,7 @@ impl GameSession {
             .is_some_and(|value| value.get() > 0))
     }
 
-    fn refresh_outcome(&mut self) -> Result<(), SessionError> {
+    pub(super) fn refresh_outcome(&mut self) -> Result<(), SessionError> {
         let mut party_alive = false;
         let mut opposition_alive = false;
         for actor in self.world.rules().actors().values() {

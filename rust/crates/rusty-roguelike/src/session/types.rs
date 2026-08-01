@@ -3,7 +3,7 @@ use ts_rs::TS;
 
 use crate::{RelativeStep, RoguelikeId, WorldView};
 
-pub const SESSION_VIEW_SCHEMA_VERSION: u32 = 1;
+pub const SESSION_VIEW_SCHEMA_VERSION: u32 = 2;
 pub const MAX_SESSION_ACTIVATIONS: usize = 64;
 pub const MAX_SESSION_RECEIPTS: usize = 256;
 
@@ -27,6 +27,14 @@ pub enum SessionOutcome {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 #[ts(rename_all = "kebab-case")]
+pub enum SessionPhase {
+    Preparation,
+    Expedition,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(rename_all = "kebab-case")]
 pub enum PartyMemberSelectionPolicy {
     RoundRobinLiving,
 }
@@ -42,7 +50,7 @@ pub struct PartySquareTargetReceipt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PartyCommand {
+pub enum SessionCommand {
     Step {
         actor_entity_id: u64,
         expected_revision: u64,
@@ -61,6 +69,16 @@ pub enum PartyCommand {
         expected_revision: u64,
         action_id: RoguelikeId,
         target_entity_id: u64,
+    },
+    MoveLoadoutItem {
+        expected_revision: u64,
+        item_entity_id: u64,
+        from_owner_entity_id: u64,
+        to_owner_entity_id: u64,
+        destination_slot_id: Option<String>,
+    },
+    BeginExpedition {
+        expected_revision: u64,
     },
 }
 
@@ -99,6 +117,21 @@ pub enum SessionCommandDto {
         #[ts(type = "number")]
         target_entity_id: u64,
     },
+    MoveLoadoutItem {
+        #[ts(type = "number")]
+        expected_revision: u64,
+        #[ts(type = "number")]
+        item_entity_id: u64,
+        #[ts(type = "number")]
+        from_owner_entity_id: u64,
+        #[ts(type = "number")]
+        to_owner_entity_id: u64,
+        destination_slot_id: Option<String>,
+    },
+    BeginExpedition {
+        #[ts(type = "number")]
+        expected_revision: u64,
+    },
 }
 
 impl<'de> Deserialize<'de> for SessionCommandDto {
@@ -132,6 +165,16 @@ impl<'de> Deserialize<'de> for SessionCommandDto {
                 expected_revision: u64,
                 action_id: RoguelikeId,
                 target_entity_id: u64,
+            },
+            MoveLoadoutItem {
+                expected_revision: u64,
+                item_entity_id: u64,
+                from_owner_entity_id: u64,
+                to_owner_entity_id: u64,
+                destination_slot_id: Option<String>,
+            },
+            BeginExpedition {
+                expected_revision: u64,
             },
         }
 
@@ -170,11 +213,27 @@ impl<'de> Deserialize<'de> for SessionCommandDto {
                 action_id,
                 target_entity_id,
             },
+            StrictSessionCommandDto::MoveLoadoutItem {
+                expected_revision,
+                item_entity_id,
+                from_owner_entity_id,
+                to_owner_entity_id,
+                destination_slot_id,
+            } => Self::MoveLoadoutItem {
+                expected_revision,
+                item_entity_id,
+                from_owner_entity_id,
+                to_owner_entity_id,
+                destination_slot_id,
+            },
+            StrictSessionCommandDto::BeginExpedition { expected_revision } => {
+                Self::BeginExpedition { expected_revision }
+            }
         })
     }
 }
 
-impl From<SessionCommandDto> for PartyCommand {
+impl From<SessionCommandDto> for SessionCommand {
     fn from(value: SessionCommandDto) -> Self {
         match value {
             SessionCommandDto::Step {
@@ -211,12 +270,28 @@ impl From<SessionCommandDto> for PartyCommand {
                 action_id,
                 target_entity_id,
             },
+            SessionCommandDto::MoveLoadoutItem {
+                expected_revision,
+                item_entity_id,
+                from_owner_entity_id,
+                to_owner_entity_id,
+                destination_slot_id,
+            } => Self::MoveLoadoutItem {
+                expected_revision,
+                item_entity_id,
+                from_owner_entity_id,
+                to_owner_entity_id,
+                destination_slot_id,
+            },
+            SessionCommandDto::BeginExpedition { expected_revision } => {
+                Self::BeginExpedition { expected_revision }
+            }
         }
     }
 }
 
-impl PartyCommand {
-    pub const fn actor_entity_id(&self) -> u64 {
+impl SessionCommand {
+    pub const fn actor_entity_id(&self) -> Option<u64> {
         match self {
             Self::Step {
                 actor_entity_id, ..
@@ -229,7 +304,8 @@ impl PartyCommand {
             }
             | Self::UseAction {
                 actor_entity_id, ..
-            } => *actor_entity_id,
+            } => Some(*actor_entity_id),
+            Self::MoveLoadoutItem { .. } | Self::BeginExpedition { .. } => None,
         }
     }
 
@@ -246,7 +322,11 @@ impl PartyCommand {
             }
             | Self::UseAction {
                 expected_revision, ..
-            } => *expected_revision,
+            }
+            | Self::MoveLoadoutItem {
+                expected_revision, ..
+            }
+            | Self::BeginExpedition { expected_revision } => *expected_revision,
         }
     }
 }
@@ -271,18 +351,104 @@ pub struct PartyMemberStatusView {
     pub entity_id: u64,
     pub actor_id: RoguelikeId,
     pub name: String,
+    pub title: String,
+    pub level: u8,
+    pub experience: u32,
+    pub class_id: RoguelikeId,
+    pub class_name: String,
+    pub class_level: u8,
     pub current_vitality: u16,
     pub maximum_vitality: u16,
     pub conscious: bool,
-    pub carried_items: Vec<CarriedItemView>,
+    pub abilities: Vec<AbilityReadoutView>,
+    pub defenses: Vec<DefenseReadoutView>,
+    pub feats: Vec<FeatReadoutView>,
+    pub actions: Vec<CharacterActionView>,
+    pub loadout: LoadoutView,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
-pub struct CarriedItemView {
+pub struct AbilityReadoutView {
+    pub ability_id: RoguelikeId,
+    pub score: i16,
+    pub modifier: i16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct DefenseReadoutView {
+    pub defense_id: RoguelikeId,
+    pub value: i16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct FeatReadoutView {
+    pub feat_id: RoguelikeId,
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CharacterActionView {
+    pub action_id: RoguelikeId,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct LoadoutItemView {
+    #[ts(type = "number")]
+    pub entity_id: u64,
     pub item_id: RoguelikeId,
     pub name: String,
+    pub equipment_slot_id: Option<String>,
+    pub equipped_slot_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct LoadoutCapacityView {
+    #[ts(type = "number")]
+    pub used: u64,
+    #[ts(type = "number")]
+    pub maximum: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct EquipmentSlotView {
+    pub slot_id: String,
+    pub label: String,
+    pub equipped: Option<LoadoutItemView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct LoadoutView {
+    #[ts(type = "number")]
+    pub owner_entity_id: u64,
+    pub inventory_slots: Vec<Option<LoadoutItemView>>,
+    pub equipment_slots: Vec<EquipmentSlotView>,
+    pub capacity: LoadoutCapacityView,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct PreparationView {
+    pub stash: LoadoutView,
+    pub ready: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -324,6 +490,16 @@ pub enum PartyTurnDirection {
 )]
 #[ts(rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum TurnReceipt {
+    LoadoutMoved {
+        #[ts(type = "number")]
+        item_entity_id: u64,
+        #[ts(type = "number")]
+        from_owner_entity_id: u64,
+        #[ts(type = "number")]
+        to_owner_entity_id: u64,
+        destination_slot_id: Option<String>,
+    },
+    ExpeditionBegan,
     PartyMoved {
         #[ts(type = "number")]
         actor_entity_id: u64,
@@ -382,12 +558,14 @@ pub struct SessionView {
     pub schema_version: u32,
     #[ts(type = "number")]
     pub revision: u64,
+    pub phase: SessionPhase,
     #[ts(type = "number")]
     pub round: u64,
     pub outcome: SessionOutcome,
     pub current: Option<ActivationView>,
     pub order: Vec<ActivationView>,
     pub party: Vec<PartyMemberStatusView>,
+    pub preparation: Option<PreparationView>,
     pub decision: Option<PartyDecisionView>,
     pub latest_receipts: Vec<TurnReceipt>,
     pub world: WorldView,

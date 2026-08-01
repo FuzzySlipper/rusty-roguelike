@@ -1,19 +1,19 @@
 use core_ids::EntityId;
 use gameplay_mechanics::{
     DamageKindId, DamagePart, DamageRequest, DamageService, MechanicsScalar, OperationId,
-    SourceInstanceId, SourceInstanceIdentity, StatService, TracksComponent,
+    SourceInstanceId, SourceInstanceIdentity, StatService,
 };
 
 use crate::{
     defense_stat_id, vitality_track_id, ActionDefinition, ActionEffectDefinition,
-    ActionTargetCandidate, ActorBuildComponent, ActorDefinition, ActorSideCandidate, RoguelikeId,
+    ActionTargetCandidate, ActorDefinition, ActorSideCandidate, RoguelikeId,
 };
 
 use super::runtime::{error, GameSession};
 use super::{
-    CarriedItemView, LegalActionView, PartyCommand, PartyDecisionView, PartyMemberSelectionPolicy,
-    PartyMemberStatusView, PartySquareTargetReceipt, PartyTurnDirection, SessionError,
-    SessionOutcome, TurnReceipt, TurnSide,
+    LegalActionView, PartyDecisionView, PartyMemberSelectionPolicy, PartySquareTargetReceipt,
+    PartyTurnDirection, SessionCommand, SessionError, SessionOutcome, SessionPhase, TurnReceipt,
+    TurnSide,
 };
 
 struct ResolvedAttack {
@@ -29,77 +29,8 @@ struct ResolvedAttack {
 }
 
 impl GameSession {
-    pub(super) fn party_status(&self) -> Result<Vec<PartyMemberStatusView>, SessionError> {
-        self.world
-            .rules()
-            .party()
-            .members
-            .iter()
-            .map(|actor_id| {
-                let actor = &self.world.rules().actors()[actor_id];
-                let entity = EntityId::new(actor.entity_id);
-                let tracks = self
-                    .world
-                    .entities()
-                    .component::<TracksComponent>(entity)
-                    .map_err(|detail| error("session_tracks_read", detail.to_string()))?
-                    .ok_or_else(|| error("session_tracks_missing", format!("entity {entity}")))?;
-                let current = tracks
-                    .current(&vitality_track_id())
-                    .ok_or_else(|| error("session_vitality_missing", format!("entity {entity}")))?
-                    .get();
-                let build = self
-                    .world
-                    .entities()
-                    .component::<ActorBuildComponent>(entity)
-                    .map_err(|detail| error("session_build_read", detail.to_string()))?
-                    .ok_or_else(|| error("session_build_missing", format!("entity {entity}")))?;
-                let operation =
-                    OperationId::parse(format!("view.party.{}.{}", actor.entity_id, self.revision))
-                        .map_err(|detail| error("session_operation_invalid", detail.to_string()))?;
-                let maximum = StatService::evaluate(
-                    self.world.entities(),
-                    self.world.rules().mechanics(),
-                    entity,
-                    &crate::vitality_maximum_stat_id(),
-                    &operation,
-                    &[],
-                )
-                .map_err(|detail| error("session_vitality_evaluation_failed", detail.to_string()))?
-                .value
-                .get();
-                Ok(PartyMemberStatusView {
-                    entity_id: actor.entity_id,
-                    actor_id: actor.id.clone(),
-                    name: actor.name.clone(),
-                    current_vitality: u16::try_from(current.max(0)).map_err(|_| {
-                        error(
-                            "session_vitality_out_of_range",
-                            "current vitality exceeds u16",
-                        )
-                    })?,
-                    maximum_vitality: u16::try_from(maximum.max(0)).map_err(|_| {
-                        error(
-                            "session_vitality_out_of_range",
-                            "maximum vitality exceeds u16",
-                        )
-                    })?,
-                    conscious: current > 0,
-                    carried_items: build
-                        .items()
-                        .iter()
-                        .map(|item_id| CarriedItemView {
-                            item_id: item_id.clone(),
-                            name: self.world.rules().items()[item_id].name.clone(),
-                        })
-                        .collect(),
-                })
-            })
-            .collect()
-    }
-
     pub(super) fn party_decision(&self) -> Result<Option<PartyDecisionView>, SessionError> {
-        if self.outcome != SessionOutcome::Ongoing {
+        if self.phase != SessionPhase::Expedition || self.outcome != SessionOutcome::Ongoing {
             return Ok(None);
         }
         let Some(current) = self.current_slot() else {
@@ -142,39 +73,39 @@ impl GameSession {
             .world
             .party_position()
             .map_err(|detail| error("session_world_read", detail.to_string()))?;
-        let actions = actor
-            .actions
-            .iter()
-            .filter_map(|action_id| {
-                let action = self.world.rules().actions().get(action_id)?;
-                let ActionEffectDefinition::Attack { range, .. } = action.effect else {
-                    return None;
-                };
-                if action.target != ActionTargetCandidate::HostileCell {
-                    return None;
-                }
-                let mut legal_target_entity_ids = visible
-                    .visible_actors
-                    .iter()
-                    .filter(|target| {
-                        self.world
-                            .enemy_position(EntityId::new(target.entity_id))
-                            .ok()
-                            .and_then(|position| {
-                                self.world.clear_distance(party_position, position)
-                            })
-                            .is_some_and(|distance| distance <= u32::from(range))
-                    })
-                    .map(|target| target.entity_id)
-                    .collect::<Vec<_>>();
-                legal_target_entity_ids.sort_unstable();
-                Some(LegalActionView {
-                    action_id: action.id.clone(),
-                    name: action.name.clone(),
-                    legal_target_entity_ids,
+        let mut actions = Vec::new();
+        for action_id in &actor.actions {
+            if !self.actor_action_available(actor.entity_id, action_id)? {
+                continue;
+            }
+            let Some(action) = self.world.rules().actions().get(action_id) else {
+                continue;
+            };
+            let ActionEffectDefinition::Attack { range, .. } = action.effect else {
+                continue;
+            };
+            if action.target != ActionTargetCandidate::HostileCell {
+                continue;
+            }
+            let mut legal_target_entity_ids = visible
+                .visible_actors
+                .iter()
+                .filter(|target| {
+                    self.world
+                        .enemy_position(EntityId::new(target.entity_id))
+                        .ok()
+                        .and_then(|position| self.world.clear_distance(party_position, position))
+                        .is_some_and(|distance| distance <= u32::from(range))
                 })
-            })
-            .collect::<Vec<_>>();
+                .map(|target| target.entity_id)
+                .collect::<Vec<_>>();
+            legal_target_entity_ids.sort_unstable();
+            actions.push(LegalActionView {
+                action_id: action.id.clone(),
+                name: action.name.clone(),
+                legal_target_entity_ids,
+            });
+        }
         Ok(Some(PartyDecisionView {
             actor_entity_id: actor.entity_id,
             expected_revision: self.revision,
@@ -186,11 +117,18 @@ impl GameSession {
 
     pub(super) fn resolve_party_command(
         &mut self,
-        command: PartyCommand,
+        command: SessionCommand,
     ) -> Result<(), SessionError> {
-        let actor = self.actor(command.actor_entity_id())?.clone();
+        let actor = self
+            .actor(command.actor_entity_id().ok_or_else(|| {
+                error(
+                    "session_party_command_invalid",
+                    "loadout commands are not party activation commands",
+                )
+            })?)?
+            .clone();
         match command {
-            PartyCommand::Step { step, .. } => {
+            SessionCommand::Step { step, .. } => {
                 self.require_movement_action(&actor)?;
                 self.world
                     .step(step)
@@ -200,7 +138,7 @@ impl GameSession {
                     step,
                 });
             }
-            PartyCommand::TurnLeft { .. } => {
+            SessionCommand::TurnLeft { .. } => {
                 self.require_movement_action(&actor)?;
                 self.world
                     .turn_left()
@@ -210,7 +148,7 @@ impl GameSession {
                     direction: PartyTurnDirection::Left,
                 });
             }
-            PartyCommand::TurnRight { .. } => {
+            SessionCommand::TurnRight { .. } => {
                 self.require_movement_action(&actor)?;
                 self.world
                     .turn_right()
@@ -220,11 +158,17 @@ impl GameSession {
                     direction: PartyTurnDirection::Right,
                 });
             }
-            PartyCommand::UseAction {
+            SessionCommand::UseAction {
                 action_id,
                 target_entity_id,
                 ..
             } => self.resolve_party_action(&actor, &action_id, EntityId::new(target_entity_id))?,
+            SessionCommand::MoveLoadoutItem { .. } | SessionCommand::BeginExpedition { .. } => {
+                return Err(error(
+                    "session_party_command_invalid",
+                    "loadout commands are not party activation commands",
+                ));
+            }
         }
         Ok(())
     }
@@ -239,6 +183,12 @@ impl GameSession {
             return Err(error(
                 "session_action_not_owned",
                 "the current actor does not own the selected action",
+            ));
+        }
+        if !self.actor_action_available(actor.entity_id, action_id)? {
+            return Err(error(
+                "session_action_equipment_required",
+                "the selected action requires its granting item to be equipped",
             ));
         }
         let action = self
@@ -581,7 +531,7 @@ impl GameSession {
         }
     }
 
-    fn actor(&self, entity_id: u64) -> Result<&ActorDefinition, SessionError> {
+    pub(super) fn actor(&self, entity_id: u64) -> Result<&ActorDefinition, SessionError> {
         self.world
             .rules()
             .actors()

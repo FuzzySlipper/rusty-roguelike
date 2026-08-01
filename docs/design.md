@@ -24,6 +24,26 @@ saves, and projection. TypeScript may translate typed observations into a
 frame and keep transient focus, animation, and input state. It does not decide
 gameplay legality or maintain a second live session.
 
+## Preparation and party inventory
+
+A session begins in an explicit preparation phase before initiative is live.
+Rust creates every authored item as a unique registered Engine entity in the
+shared expedition stash. Party members and the stash expose Engine inventory
+capacity; party members additionally expose the Roguelike-authored body,
+weapon, and focus slots through Engine equipment state. Revision-bound loadout
+commands use the named inventory and equipment services on a cloned world, so a
+stale owner, incompatible slot, full destination, or service failure cannot
+partially publish state.
+
+The expedition becomes ready only when the shared stash is empty and every
+party item is equipped. Beginning the expedition is a separate authoritative
+command that freezes the loadout, builds initiative, and settles automatic
+actors to the first party decision. Equipment-granted actions and modifiers
+become live only from the equipped registered item facts. Once the expedition
+begins, the inventory and complete character sheets remain inspectable but
+read-only: changing gear is not a free side channel around the one-activation
+economy.
+
 ## Turn model
 
 One movement step or one chosen action consumes one activation. Rounds retain
@@ -130,20 +150,24 @@ admitted before it can replace the current floor, so malformed, incompatible,
 or exhausted results cannot partially publish state.
 
 The Rust host publishes the live session and accepts only strict,
-revision-bound typed commands. Its projection includes the current decision,
-party vitality and carried-item summaries, relative visible topology, and
-complete target-resolution receipts. The browser strictly decodes that view,
-keeps classified transport failures visible, and submits only projected
-choices; it does not recreate movement, targeting, initiative, or rules policy.
+revision-bound typed commands. Its projection includes phase, preparation
+readiness, the shared stash while preparing, complete party identity, class,
+level, experience, abilities, defenses, feats, actions and loadouts, the current
+decision, relative visible topology, and complete target-resolution receipts.
+The browser strictly decodes that view, keeps classified transport failures
+visible, and submits only projected choices; it does not recreate inventory,
+equipment, movement, targeting, initiative, or rules policy.
 
 One permanent public Engine `RendererSurface` owns the full window. A pure
 adapter maps only Rust-projected relative cells and visible actors into stable
 retained handles and public picking metadata. Brief camera offsets are derived
 from accepted movement/turn receipts and discarded after presentation; reduced
-motion snaps immediately. Initiative, movement, action selection, party status,
-field packs, and the detailed rules log are pointer-transparent overlays around
-that same canvas. Selecting an action highlights only its Rust-projected legal
+motion snaps immediately. The preparation workbench, initiative, movement,
+action selection, tabbed party sheet, field packs, and detailed rules log are
+overlays around that same canvas. Preparation offers native drag/drop plus a
+click-select destination alternative and busy-gates every mutation surface. The
+expedition Party/Packs disclosures are truthful nonmodal, keyboard-operable,
+read-only regions. Selecting an action highlights only its Rust-projected legal
 targets; resolved attacks drive bounded retained impact presentation. Enemy
-selection is an Engine metadata pick with explicit
-button and keyboard alternatives, and all resulting legality remains admitted
-by Rust.
+selection is an Engine metadata pick with explicit button and keyboard
+alternatives, and all resulting legality remains admitted by Rust.

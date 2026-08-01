@@ -4,15 +4,17 @@ use core_ids::EntityId;
 use entity_state::{EntityAuthoringService, EntityComponent, EntityDefinition, EntityState};
 use gameplay_mechanics::{
     validate_state_against_catalog, ActiveEffectsComponent, EquipmentComponent,
-    IntrinsicSourceBinding, IntrinsicSourcesComponent, MechanicsScalar, SourceInstanceId,
-    StatValue, StatsComponent, TrackValue, TracksComponent,
+    IntrinsicSourceBinding, IntrinsicSourcesComponent, InventoryCapacityLimit, InventoryComponent,
+    ItemComponent, MechanicsScalar, SourceInstanceId, StatValue, StatsComponent, TrackValue,
+    TracksComponent,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    defense_stat_id, feat_source_id, vitality_maximum_stat_id, vitality_track_id, AbilityScore,
-    AbilityScoresComponent, ActorBuildComponent, ActorDefinition, ActorSideCandidate,
-    CollapsedPartyComponent, FloorFeatureKind, GeneratedFloor, RoguelikeRuleset,
+    defense_stat_id, feat_source_id, inventory_capacity_id, item_definition_id,
+    vitality_maximum_stat_id, vitality_track_id, AbilityScore, AbilityScoresComponent,
+    ActorBuildComponent, ActorDefinition, ActorSideCandidate, CollapsedPartyComponent,
+    FloorFeatureKind, GeneratedFloor, RoguelikeId, RoguelikeRuleset,
 };
 
 use super::navigation::FloorSpatial;
@@ -47,6 +49,7 @@ pub struct WorldState {
     entities: EntityState,
     spatial: FloorSpatial,
     party_entity: EntityId,
+    stash_entity: EntityId,
 }
 
 impl WorldState {
@@ -58,6 +61,8 @@ impl WorldState {
             spatial.require_reachable(entry, cell)?;
         }
         let party_entity = EntityId::new(rules.party().entity_id);
+        let stash_entity = next_entity_id(&rules, 1)?;
+        let item_instances = initial_item_instances(&rules, stash_entity)?;
         let definitions = rules
             .actors()
             .values()
@@ -66,6 +71,14 @@ impl WorldState {
                 party_entity,
                 rules.party().id.to_string(),
             )))
+            .chain(std::iter::once(EntityDefinition::new(
+                stash_entity,
+                "Expedition Stash",
+            )))
+            .chain(item_instances.iter().map(|item| {
+                EntityDefinition::new(item.entity, rules.items()[&item.definition].name.clone())
+                    .with_containment(item.owner)
+            }))
             .collect::<Vec<_>>();
         let registry = super::roguelike_world_component_registry()
             .map_err(|detail| error("world_component_registry", detail.to_string()))?;
@@ -98,6 +111,23 @@ impl WorldState {
                     actor.items.clone(),
                 )
                 .map_err(|detail| error("world_actor_seed", detail.to_string()))?,
+            )?;
+            attach_inventory(
+                &mut entities,
+                &rules,
+                entity,
+                u64::from(actor.inventory_capacity),
+            )?;
+        }
+        attach_inventory(&mut entities, &rules, stash_entity, 32)?;
+        for item in &item_instances {
+            attach(
+                &mut entities,
+                item.entity,
+                ItemComponent::new(
+                    rules.mechanics().version().clone(),
+                    item_definition_id(&item.definition),
+                ),
             )?;
         }
         validate_state_against_catalog(&entities, rules.mechanics())
@@ -148,6 +178,7 @@ impl WorldState {
             entities,
             spatial,
             party_entity,
+            stash_entity,
         };
         state.refresh_visibility()?;
         Ok(state)
@@ -357,6 +388,7 @@ impl WorldState {
             entities: self.entities.clone(),
             spatial: FloorSpatial::build(&self.floor)?,
             party_entity: self.party_entity,
+            stash_entity: self.stash_entity,
         })
     }
 
@@ -430,6 +462,10 @@ impl WorldState {
 
     pub const fn party_entity(&self) -> EntityId {
         self.party_entity
+    }
+
+    pub(crate) const fn stash_entity(&self) -> EntityId {
+        self.stash_entity
     }
 
     fn rotate(&mut self, facing: Facing) -> Result<WorldView, WorldStateError> {
@@ -562,6 +598,74 @@ fn distance(left: WorldCell, right: WorldCell) -> i64 {
     i64::from(left.x.abs_diff(right.x)) + i64::from(left.y.abs_diff(right.y))
 }
 
+#[derive(Debug, Clone)]
+struct InitialItemInstance {
+    entity: EntityId,
+    definition: RoguelikeId,
+    owner: EntityId,
+}
+
+fn next_entity_id(rules: &RoguelikeRuleset, offset: u64) -> Result<EntityId, WorldStateError> {
+    let maximum = rules
+        .actors()
+        .values()
+        .map(|actor| actor.entity_id)
+        .chain(std::iter::once(rules.party().entity_id))
+        .max()
+        .unwrap_or_default();
+    maximum
+        .checked_add(offset)
+        .map(EntityId::new)
+        .ok_or_else(|| {
+            error(
+                "world_entity_identity_exhausted",
+                "entity identity overflowed",
+            )
+        })
+}
+
+fn initial_item_instances(
+    rules: &RoguelikeRuleset,
+    stash: EntityId,
+) -> Result<Vec<InitialItemInstance>, WorldStateError> {
+    let party = rules.party().members.iter().map(|id| &rules.actors()[id]);
+    let opposition = rules
+        .actors()
+        .values()
+        .filter(|actor| actor.side == ActorSideCandidate::Opposition);
+    party
+        .chain(opposition)
+        .flat_map(|actor| {
+            actor
+                .items
+                .iter()
+                .cloned()
+                .map(move |definition| (definition, actor.side, EntityId::new(actor.entity_id)))
+        })
+        .enumerate()
+        .map(|(index, (definition, side, actor))| {
+            let offset = u64::try_from(index)
+                .ok()
+                .and_then(|value| value.checked_add(2))
+                .ok_or_else(|| {
+                    error(
+                        "world_item_identity_exhausted",
+                        "item instance identity overflowed",
+                    )
+                })?;
+            Ok(InitialItemInstance {
+                entity: next_entity_id(rules, offset)?,
+                definition,
+                owner: if side == ActorSideCandidate::Party {
+                    stash
+                } else {
+                    actor
+                },
+            })
+        })
+        .collect()
+}
+
 fn attach_mechanics(
     entities: &mut EntityState,
     rules: &RoguelikeRuleset,
@@ -650,6 +754,27 @@ fn attach_mechanics(
             .map_err(|detail| error("world_mechanics_seed", detail.to_string()))?,
     )?;
     Ok(())
+}
+
+fn attach_inventory(
+    entities: &mut EntityState,
+    rules: &RoguelikeRuleset,
+    owner: EntityId,
+    maximum: u64,
+) -> Result<(), WorldStateError> {
+    attach(
+        entities,
+        owner,
+        InventoryComponent::with_capacity_limits(
+            rules.mechanics().version().clone(),
+            vec![],
+            vec![InventoryCapacityLimit::new(
+                inventory_capacity_id(),
+                maximum,
+            )],
+        )
+        .map_err(|detail| error("world_inventory_seed", detail.to_string()))?,
+    )
 }
 
 fn ability_modifier(score: i16) -> i16 {

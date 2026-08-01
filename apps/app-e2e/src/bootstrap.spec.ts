@@ -47,6 +47,22 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     page.locator('[data-renderer-backend="rusty-engine-three"]'),
   ).toHaveAttribute('data-renderer-status', 'ready');
   await expect(
+    page.getByRole('heading', { name: 'Prepare the expedition' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Initiative order' }),
+  ).toBeHidden();
+  await equipParty(page, stage, testInfo.project.name === 'desktop-chromium');
+  await expect(
+    page.getByRole('button', { name: 'Begin expedition' }),
+  ).toBeEnabled();
+  await testInfo.attach(`preparation-${testInfo.project.name}.png`, {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
+  await issueAndWait(page, stage, 'Begin expedition');
+  await expect(stage).toHaveAttribute('data-session-revision', '8');
+  await expect(
     page.getByRole('navigation', { name: 'Initiative order' }),
   ).toBeVisible();
   await expect(
@@ -70,7 +86,14 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await expect(partyTrigger).toHaveAttribute('aria-expanded', 'true');
   const party = page.getByRole('region', { name: 'Party quick view' });
   await expect(party).toContainText('Kestrel');
-  await expect(party).toContainText('Vitality');
+  await expect(party).toContainText('Level 1');
+  await expect(party).toContainText('XP');
+  const kestrelPartyTab = party.getByRole('tab', { name: 'Kestrel' });
+  await kestrelPartyTab.click();
+  await expect(kestrelPartyTab).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('ArrowRight');
+  await expect(party.getByRole('tab', { name: 'Mira' })).toBeFocused();
+  await expect(party).toContainText('Arcane Focus');
   await page.keyboard.press('Escape');
   await expect(party).toBeHidden();
   await expect(partyTrigger).toBeFocused();
@@ -78,6 +101,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   const packsTrigger = page.getByRole('button', { name: 'Packs' });
   await packsTrigger.click();
   const packs = page.getByRole('region', { name: 'Field packs' });
+  await packs.getByRole('tab', { name: 'Kestrel' }).click();
   await expect(packs).toContainText('Shortbow');
   await page.getByRole('button', { name: 'Close panel' }).click();
   await expect(packsTrigger).toBeFocused();
@@ -138,7 +162,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     await expect(latest).toContainText(/d20 .* defense/);
   } else {
     await page.keyboard.press('e');
-    await expect(stage).toHaveAttribute('data-session-revision', '1');
+    await expect(stage).toHaveAttribute('data-session-revision', '9');
     await assertSeparated(
       page.getByRole('region', { name: 'Available actions' }),
       page.getByRole('navigation', { name: 'Movement and facing' }),
@@ -168,6 +192,58 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     contentType: 'image/png',
   });
 });
+
+const LOADOUT = [
+  { member: 'Brann', item: 'Longsword', slot: 'Weapon' },
+  { member: 'Brann', item: 'Scale Mail', slot: 'Body' },
+  { member: 'Kestrel', item: 'Shortbow', slot: 'Weapon' },
+  { member: 'Kestrel', item: 'Leather Armor', slot: 'Body' },
+  { member: 'Mira', item: 'Ash Staff', slot: 'Weapon' },
+  { member: 'Mira', item: 'Focus Orb', slot: 'Focus' },
+  { member: 'Mira', item: 'Traveling Robes', slot: 'Body' },
+] as const;
+
+async function equipParty(
+  page: Page,
+  stage: Locator,
+  dragAndDrop: boolean,
+): Promise<void> {
+  const stash = page.getByRole('region', { name: 'Shared stash' });
+  for (const assignment of LOADOUT) {
+    await page
+      .getByRole('button', {
+        name: new RegExp(`^${assignment.member} ·`, 'u'),
+      })
+      .click();
+    const member = page.getByRole('region', {
+      name: `${assignment.member} loadout`,
+    });
+    const item = stash.getByRole('button', {
+      name: new RegExp(`^${assignment.item}`, 'u'),
+    });
+    const destination = member.getByRole('button', {
+      name: `${assignment.slot}: empty`,
+    });
+    const revision = Number(await stage.getAttribute('data-session-revision'));
+    if (dragAndDrop) {
+      await item.dragTo(destination);
+    } else {
+      await item.click();
+      await expect(item).toHaveAttribute('aria-pressed', 'true');
+      await destination.click();
+    }
+    await expect(stage).toHaveAttribute(
+      'data-session-revision',
+      String(revision + 1),
+    );
+    await expect(
+      member.getByRole('button', {
+        name: `${assignment.slot}: ${assignment.item}`,
+      }),
+    ).toBeVisible();
+  }
+  await expect(stash).toContainText('0 / 32');
+}
 
 async function issueAndWait(
   page: Page,

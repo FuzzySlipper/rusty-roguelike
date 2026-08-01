@@ -97,7 +97,7 @@ export type VisibleActorView = { actorId: RoguelikeId, entityId: number, name: s
 
 export type WorldView = { schemaVersion: number, revision: number, floorId: string, facing: Facing, discoveredCellCount: number, cells: Array<WorldViewCell>, visibleActors: Array<VisibleActorView>, };
 
-export const SESSION_VIEW_SCHEMA_VERSION = 1 as const;
+export const SESSION_VIEW_SCHEMA_VERSION = 2 as const;
 export const SESSION_VIEW_LIMITS = Object.freeze({
 maxActivations: 64,
 maxReceipts: 256,
@@ -107,15 +107,33 @@ export type TurnSide = "party" | "opposition";
 
 export type SessionOutcome = "ongoing" | "victory" | "defeat";
 
+export type SessionPhase = "preparation" | "expedition";
+
 export type PartyMemberSelectionPolicy = "round-robin-living";
 
 export type PartySquareTargetReceipt = { selectedMemberEntityId: number, selectionPolicy: PartyMemberSelectionPolicy, eligibleMemberCount: number, };
 
 export type ActivationView = { entityId: number, actorId: RoguelikeId, name: string, side: TurnSide, initiative: number, };
 
-export type PartyMemberStatusView = { entityId: number, actorId: RoguelikeId, name: string, currentVitality: number, maximumVitality: number, conscious: boolean, carriedItems: Array<CarriedItemView>, };
+export type PartyMemberStatusView = { entityId: number, actorId: RoguelikeId, name: string, title: string, level: number, experience: number, classId: RoguelikeId, className: string, classLevel: number, currentVitality: number, maximumVitality: number, conscious: boolean, abilities: Array<AbilityReadoutView>, defenses: Array<DefenseReadoutView>, feats: Array<FeatReadoutView>, actions: Array<CharacterActionView>, loadout: LoadoutView, };
 
-export type CarriedItemView = { itemId: RoguelikeId, name: string, };
+export type AbilityReadoutView = { abilityId: RoguelikeId, score: number, modifier: number, };
+
+export type DefenseReadoutView = { defenseId: RoguelikeId, value: number, };
+
+export type FeatReadoutView = { featId: RoguelikeId, name: string, description: string, };
+
+export type CharacterActionView = { actionId: RoguelikeId, name: string, };
+
+export type LoadoutItemView = { entityId: number, itemId: RoguelikeId, name: string, equipmentSlotId: string | null, equippedSlotId: string | null, };
+
+export type LoadoutCapacityView = { used: number, maximum: number, };
+
+export type EquipmentSlotView = { slotId: string, label: string, equipped: LoadoutItemView | null, };
+
+export type LoadoutView = { ownerEntityId: number, inventorySlots: Array<LoadoutItemView | null>, equipmentSlots: Array<EquipmentSlotView>, capacity: LoadoutCapacityView, };
+
+export type PreparationView = { stash: LoadoutView, ready: boolean, };
 
 export type LegalActionView = { actionId: RoguelikeId, name: string, legalTargetEntityIds: Array<number>, };
 
@@ -123,10 +141,10 @@ export type PartyDecisionView = { actorEntityId: number, expectedRevision: numbe
 
 export type PartyTurnDirection = "left" | "right";
 
-export type SessionCommandDto = { "kind": "step", actorEntityId: number, expectedRevision: number, step: RelativeStep, } | { "kind": "turnLeft", actorEntityId: number, expectedRevision: number, } | { "kind": "turnRight", actorEntityId: number, expectedRevision: number, } | { "kind": "useAction", actorEntityId: number, expectedRevision: number, actionId: RoguelikeId, targetEntityId: number, };
+export type SessionCommandDto = { "kind": "step", actorEntityId: number, expectedRevision: number, step: RelativeStep, } | { "kind": "turnLeft", actorEntityId: number, expectedRevision: number, } | { "kind": "turnRight", actorEntityId: number, expectedRevision: number, } | { "kind": "useAction", actorEntityId: number, expectedRevision: number, actionId: RoguelikeId, targetEntityId: number, } | { "kind": "moveLoadoutItem", expectedRevision: number, itemEntityId: number, fromOwnerEntityId: number, toOwnerEntityId: number, destinationSlotId: string | null, } | { "kind": "beginExpedition", expectedRevision: number, };
 
 export type SessionErrorDto = { code: string, detail: string, };
 
-export type TurnReceipt = { "kind": "partyMoved", actorEntityId: number, step: RelativeStep, } | { "kind": "partyTurned", actorEntityId: number, direction: PartyTurnDirection, } | { "kind": "partyAttacked", actorEntityId: number, targetEntityId: number, actionId: RoguelikeId, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionAttacked", actorEntityId: number, actionId: RoguelikeId, target: PartySquareTargetReceipt, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionMoved", actorEntityId: number, } | { "kind": "oppositionPassed", actorEntityId: number, };
+export type TurnReceipt = { "kind": "loadoutMoved", itemEntityId: number, fromOwnerEntityId: number, toOwnerEntityId: number, destinationSlotId: string | null, } | { "kind": "expeditionBegan" } | { "kind": "partyMoved", actorEntityId: number, step: RelativeStep, } | { "kind": "partyTurned", actorEntityId: number, direction: PartyTurnDirection, } | { "kind": "partyAttacked", actorEntityId: number, targetEntityId: number, actionId: RoguelikeId, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionAttacked", actorEntityId: number, actionId: RoguelikeId, target: PartySquareTargetReceipt, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionMoved", actorEntityId: number, } | { "kind": "oppositionPassed", actorEntityId: number, };
 
-export type SessionView = { schemaVersion: number, revision: number, round: number, outcome: SessionOutcome, current: ActivationView | null, order: Array<ActivationView>, party: Array<PartyMemberStatusView>, decision: PartyDecisionView | null, latestReceipts: Array<TurnReceipt>, world: WorldView, };
+export type SessionView = { schemaVersion: number, revision: number, phase: SessionPhase, round: number, outcome: SessionOutcome, current: ActivationView | null, order: Array<ActivationView>, party: Array<PartyMemberStatusView>, preparation: PreparationView | null, decision: PartyDecisionView | null, latestReceipts: Array<TurnReceipt>, world: WorldView, };

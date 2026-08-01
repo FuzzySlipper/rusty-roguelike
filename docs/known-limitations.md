@@ -15,12 +15,14 @@ with Rust-owned per-enemy round-robin fairness, and publish a complete strictly
 decoded resolution receipt. The current catalog does not author area or
 multi-member effects.
 
-- The renderer-first interface includes the live collapsed-party expedition,
-  brief Engine camera presentation, visible enemy picking, action alternatives,
-  party vitality, read-only carried-item summaries, and detailed rules receipts.
-- Preparation, drag/drop inventory and equipment, and full character inspection
-  remain task #6492; the current party/packs overlays are deliberately compact
-  expedition views rather than that preparation workflow.
+- The renderer-first interface includes authoritative preparation, shared-stash
+  drag/drop plus click-select equipment assignment, complete tabbed party
+  inspection, the live collapsed-party expedition, brief Engine camera
+  presentation, visible enemy picking, action alternatives, party vitality,
+  read-only field packs, and detailed rules receipts.
+- Expedition loadouts are intentionally read-only. A later equipment-in-turn
+  design must assign an explicit activation cost before mutation can be admitted;
+  this phase does not treat opening Packs as a free equipment action.
 - Complete saves and full protocol hardening are task #6493.
 - End-to-end floor certification is task #6494.
 
