@@ -404,13 +404,7 @@ impl WorldState {
     ) -> Result<bool, WorldStateError> {
         let enemy = self.enemy(entity)?.clone();
         let party = self.party_position()?;
-        let path = self.spatial.path(enemy.position(), party)?;
-        let Some(destination) = path.get(1).copied() else {
-            return Ok(false);
-        };
-        if destination == party {
-            return Ok(false);
-        }
+        let mut occupied = BTreeSet::from([party]);
         for actor in self
             .rules
             .actors()
@@ -418,13 +412,16 @@ impl WorldState {
             .filter(|actor| actor.side == ActorSideCandidate::Opposition)
         {
             let other = EntityId::new(actor.entity_id);
-            if other != entity
-                && self.actor_alive(other)?
-                && self.enemy_position(other)? == destination
-            {
-                return Ok(false);
+            if other != entity && self.actor_alive(other)? {
+                occupied.insert(self.enemy_position(other)?);
             }
         }
+        let Some(destination) =
+            self.spatial
+                .next_step_toward(enemy.position(), party, &occupied)?
+        else {
+            return Ok(false);
+        };
         let mut staged = self.entities.clone();
         replace(&mut staged, entity, enemy.with_position(destination))?;
         self.entities = staged;

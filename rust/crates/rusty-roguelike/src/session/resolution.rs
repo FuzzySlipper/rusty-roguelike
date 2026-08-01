@@ -225,25 +225,10 @@ impl GameSession {
     }
 
     pub(super) fn resolve_opposition(&mut self, entity: EntityId) -> Result<(), SessionError> {
-        let party = self
+        let moved = self
             .world
-            .party_position()
-            .map_err(|detail| error("session_world_read", detail.to_string()))?;
-        let origin = self
-            .world
-            .enemy_position(entity)
-            .map_err(|detail| error("session_world_read", detail.to_string()))?;
-        let moved = if self
-            .world
-            .clear_distance(origin, party)
-            .is_some_and(|distance| distance > 1)
-        {
-            self.world
-                .move_enemy_toward_party(entity)
-                .map_err(|detail| error("session_opposition_move_failed", detail.to_string()))?
-        } else {
-            false
-        };
+            .move_enemy_toward_party(entity)
+            .map_err(|detail| error("session_opposition_move_failed", detail.to_string()))?;
         self.latest_receipts.push(if moved {
             TurnReceipt::OppositionMoved {
                 actor_entity_id: entity.raw(),

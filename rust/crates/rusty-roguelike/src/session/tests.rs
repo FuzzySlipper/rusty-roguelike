@@ -164,7 +164,7 @@ fn selected_attack_consumes_one_activation_and_failed_static_roll_is_atomic() {
 
 #[test]
 fn defeated_participant_leaves_the_live_order_without_blocking_the_round() {
-    let rules = static_rules_single_enemy(vec![
+    let rolls = vec![
         StaticRollCandidate {
             d20: 20,
             damage: vec![8],
@@ -173,8 +173,21 @@ fn defeated_participant_leaves_the_live_order_without_blocking_the_round() {
             d20: 20,
             damage: vec![8],
         },
-    ]);
-    let mut session = GameSession::new(WorldState::new(open_arena(), rules).unwrap()).unwrap();
+    ];
+    let rules = static_rules_single_enemy(rolls.clone());
+    let floor = open_arena();
+    let seeded = WorldState::new(floor.clone(), rules).unwrap();
+    let mut durable = seeded.durable_state().unwrap();
+    durable.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        crate::WorldCell { x: 2, y: 1 },
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    let mut session = GameSession::new(
+        WorldState::restore(floor, static_rules_single_enemy(rolls), durable).unwrap(),
+    )
+    .unwrap();
     let attack = crate::RoguelikeId::parse("aimed-shot").unwrap();
     session
         .command(PartyCommand::UseAction {

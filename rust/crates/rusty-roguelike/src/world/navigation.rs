@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use core_space::{
     ChunkCoord, ChunkDims, GridId, LocalVoxelCoord, VoxelCoord, VoxelGridSpec, WorldPos,
@@ -161,42 +161,54 @@ impl FloorSpatial {
         Ok(())
     }
 
-    pub(super) fn path(
+    pub(super) fn next_step_toward(
         &self,
         start: WorldCell,
         goal: WorldCell,
-    ) -> Result<Vec<WorldCell>, WorldStateError> {
+        occupied: &BTreeSet<WorldCell>,
+    ) -> Result<Option<WorldCell>, WorldStateError> {
         self.require_reachable(start, goal)?;
-        let readout = find_path(
-            &self.navigation,
-            NavPathQuery {
-                start: self.voxel(start),
-                goal: self.voxel(goal),
-                max_visited: self.walkable.len(),
-            },
-        )
-        .map_err(|detail| error("world_navigation_failed", format!("{detail:?}")))?;
-        if readout.outcome != NavPathOutcome::Reached {
-            return Err(error(
-                "world_position_disconnected",
-                format!("position {},{} is disconnected", goal.x, goal.y),
-            ));
+        let mut queue = VecDeque::from([start]);
+        let mut previous = BTreeMap::from([(start, None)]);
+        while let Some(cell) = queue.pop_front() {
+            if previous.len() > self.walkable.len() {
+                return Err(error(
+                    "world_navigation_failed",
+                    "occupied navigation exceeded the Engine projection bound",
+                ));
+            }
+            if cell == goal {
+                let mut cursor = goal;
+                let mut prior = previous[&cursor];
+                while let Some(parent) = prior {
+                    if parent == start {
+                        return if cursor == goal {
+                            Ok(None)
+                        } else {
+                            Ok(Some(cursor))
+                        };
+                    }
+                    cursor = parent;
+                    prior = previous[&cursor];
+                }
+                return Ok(None);
+            }
+            for (dx, dy) in [(0, -1), (1, 0), (0, 1), (-1, 0)] {
+                let next = WorldCell {
+                    x: cell.x + dx,
+                    y: cell.y + dy,
+                };
+                if previous.contains_key(&next)
+                    || (next != goal && occupied.contains(&next))
+                    || !self.navigation.is_walkable(self.voxel(next))
+                {
+                    continue;
+                }
+                previous.insert(next, Some(cell));
+                queue.push_back(next);
+            }
         }
-        readout
-            .path
-            .into_iter()
-            .map(|cell| {
-                let x = i32::try_from(cell.x)
-                    .ok()
-                    .and_then(|local| self.min_x.checked_add(local))
-                    .ok_or_else(|| error("world_grid_invalid", "path x coordinate overflows"))?;
-                let y = i32::try_from(cell.z)
-                    .ok()
-                    .and_then(|local| self.min_y.checked_add(local))
-                    .ok_or_else(|| error("world_grid_invalid", "path y coordinate overflows"))?;
-                Ok(WorldCell { x, y })
-            })
-            .collect()
+        Ok(None)
     }
 
     pub(super) fn clear_distance(&self, origin: WorldCell, target: WorldCell) -> Option<u32> {

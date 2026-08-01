@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+use core_ids::EntityId;
+
 use crate::{
     generate_authored_floor, starter_ruleset, CollapsedPartyComponent, FloorBounds, FloorCell,
     FloorFeature, FloorFeatureKind,
@@ -233,6 +235,52 @@ fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
     assert_eq!(error.code(), "world_enemy_roster_mismatch");
 }
 
+#[test]
+fn opposition_navigation_routes_around_walls_and_an_occupied_preferred_step() {
+    let wall_floor = movement_floor(true);
+    let mut world = positioned_movement_world(
+        wall_floor,
+        WorldCell { x: 2, y: 0 },
+        WorldCell { x: 4, y: 4 },
+    );
+    assert_eq!(
+        world.clear_distance(WorldCell { x: 2, y: 0 }, WorldCell { x: 2, y: 4 }),
+        None
+    );
+    assert!(world.move_enemy_toward_party(EntityId::new(201)).unwrap());
+    assert_eq!(
+        world.enemy_position(EntityId::new(201)).unwrap(),
+        WorldCell { x: 3, y: 0 }
+    );
+    assert!(world.move_enemy_toward_party(EntityId::new(201)).unwrap());
+    assert_eq!(
+        world.enemy_position(EntityId::new(201)).unwrap(),
+        WorldCell { x: 3, y: 1 }
+    );
+
+    let open_floor = movement_floor(false);
+    let mut world = positioned_movement_world(
+        open_floor,
+        WorldCell { x: 2, y: 0 },
+        WorldCell { x: 2, y: 1 },
+    );
+    assert!(world.move_enemy_toward_party(EntityId::new(201)).unwrap());
+    assert_eq!(
+        world.enemy_position(EntityId::new(201)).unwrap(),
+        WorldCell { x: 3, y: 0 }
+    );
+    assert!(world.move_enemy_toward_party(EntityId::new(201)).unwrap());
+    assert!(world.move_enemy_toward_party(EntityId::new(201)).unwrap());
+    assert_eq!(
+        world.enemy_position(EntityId::new(201)).unwrap(),
+        WorldCell { x: 3, y: 2 }
+    );
+    assert_eq!(
+        world.enemy_position(EntityId::new(202)).unwrap(),
+        WorldCell { x: 2, y: 1 }
+    );
+}
+
 fn occlusion_floor() -> crate::GeneratedFloor {
     let mut floor = generate_authored_floor(SEED).expect("provenance donor floor");
     floor.floor_id = "floor.occlusion-regression".to_owned();
@@ -270,6 +318,57 @@ fn occlusion_floor() -> crate::GeneratedFloor {
         cell: FloorCell { x: 2, y: 4 },
     }];
     floor
+}
+
+fn movement_floor(with_wall: bool) -> crate::GeneratedFloor {
+    let mut floor = generate_authored_floor(SEED).expect("provenance donor floor");
+    floor.floor_id = if with_wall {
+        "floor.movement-around-wall"
+    } else {
+        "floor.movement-around-actor"
+    }
+    .to_owned();
+    floor.bounds = FloorBounds {
+        min_x: 0,
+        min_y: 0,
+        width: 5,
+        height: 5,
+    };
+    floor.walkable_cells = (0..5)
+        .flat_map(|y| (0..5).map(move |x| FloorCell { x, y }))
+        .filter(|cell| !with_wall || *cell != FloorCell { x: 2, y: 2 })
+        .collect();
+    floor.regions.clear();
+    floor.portals.clear();
+    floor.features = vec![FloorFeature {
+        id: "entry".to_owned(),
+        source_node_id: "node.entry".to_owned(),
+        kind: FloorFeatureKind::Entry,
+        cell: FloorCell { x: 2, y: 4 },
+    }];
+    floor
+}
+
+fn positioned_movement_world(
+    floor: crate::GeneratedFloor,
+    mover: WorldCell,
+    blocker: WorldCell,
+) -> WorldState {
+    let seeded = WorldState::new(floor.clone(), starter_ruleset().unwrap()).unwrap();
+    let mut durable = seeded.durable_state().unwrap();
+    durable.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        mover,
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    durable.enemies[1].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        blocker,
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    WorldState::restore(floor, starter_ruleset().unwrap(), durable).unwrap()
 }
 
 fn party_position(world: &WorldState) -> WorldCell {
