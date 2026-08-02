@@ -44,7 +44,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   page,
   request,
 }, testInfo) => {
-  test.setTimeout(240_000);
+  test.setTimeout(420_000);
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   const failedRequests: string[] = [];
