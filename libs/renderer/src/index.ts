@@ -14,7 +14,10 @@ import type {
   RendererCameraSnapshot,
   RendererSurface,
 } from '@rusty-engine/renderer-host';
-import type { RenderHandle } from '@rusty-engine/render-contracts';
+import type {
+  RendererViewComposition,
+  RenderHandle,
+} from '@rusty-engine/render-contracts';
 
 import {
   browserDevicePixelRatio,
@@ -34,6 +37,11 @@ import {
   TORCH_CONTENT_HASH,
   type CameraMotionCue,
 } from './dungeon-frame';
+import {
+  compactDungeonView,
+  createDungeonViewComposition,
+  DUNGEON_VIEW_CAMERA_ID,
+} from './view-composition';
 
 export {
   cameraMotionCue,
@@ -41,6 +49,10 @@ export {
   type CameraMotionCue,
   type DungeonFrame,
 } from './dungeon-frame';
+export {
+  compactDungeonView,
+  createDungeonViewComposition,
+} from './view-composition';
 
 const CAMERA_POSITION = [0, 1.65, 0] as const;
 const CAMERA_BASIS = {
@@ -127,6 +139,11 @@ const MOTION_DURATION_MS = 96;
       [attr.data-lighting-viewmodel-default]="lightingViewmodelDefault()"
       [attr.data-retained-light-count]="retainedLightCount()"
       [attr.data-scene-cells]="sceneCellCount()"
+      [attr.data-view-camera]="viewCamera()"
+      [attr.data-view-target-count]="viewTargetCount()"
+      [attr.data-view-target-revision]="viewTargetRevision()"
+      [attr.data-view-target-size]="viewTargetSize()"
+      [attr.data-view-target-status]="viewTargetStatus()"
     >
       <canvas
         #canvas
@@ -157,6 +174,11 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
   protected readonly lightingViewmodelDefault = signal('unavailable');
   protected readonly retainedLightCount = signal(0);
   protected readonly sceneCellCount = signal(0);
+  protected readonly viewCamera = signal('unavailable');
+  protected readonly viewTargetCount = signal(0);
+  protected readonly viewTargetRevision = signal(0);
+  protected readonly viewTargetSize = signal(0);
+  protected readonly viewTargetStatus = signal('unavailable');
   private readonly canvas =
     viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private surface: RendererSurface | null = null;
@@ -166,6 +188,8 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
   private renderedRevision: number | null = null;
   private renderedSelection: string | null = null;
   private destroyed = false;
+  private compactComposition: boolean | null = null;
+  private compositionRevision = 0;
   private sampleTransition:
     | ((
         transition: {
@@ -201,6 +225,7 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
       }
       this.sampleTransition = sampleCameraTransition;
       const canvas = this.canvas().nativeElement;
+      const viewComposition = this.nextViewComposition(canvas);
       const surface = await mountRendererAnimatedMeshSurface(canvas, {
         autoStart: true,
         clearColor: 0x18130e,
@@ -224,6 +249,7 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
         frame: { schemaVersion: 1, ops: [] },
         pixelRatio: browserDevicePixelRatio(),
         projection: CAMERA_PROJECTION,
+        viewComposition,
       });
       if (this.destroyed) {
         surface.dispose();
@@ -239,9 +265,27 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
         this.session(),
         this.selectedActionId(),
       );
-      this.stopResize = observeElementSize(canvas, () =>
-        this.surface?.renderOnce(),
-      );
+      this.stopResize = observeElementSize(canvas, () => {
+        const liveSurface = this.surface;
+        if (liveSurface === null) return;
+        const nextCompact = compactDungeonView(canvas.clientWidth);
+        if (nextCompact !== this.compactComposition) {
+          const receipt = liveSurface.configureViews(
+            this.nextViewComposition(canvas),
+          );
+          if (!receipt.applied) {
+            this.rendererError.set(
+              `Rusty Engine rejected the local overview: ${receipt.diagnostics
+                .map((diagnostic) => diagnostic.message)
+                .join('; ')}`,
+            );
+            this.rendererStatus.set('error');
+            return;
+          }
+        }
+        liveSurface.renderOnce();
+        this.publishViewReadout(liveSurface);
+      });
       if (published) {
         this.rendererStatus.set('ready');
       }
@@ -340,6 +384,7 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
         yawDegrees: 0,
       });
       surface.renderOnce();
+      this.publishViewReadout(surface);
       return true;
     }
     this.animateMotion(cue);
@@ -395,5 +440,28 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
       cancelBrowserFrame(this.animationFrame);
       this.animationFrame = null;
     }
+  }
+
+  private nextViewComposition(
+    canvas: HTMLCanvasElement,
+  ): RendererViewComposition {
+    const compact = compactDungeonView(canvas.clientWidth);
+    this.compactComposition = compact;
+    this.compositionRevision += 1;
+    return createDungeonViewComposition(this.compositionRevision, compact);
+  }
+
+  private publishViewReadout(surface: RendererSurface): void {
+    const readout = surface.viewCompositionReadout();
+    const target = readout.targets[0];
+    this.viewCamera.set(
+      readout.cameras.some(({ id }) => id === DUNGEON_VIEW_CAMERA_ID)
+        ? DUNGEON_VIEW_CAMERA_ID
+        : 'unavailable',
+    );
+    this.viewTargetCount.set(readout.resources.targetCount);
+    this.viewTargetRevision.set(target?.revision ?? 0);
+    this.viewTargetSize.set(target?.width ?? 0);
+    this.viewTargetStatus.set(target?.status ?? 'unavailable');
   }
 }

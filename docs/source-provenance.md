@@ -3,13 +3,16 @@
 ## Runtime dependencies
 
 - Rusty Engine: `https://github.com/FuzzySlipper/rusty-engine` at
-  `b1f0415af6266783246371d227a2272de7d9f0d6`. The product consumes its public
+  `8673aaa6d0b811195b3904f34d7729c0d6e92530`. The product consumes its public
   retained renderer packages plus exact `core-ids`, `entity-state`,
   `gameplay-rules`, `gameplay-mechanics`, `core-space`, `core-voxel`,
   `svc-volume`, `svc-spatial`, `svc-pathfinding`, `svc-collision`, and `svc-rng`
   Rust crates directly. Those services own the floor's voxel, navigation,
   movement, visibility, and deterministic random mechanisms; the game retains
-  Roguelike policy, action resolution, and state.
+  Roguelike policy, action resolution, and state. The same exact Engine
+  revision supplies the renderer-neutral bounded view-composition contract;
+  the product uses it only to GPU-present another camera over the already
+  admitted retained local scene.
 - Rusty Procgen: `https://github.com/FuzzySlipper/rusty-procgen` at
   `722e2c479bdf88ab39b66d2d33ab466b698ec7df`. Rust links the public
   filesystem-free `rusty_procgen_preflight::core::ProcgenCore` facade and
@@ -63,9 +66,11 @@ Donor evidence never overrides this repository's design.
 
 ## Presentation asset
 
-Engine revision `b1f0415af6266783246371d227a2272de7d9f0d6` supplies the
+Engine revision `8673aaa6d0b811195b3904f34d7729c0d6e92530` supplies the
 schema-1 renderer lighting policy used to disable neutral world illumination
-while retaining a neutral viewmodel rig. The bundled torch is an optimized derivative of
+while retaining a neutral viewmodel rig, plus the schema-1 bounded
+multi-camera/offscreen-target contract used by the local picture-in-picture.
+The bundled torch is an optimized derivative of
 [Medieval Torch - Free](https://sketchfab.com/3d-models/medieval-torch-free-065861234a824cb982764f04627331c9)
 by [Typhen](https://sketchfab.com/typhen). It is licensed CC BY-NC-SA 4.0;
 the attribution, modification note, license link, and non-commercial/share-alike

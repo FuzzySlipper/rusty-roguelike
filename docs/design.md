@@ -231,6 +231,13 @@ warm point lights in Rust-projected prefab scene facts; neither the browser nor
 the adapter invents a second level-lighting policy. Opposition receipts do
 not synthesize camera-relative actor geometry; damage remains visible through
 party vitality and the rules log.
+The same surface configures one bounded Engine-owned offscreen target and an
+orthographic local-overview camera over that exact retained scene. Engine
+GPU-presents the target as a responsive picture-in-picture inset. This view
+receives no minimap, discovery, visibility, actor, navigation, or legality
+facts: it can only observe what Rust already admitted into the retained local
+scene, while the accessible detailed minimap remains the Rust minimap
+projection's separate presentation.
 Brief camera offsets are derived
 from accepted movement/turn receipts and discarded after presentation; reduced
 motion snaps immediately. The preparation workbench, initiative, movement,

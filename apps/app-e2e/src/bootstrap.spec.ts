@@ -234,6 +234,54 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     'data-retained-light-count',
     String(initialVisibleLights),
   );
+  await expect(viewport).toHaveAttribute(
+    'data-view-camera',
+    'camera.dungeon-local-overview',
+  );
+  await expect(viewport).toHaveAttribute('data-view-target-count', '1');
+  await expect(viewport).toHaveAttribute('data-view-target-revision', '1');
+  await expect(viewport).toHaveAttribute(
+    'data-view-target-size',
+    testInfo.project.name === 'desktop-chromium' ? '256' : '128',
+  );
+  await expect(viewport).toHaveAttribute('data-view-target-status', 'current');
+  const overviewMetrics = await analyzeLocalOverview(
+    page,
+    testInfo.project.name === 'mobile-chromium',
+  );
+  expect(overviewMetrics.distinctPixelRatio).toBeGreaterThan(0.05);
+  expect(overviewMetrics.insetLuminanceRange).toBeGreaterThan(5);
+  await testInfo.attach(`local-overview-${testInfo.project.name}.json`, {
+    body: Buffer.from(JSON.stringify(overviewMetrics, null, 2)),
+    contentType: 'application/json',
+  });
+  await testInfo.attach(`local-overview-${testInfo.project.name}.png`, {
+    body: await page.locator('canvas').screenshot(),
+    contentType: 'image/png',
+  });
+  if (testInfo.project.name === 'desktop-chromium') {
+    const beforeResize = await readSession(page);
+    const originalViewport = page.viewportSize();
+    if (originalViewport === null)
+      throw new Error('desktop viewport size is unavailable');
+    await page.setViewportSize({ width: 600, height: 800 });
+    await expect(viewport).toHaveAttribute('data-view-target-revision', '2');
+    await expect(viewport).toHaveAttribute('data-view-target-size', '128');
+    await expect(viewport).toHaveAttribute(
+      'data-view-target-status',
+      'current',
+    );
+    await page.setViewportSize(originalViewport);
+    await expect(viewport).toHaveAttribute('data-view-target-revision', '3');
+    await expect(viewport).toHaveAttribute('data-view-target-size', '256');
+    await expect(viewport).toHaveAttribute(
+      'data-view-target-status',
+      'current',
+    );
+    const afterResize = await readSession(page);
+    expect(afterResize.revision).toBe(beforeResize.revision);
+    expect(afterResize.world.minimap).toEqual(beforeResize.world.minimap);
+  }
   await expect(minimap).toHaveAttribute(
     'data-minimap-revision',
     String(expeditionRevision),
@@ -1188,4 +1236,94 @@ async function analyzeTorchFalloff(page: Page): Promise<TorchFalloffMetrics> {
       width: analysisCanvas.width,
     };
   }, encodedScreenshot);
+}
+
+async function analyzeLocalOverview(
+  page: Page,
+  compact: boolean,
+): Promise<{
+  distinctPixelRatio: number;
+  height: number;
+  insetLuminanceRange: number;
+  width: number;
+}> {
+  const encodedScreenshot = (
+    await page.locator('canvas').screenshot()
+  ).toString('base64');
+  return page.evaluate(
+    async ({ compact, encoded }) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${encoded}`;
+      await new Promise<void>((resolve, reject) => {
+        image.addEventListener('load', () => resolve(), { once: true });
+        image.addEventListener(
+          'error',
+          () => reject(new Error('decode failed')),
+          {
+            once: true,
+          },
+        );
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (context === null) {
+        throw new Error('overview analysis requires a detached 2D canvas');
+      }
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ).data;
+      const viewport = compact
+        ? { x: 0.66, y: 0.7, width: 0.3, height: 0.26 }
+        : { x: 0.68, y: 0.62, width: 0.28, height: 0.32 };
+      const startX = Math.floor(viewport.x * canvas.width);
+      const endX = Math.floor((viewport.x + viewport.width) * canvas.width);
+      const startY = Math.floor(
+        (1 - viewport.y - viewport.height) * canvas.height,
+      );
+      const endY = Math.floor((1 - viewport.y) * canvas.height);
+      const referenceStartX = Math.max(
+        0,
+        Math.floor((viewport.x - viewport.width - 0.05) * canvas.width),
+      );
+      let distinct = 0;
+      let samples = 0;
+      let minimumLuminance = Number.POSITIVE_INFINITY;
+      let maximumLuminance = Number.NEGATIVE_INFINITY;
+      for (let y = startY; y < endY; y += 2) {
+        for (let x = startX; x < endX; x += 2) {
+          const offset = (y * canvas.width + x) * 4;
+          const referenceX = Math.min(
+            canvas.width - 1,
+            referenceStartX + (x - startX),
+          );
+          const referenceOffset = (y * canvas.width + referenceX) * 4;
+          const red = pixels[offset] ?? 0;
+          const green = pixels[offset + 1] ?? 0;
+          const blue = pixels[offset + 2] ?? 0;
+          const luminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+          minimumLuminance = Math.min(minimumLuminance, luminance);
+          maximumLuminance = Math.max(maximumLuminance, luminance);
+          const difference =
+            Math.abs(red - (pixels[referenceOffset] ?? 0)) +
+            Math.abs(green - (pixels[referenceOffset + 1] ?? 0)) +
+            Math.abs(blue - (pixels[referenceOffset + 2] ?? 0));
+          if (difference > 30) distinct += 1;
+          samples += 1;
+        }
+      }
+      return {
+        distinctPixelRatio: distinct / samples,
+        height: canvas.height,
+        insetLuminanceRange: maximumLuminance - minimumLuminance,
+        width: canvas.width,
+      };
+    },
+    { compact, encoded: encodedScreenshot },
+  );
 }
