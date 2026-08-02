@@ -260,11 +260,21 @@ function decodeMinimap(value: unknown, world: WorldView): void {
     }),
   );
   for (const cell of cells.values()) {
-    if (
-      cell.visible &&
-      sceneCells.get(String(cell.x) + ':' + String(cell.y)) !== cell.terrain
-    ) {
-      throw new Error('minimap current terrain is absent from the scene view');
+    if (cell.visible) {
+      const sceneKind = sceneCells.get(String(cell.x) + ':' + String(cell.y));
+      const sceneTerrain = sceneKind === 'wall' ? 'wall' : 'floor';
+      if (sceneKind === undefined || sceneTerrain !== cell.terrain) {
+        throw new Error(
+          'minimap current terrain is absent from the scene view',
+        );
+      }
+      const sceneLockedDoor =
+        sceneKind === 'locked-door-forward' || sceneKind === 'locked-door-side';
+      if (sceneLockedDoor !== (cell.feature === 'locked-door')) {
+        throw new Error(
+          'minimap locked-door feature does not match the scene barrier',
+        );
+      }
     }
   }
   if (
@@ -317,7 +327,7 @@ function decodeMinimapCell(value: unknown): asserts value is MinimapCellView {
   }
   if (
     value['feature'] !== null &&
-    !['entry', 'goal', 'key', 'open-door', 'locked-door'].includes(
+    !['entry', 'gate', 'goal', 'key', 'open-door', 'locked-door'].includes(
       String(value['feature']),
     )
   ) {
@@ -1211,7 +1221,12 @@ function decodePartySquareTarget(value: unknown): void {
 function decodeWorldCell(value: unknown): asserts value is WorldViewCell {
   requireExactRecord(value, WORLD_CELL_KEYS, 'world view cell');
   requireRelativePosition(value);
-  if (value['kind'] !== 'floor' && value['kind'] !== 'wall') {
+  if (
+    value['kind'] !== 'floor' &&
+    value['kind'] !== 'locked-door-forward' &&
+    value['kind'] !== 'locked-door-side' &&
+    value['kind'] !== 'wall'
+  ) {
     throw new Error('world view cell has an invalid kind');
   }
 }

@@ -165,7 +165,7 @@ blocker remains observable.
 Seeing a dormant enemy promotes it permanently into encounter participation;
 turning away removes it from the current visible projection without putting it
 back to sleep. Party discovery durably records observed floor and wall facts
-separately. Browser-facing WorldView schema 4 keeps two projections distinct: a
+separately. Browser-facing WorldView schema 5 keeps two projections distinct: a
 bounded local first-person topology frustum for ordinary 3D depth/lighting, and
 a Rust-projected minimap containing only discovered terrain, known feature/door
 icons, the party pose, and currently shadowcast-visible opposition. Local scene
@@ -218,10 +218,11 @@ visible, and submits only projected choices; it does not recreate inventory,
 equipment, movement, targeting, initiative, or rules policy.
 
 One permanent public Engine `RendererSurface` owns the full window. World view
-schema 4 projects bounded local scene topology and all prefab placements on its
-floor cells independently from minimap shadowcasting. A pure adapter maps those
-scene placements, relative cells, and shadowcast-visible actors into stable
-retained handles, one shared public static mesh with defined standard materials,
+schema 5 projects bounded local scene topology, explicit locked-door barriers,
+and all prefab placements on its floor cells independently from minimap
+shadowcasting. A pure adapter maps those scene placements, relative cells, and
+shadowcast-visible actors into stable retained handles, one shared public static
+mesh with defined standard materials,
 public animated-mesh/light operations, and public picking metadata. Ambient plus
 directional level lights provide ordinary 3D readability while every projected
 torch mesh retains its paired authored warm point light. Opposition receipts do

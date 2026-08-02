@@ -238,11 +238,11 @@ fn locked_door_is_a_visible_minimap_fixture_and_occludes_the_forward_cone() {
         id: "door.locked".to_owned(),
         source_edge_id: "edge.locked".to_owned(),
         cells: vec![FloorCell { x: 2, y: 3 }],
-        orientation: "horizontal".to_owned(),
+        orientation: "north".to_owned(),
         traversal: "locked".to_owned(),
         required_item: Some("key.test".to_owned()),
     }];
-    let world = occlusion_world(floor);
+    let mut world = occlusion_world(floor);
     let view = world.view().expect("door view");
     assert!(view.minimap.cells.contains(&MinimapCellView {
         x: 2,
@@ -251,10 +251,13 @@ fn locked_door_is_a_visible_minimap_fixture_and_occludes_the_forward_cone() {
         feature: Some(MinimapFeatureKind::LockedDoor),
         visible: true,
     }));
-    assert!(view
-        .cells
-        .iter()
-        .any(|cell| cell.lateral == 0 && cell.depth == 2 && cell.kind == WorldViewCellKind::Wall));
+    assert!(view.cells.iter().any(|cell| cell.lateral == 0
+        && cell.depth == 1
+        && cell.kind == WorldViewCellKind::LockedDoorForward));
+    let side = world.turn_right().expect("side door view");
+    assert!(side.cells.iter().any(|cell| cell.lateral == -1
+        && cell.depth == 0
+        && cell.kind == WorldViewCellKind::LockedDoorSide));
     assert!(view
         .cells
         .iter()

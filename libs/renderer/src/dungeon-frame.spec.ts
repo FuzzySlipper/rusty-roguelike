@@ -73,7 +73,7 @@ const SESSION: SessionView = {
   latestReceipts: [],
   log: [],
   world: {
-    schemaVersion: 4,
+    schemaVersion: 5,
     revision: 9,
     floorId: 'floor.renderer',
     facing: 'north',
@@ -82,6 +82,7 @@ const SESSION: SessionView = {
       { lateral: 0, depth: 0, kind: 'floor' },
       { lateral: 0, depth: 1, kind: 'floor' },
       { lateral: 1, depth: 1, kind: 'wall' },
+      { lateral: -1, depth: 1, kind: 'locked-door-side' },
     ],
     scenePlacements: [],
     visibleActors: [
@@ -150,7 +151,7 @@ describe('createDungeonFrame', () => {
     ).toHaveLength(first.handles.length);
     expect(
       first.frame.ops.filter((operation) => operation.op === 'defineMaterial'),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
     expect(first.frame.ops).toContainEqual(
       expect.objectContaining({
         op: 'defineStaticMesh',
@@ -178,6 +179,32 @@ describe('createDungeonFrame', () => {
           operation.instance.metadata.label === 'wall-1-1',
       ),
     ).toBe(true);
+    const lockedDoor = first.frame.ops.find(
+      (operation) =>
+        operation.op === 'createStaticMeshInstance' &&
+        operation.instance.metadata.label === 'locked-door--1-1',
+    );
+    expect(lockedDoor).toMatchObject({
+      op: 'createStaticMeshInstance',
+      instance: {
+        materialOverrides: [{ slot: 0, material: 'material.dungeon.door' }],
+        metadata: {
+          tags: [
+            'rusty-roguelike',
+            'dungeon-barrier',
+            'locked-door',
+            'door-side',
+          ],
+        },
+      },
+    });
+    if (lockedDoor?.op !== 'createStaticMeshInstance') {
+      throw new Error('locked door was not retained as Engine geometry');
+    }
+    expect(lockedDoor.instance.transform.scale.slice(0, 2)).toEqual([
+      0.24, 2.84,
+    ]);
+    expect(lockedDoor.instance.transform.scale[2]).toBeCloseTo(2.14);
   });
 
   it('destroys the prior retained set before recreating the exact projection', () => {

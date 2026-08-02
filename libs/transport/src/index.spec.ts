@@ -86,7 +86,7 @@ const TERMINAL_SESSION = {
   latestReceipts: [],
   log: [],
   world: {
-    schemaVersion: 4,
+    schemaVersion: 5,
     revision: 12,
     floorId: 'floor.transport',
     facing: 'north',

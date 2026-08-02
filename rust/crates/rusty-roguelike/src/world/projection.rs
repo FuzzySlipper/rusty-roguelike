@@ -52,6 +52,28 @@ pub(super) fn project_world(
                 WorldViewCellKind::Wall,
             )
         }))
+        .chain(
+            scene_terrain
+                .locked_doors_forward
+                .iter()
+                .copied()
+                .map(|cell| {
+                    view_cell(
+                        party.position(),
+                        party.facing(),
+                        cell,
+                        WorldViewCellKind::LockedDoorForward,
+                    )
+                }),
+        )
+        .chain(scene_terrain.locked_doors_side.iter().copied().map(|cell| {
+            view_cell(
+                party.position(),
+                party.facing(),
+                cell,
+                WorldViewCellKind::LockedDoorSide,
+            )
+        }))
         .collect::<Result<Vec<_>, _>>()?;
     if cells.len() > MAX_PROJECTED_WORLD_FACTS {
         return Err(error(
@@ -259,7 +281,7 @@ fn minimap_feature(floor: &GeneratedFloor, cell: super::WorldCell) -> Option<Min
             FloorFeatureKind::Entry => MinimapFeatureKind::Entry,
             FloorFeatureKind::Goal => MinimapFeatureKind::Goal,
             FloorFeatureKind::Key => MinimapFeatureKind::Key,
-            FloorFeatureKind::Gate => MinimapFeatureKind::LockedDoor,
+            FloorFeatureKind::Gate => MinimapFeatureKind::Gate,
         })
 }
 
@@ -298,7 +320,9 @@ fn narrow_u8(value: i32) -> Result<u8, WorldStateError> {
 const fn kind_order(kind: WorldViewCellKind) -> u8 {
     match kind {
         WorldViewCellKind::Floor => 0,
-        WorldViewCellKind::Wall => 1,
+        WorldViewCellKind::LockedDoorForward => 1,
+        WorldViewCellKind::LockedDoorSide => 2,
+        WorldViewCellKind::Wall => 3,
     }
 }
 

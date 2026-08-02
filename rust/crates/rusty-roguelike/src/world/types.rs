@@ -3,7 +3,7 @@ use ts_rs::TS;
 
 use crate::{FloorCell, RoguelikeId};
 
-pub const WORLD_VIEW_SCHEMA_VERSION: u32 = 4;
+pub const WORLD_VIEW_SCHEMA_VERSION: u32 = 5;
 pub const MAX_VIEW_DEPTH: i32 = 6;
 pub const MAX_DISCOVERED_CELLS: usize = 4_096;
 pub const MAX_PROJECTED_WORLD_FACTS: usize = 256;
@@ -96,6 +96,8 @@ pub enum EnemyParticipation {
 #[ts(rename_all = "kebab-case")]
 pub enum WorldViewCellKind {
     Floor,
+    LockedDoorForward,
+    LockedDoorSide,
     Wall,
 }
 
@@ -155,6 +157,7 @@ pub enum MinimapTerrainKind {
 #[ts(rename_all = "kebab-case")]
 pub enum MinimapFeatureKind {
     Entry,
+    Gate,
     Goal,
     Key,
     OpenDoor,

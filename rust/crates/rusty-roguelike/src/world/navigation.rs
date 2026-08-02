@@ -23,6 +23,7 @@ pub(super) struct FloorSpatial {
     max_y: i32,
     walkable: BTreeSet<WorldCell>,
     opaque_walkable: BTreeSet<WorldCell>,
+    locked_door_north_south: BTreeMap<WorldCell, bool>,
     navigation: NavProjection,
     collision: CollisionProjection,
 }
@@ -30,6 +31,8 @@ pub(super) struct FloorSpatial {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct VisibleTerrain {
     pub(super) floor: Vec<WorldCell>,
+    pub(super) locked_doors_forward: Vec<WorldCell>,
+    pub(super) locked_doors_side: Vec<WorldCell>,
     pub(super) walls: Vec<WorldCell>,
 }
 
@@ -114,6 +117,18 @@ impl FloorSpatial {
             .filter(|portal| portal.traversal == "locked")
             .flat_map(|portal| portal.cells.iter().map(WorldCell::from))
             .collect::<BTreeSet<_>>();
+        let locked_door_north_south = floor
+            .portals
+            .iter()
+            .filter(|portal| portal.traversal == "locked")
+            .flat_map(|portal| {
+                let north_south = matches!(portal.orientation.as_str(), "north" | "south");
+                portal
+                    .cells
+                    .iter()
+                    .map(move |cell| (WorldCell::from(cell), north_south))
+            })
+            .collect::<BTreeMap<_, _>>();
         if opaque_walkable.iter().any(|cell| !walkable.contains(cell)) {
             return Err(error(
                 "world_floor_not_canonical",
@@ -127,6 +142,7 @@ impl FloorSpatial {
             max_y,
             walkable,
             opaque_walkable,
+            locked_door_north_south,
             navigation,
             collision,
         })
@@ -316,6 +332,8 @@ impl FloorSpatial {
                         && !self.opaque_walkable_precedes(origin, *cell)
                 })
                 .collect(),
+            locked_doors_forward: Vec::new(),
+            locked_doors_side: Vec::new(),
             walls: visible
                 .into_iter()
                 .filter(|cell| {
@@ -329,6 +347,8 @@ impl FloorSpatial {
 
     pub(super) fn scene_terrain(&self, origin: WorldCell, facing: Facing) -> VisibleTerrain {
         let mut floor = Vec::new();
+        let mut locked_doors_forward = Vec::new();
+        let mut locked_doors_side = Vec::new();
         let mut walls = Vec::new();
         let (forward_x, forward_y) = facing.forward();
         let (right_x, right_y) = facing.right_axis();
@@ -340,14 +360,26 @@ impl FloorSpatial {
                     continue;
                 };
                 let cell = WorldCell { x, y };
-                if self.walkable.contains(&cell) {
+                if self.opaque_walkable.contains(&cell) {
+                    let party_north_south = matches!(facing, Facing::North | Facing::South);
+                    if self.locked_door_north_south.get(&cell).copied() == Some(party_north_south) {
+                        locked_doors_forward.push(cell);
+                    } else {
+                        locked_doors_side.push(cell);
+                    }
+                } else if self.walkable.contains(&cell) {
                     floor.push(cell);
                 } else {
                     walls.push(cell);
                 }
             }
         }
-        VisibleTerrain { floor, walls }
+        VisibleTerrain {
+            floor,
+            locked_doors_forward,
+            locked_doors_side,
+            walls,
+        }
     }
 
     #[allow(clippy::too_many_arguments)]

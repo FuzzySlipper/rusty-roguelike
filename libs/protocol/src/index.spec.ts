@@ -39,7 +39,7 @@ describe('decodeBootstrapReadout', () => {
 });
 
 const WORLD_VIEW = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   revision: 17,
   floorId: 'floor.occlusion-regression',
   facing: 'north',
@@ -120,6 +120,38 @@ describe('decodeWorldView', () => {
       ],
     };
     expect(decodeWorldView(withTorch)).toEqual(withTorch);
+  });
+
+  it('requires the visible minimap locked door to remain a scene barrier', () => {
+    const lockedDoor = {
+      ...WORLD_VIEW,
+      cells: WORLD_VIEW.cells.map((cell) =>
+        cell.lateral === 0 && cell.depth === 1
+          ? { ...cell, kind: 'locked-door-forward' }
+          : cell,
+      ),
+      minimap: {
+        ...WORLD_VIEW.minimap,
+        cells: WORLD_VIEW.minimap.cells.map((cell) =>
+          cell.x === 2 && cell.y === 3
+            ? { ...cell, feature: 'locked-door' }
+            : cell,
+        ),
+      },
+    };
+    expect(decodeWorldView(lockedDoor)).toEqual(lockedDoor);
+    expect(() =>
+      decodeWorldView({
+        ...lockedDoor,
+        cells: WORLD_VIEW.cells,
+      }),
+    ).toThrow('locked-door feature');
+    expect(() =>
+      decodeWorldView({
+        ...lockedDoor,
+        minimap: WORLD_VIEW.minimap,
+      }),
+    ).toThrow('locked-door feature');
   });
 
   it('accepts bounded scene topology beyond occluders but rejects malformed actor facts', () => {

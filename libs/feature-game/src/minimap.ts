@@ -366,6 +366,8 @@ export function featureGlyph(feature: MinimapFeatureKind): string {
   switch (feature) {
     case 'entry':
       return '⌂';
+    case 'gate':
+      return '▣';
     case 'goal':
       return '◆';
     case 'key':

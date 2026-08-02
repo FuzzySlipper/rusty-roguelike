@@ -72,7 +72,7 @@ export type ActorCandidate = { id: RoguelikeId, entityId: number, name: string, 
 export type PartyCandidate = { id: RoguelikeId, entityId: number, members: Array<RoguelikeId>, };
 
 
-export const WORLD_VIEW_SCHEMA_VERSION = 4 as const;
+export const WORLD_VIEW_SCHEMA_VERSION = 5 as const;
 export const WORLD_VIEW_LIMITS = Object.freeze({
 maxDepth: 6,
 maxDiscoveredCells: 4096,
@@ -91,7 +91,7 @@ export type RelativeStep = "forward" | "backward" | "left" | "right";
 
 export type EnemyParticipation = "dormant" | "participating";
 
-export type WorldViewCellKind = "floor" | "wall";
+export type WorldViewCellKind = "floor" | "locked-door-forward" | "locked-door-side" | "wall";
 
 export type WorldViewCell = { lateral: number, depth: number, kind: WorldViewCellKind, };
 
@@ -105,7 +105,7 @@ export type VisibleActorView = { actorId: RoguelikeId, entityId: number, name: s
 
 export type MinimapTerrainKind = "floor" | "wall";
 
-export type MinimapFeatureKind = "entry" | "goal" | "key" | "open-door" | "locked-door";
+export type MinimapFeatureKind = "entry" | "gate" | "goal" | "key" | "open-door" | "locked-door";
 
 export type MinimapCellView = { x: number, y: number, terrain: MinimapTerrainKind, feature: MinimapFeatureKind | null, visible: boolean, };
 

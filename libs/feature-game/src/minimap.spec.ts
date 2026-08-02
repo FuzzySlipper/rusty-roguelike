@@ -78,10 +78,10 @@ describe('minimap presentation', () => {
       (['north', 'east', 'south', 'west'] as const).map(facingRotation),
     ).toEqual([0, 90, 180, 270]);
     expect(
-      (['entry', 'goal', 'key', 'open-door', 'locked-door'] as const).map(
-        featureGlyph,
-      ),
-    ).toEqual(['⌂', '◆', '⚿', '/', '+']);
+      (
+        ['entry', 'gate', 'goal', 'key', 'open-door', 'locked-door'] as const
+      ).map(featureGlyph),
+    ).toEqual(['⌂', '▣', '◆', '⚿', '/', '+']);
   });
 
   it('provides the complete projected map as a text alternative', () => {

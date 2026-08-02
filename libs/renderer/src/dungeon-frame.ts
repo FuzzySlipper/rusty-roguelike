@@ -31,6 +31,7 @@ export interface CameraMotionCue {
 
 const COLORS = {
   ceiling: [0.21, 0.2, 0.17, 1] as Vec4,
+  door: [0.27, 0.13, 0.055, 1] as Vec4,
   enemy: [0.55, 0.16, 0.105, 1] as Vec4,
   enemyHit: [1, 0.48, 0.12, 1] as Vec4,
   enemyTarget: [0.82, 0.58, 0.16, 1] as Vec4,
@@ -41,6 +42,7 @@ const CELL_SIZE = 2.4;
 const CUBE_ASSET_ID = 'asset.mesh.dungeon-cube';
 const MATERIAL_IDS = {
   ceiling: 'material.dungeon.ceiling',
+  door: 'material.dungeon.door',
   enemy: 'material.dungeon.enemy',
   enemyHit: 'material.dungeon.enemy-hit',
   enemyTarget: 'material.dungeon.enemy-target',
@@ -231,7 +233,11 @@ export function createDungeonFrame(
     const z = -cell.depth * CELL_SIZE;
     const cellIndex = cell.depth * 13 + cell.lateral + 6;
     const base = 100 + cellIndex * 4;
-    if (cell.kind === 'floor') {
+    if (
+      cell.kind === 'floor' ||
+      cell.kind === 'locked-door-forward' ||
+      cell.kind === 'locked-door-side'
+    ) {
       createCuboid(
         base,
         `floor-${cell.lateral}-${cell.depth}`,
@@ -250,6 +256,28 @@ export function createDungeonFrame(
         null,
         ['rusty-roguelike', 'dungeon-ceiling'],
       );
+      if (
+        cell.kind === 'locked-door-forward' ||
+        cell.kind === 'locked-door-side'
+      ) {
+        const forwardFacing = cell.kind === 'locked-door-forward';
+        createCuboid(
+          base + 2,
+          `locked-door-${cell.lateral}-${cell.depth}`,
+          [x, 1.42, z],
+          forwardFacing
+            ? [CELL_SIZE - 0.26, 2.84, 0.24]
+            : [0.24, 2.84, CELL_SIZE - 0.26],
+          MATERIAL_IDS.door,
+          null,
+          [
+            'rusty-roguelike',
+            'dungeon-barrier',
+            'locked-door',
+            forwardFacing ? 'door-forward' : 'door-side',
+          ],
+        );
+      }
     } else {
       createCuboid(
         base + 2,
