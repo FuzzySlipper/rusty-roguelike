@@ -13,8 +13,9 @@ build, and real Rust-served Chromium at desktop and mobile sizes.
 
 The desktop browser path equips the complete authored stash, proves the
 equipment-granted Focus Orb action, enters the generated floor, observes dormant
-enemies join only after discovery and a round rebuild, resolves both hostile
-groups without a modal combat screen, inspects Rust-selected party-member damage,
+enemies join only after discovery and a round rebuild, encounters all five
+opponents across the generated floor, resolves the complete hostile roster
+without a modal combat screen, inspects Rust-selected party-member damage,
 saves/reopens active combat, reaches victory, and reopens the terminal save. The
 mobile path repeats preparation and lifecycle controls, keyboard input,
 responsive panel separation, 44-pixel controls, and viewport containment.

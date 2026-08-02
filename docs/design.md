@@ -57,11 +57,13 @@ Combat never changes to a modal tactical board. The first-person renderer,
 party status, action controls, and log remain one composition throughout
 exploration and initiative resolution.
 
-The bounded starter-floor objective is to defeat both authored dormant raiders.
-Rust derives victory only from authoritative actor vitality; the browser's
-objective panel merely presents the current `SessionOutcome`. Terminal sessions
-accept no further gameplay commands, but their complete state can still be saved
-and reopened through the host lifecycle.
+The bounded starter-floor objective is to find and defeat all five authored
+dormant raiders, distributed deterministically across near, middle, and far
+reachable floor strata. Rust derives victory only from authoritative actor
+vitality across the exact compiled opposition roster; the browser's objective
+panel merely presents the current `SessionOutcome`. Terminal sessions accept no
+further gameplay commands, but their complete state can still be saved and
+reopened through the host lifecycle.
 
 ## Rules compilation
 
