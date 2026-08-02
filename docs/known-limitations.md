@@ -24,9 +24,10 @@ multi-member effects.
 - Expedition loadouts are intentionally read-only. A later equipment-in-turn
   design must assign an explicit activation cost before mutation can be admitted;
   this phase does not treat opening Packs as a free equipment action.
-- The bounded floor authors all current items into the preparation stash; it does
-  not yet author dropped loot or consumables. Certification proves collecting
-  that stash into legal loadouts and using its granted actions in the expedition.
+- New sessions create and equip the canonical party items before first
+  publication, leaving the preparation stash empty. The bounded floor does not
+  yet author dropped loot or consumables; preparation only supports optional
+  unequip, transfer, and re-equip customization of that starting loadout.
 
 The admitted floor and compiled rules form the live Rust `WorldState` and
 `GameSession`; the host publishes their strict projection and accepts typed,
@@ -44,8 +45,9 @@ adaptive fill-light placement, emissive flame animation, or prop collision.
 The torch donor is CC BY-NC-SA 4.0, so the bundled derivative is non-commercial
 and share-alike; its attribution and license ship beside the GLB.
 
-The real-host product proof now completes the bounded floor: it empties the
-shared stash into legal equipment, begins the continuous initiative expedition,
+The real-host product proof now completes the bounded floor: it starts from the
+canonical equipped loadout, optionally unequips and restores Scale Mail through
+the empty shared stash, begins the continuous initiative expedition,
 observes each hidden raider join only after discovery and the next round rebuild,
 uses an equipment-granted action, records Rust-selected party-member damage,
 saves and reopens active combat, reaches Rust-owned victory, and reopens the
