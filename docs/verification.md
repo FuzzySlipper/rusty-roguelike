@@ -20,7 +20,8 @@ opponents across the generated floor, resolves the complete hostile roster
 without a modal combat screen, consumes an explicit Wait through Space/click
 while preserving disclosure keyboard behavior, inspects Rust-selected
 party-member damage,
-saves/reopens active combat, reaches victory, and reopens the terminal save. It
+uses the game menu to save/load and restart, saves/reopens active combat,
+reaches victory, and reopens the terminal save. It
 also proves that the detailed minimap follows Rust discovery, remembered versus
 current visibility, enemy appearance, revision replacement, and classified
 failure nonmutation. The retained Engine surface loads the exact-hash torch GLB,

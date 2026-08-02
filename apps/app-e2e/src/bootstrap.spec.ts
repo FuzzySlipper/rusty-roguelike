@@ -94,10 +94,18 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await expect(
     page.getByRole('button', { name: 'Begin expedition' }),
   ).toBeEnabled();
+  await assertGameMenu(page);
+  await restartAndWait(page, stage);
+  const savedPreparationRevision = Number(
+    await stage.getAttribute('data-session-revision'),
+  );
   await saveAndWait(page);
   await issueAndWait(page, stage, 'Begin expedition');
   await reopenAndWait(page);
-  await expect(stage).toHaveAttribute('data-session-revision', '2');
+  await expect(stage).toHaveAttribute(
+    'data-session-revision',
+    String(savedPreparationRevision),
+  );
   await expect(
     page.getByRole('heading', { name: 'Prepare the expedition' }),
   ).toBeVisible();
@@ -106,7 +114,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     contentType: 'image/png',
   });
   await issueAndWait(page, stage, 'Begin expedition');
-  await expect(stage).toHaveAttribute('data-session-revision', '3');
+  await expect(stage).toHaveAttribute(
+    'data-session-revision',
+    String(savedPreparationRevision + 1),
+  );
   await expect(
     page.getByRole('navigation', { name: 'Initiative order' }),
   ).toBeVisible();
@@ -996,15 +1007,60 @@ async function saveAndWait(page: Page): Promise<void> {
 async function reopenAndWait(page: Page): Promise<void> {
   await persistenceRequestAndWait(
     page,
-    'Reopen',
+    'Load saved session',
     '/api/v1/session/reopen',
     'Saved session reopened.',
   );
 }
 
+async function assertGameMenu(page: Page): Promise<void> {
+  const trigger = page.getByRole('button', { name: 'Menu', exact: true });
+  await trigger.click();
+  const menu = page.getByRole('dialog', { name: 'Game menu' });
+  await expect(menu).toBeVisible();
+  await expect(
+    menu.getByRole('button', { name: 'Close game menu' }),
+  ).toBeFocused();
+  await expect(
+    menu.getByRole('button', { name: 'New / Restart expedition' }),
+  ).toBeEnabled();
+  await expect(
+    menu.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    menu.getByRole('button', { name: 'Load saved session' }),
+  ).toBeEnabled();
+  await expect(
+    menu.getByRole('button', { name: 'Exit', exact: true }),
+  ).toBeDisabled();
+  await expect(menu).toContainText('native builds');
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+}
+
+async function restartAndWait(page: Page, stage: Locator): Promise<void> {
+  const trigger = page.getByRole('button', { name: 'Menu', exact: true });
+  await trigger.click();
+  const menu = page.getByRole('dialog', { name: 'Game menu' });
+  const response = page.waitForResponse(
+    (candidate) =>
+      new URL(candidate.url()).pathname === '/api/v1/session/restart' &&
+      candidate.request().method() === 'POST',
+  );
+  await menu.getByRole('button', { name: 'New / Restart expedition' }).click();
+  expect((await response).ok()).toBe(true);
+  await expect(stage).toHaveAttribute('data-session-revision', '0');
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await expect(
+    page.locator('.persistence-notice, .map-persistence-notice'),
+  ).toHaveText('New expedition started.');
+}
+
 async function persistenceRequestAndWait(
   page: Page,
-  action: 'Reopen' | 'Save',
+  action: 'Load saved session' | 'Save',
   pathname: string,
   notice: string,
 ): Promise<void> {
@@ -1013,14 +1069,13 @@ async function persistenceRequestAndWait(
       new URL(candidate.url()).pathname === pathname &&
       candidate.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: action, exact: true }).click();
+  const trigger = page.getByRole('button', { name: 'Menu', exact: true });
+  await trigger.click();
+  const menu = page.getByRole('dialog', { name: 'Game menu' });
+  await menu.getByRole('button', { name: action, exact: true }).click();
   expect((await response).ok()).toBe(true);
-  await expect(
-    page.getByRole('button', { name: 'Save', exact: true }),
-  ).toBeEnabled();
-  await expect(
-    page.getByRole('button', { name: 'Reopen', exact: true }),
-  ).toBeEnabled();
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
   await expect(
     page.locator('.persistence-notice, .map-persistence-notice'),
   ).toHaveText(notice);

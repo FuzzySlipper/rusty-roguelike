@@ -146,8 +146,11 @@ Finally, Rust replays every initiating receipt from a fresh authored session and
 requires exact receipts, registered snapshot, initiative, rolls, cursors, log,
 and projection; locally plausible but unreachable combinations therefore fail.
 The same-origin host owns one in-memory save slot; Save captures the current
-Rust session and Reopen constructs a fresh `GameSession` from its serialized
-contract before atomically replacing live state.
+Rust session and Load constructs a fresh `GameSession` from its serialized
+contract before atomically replacing live state. New / Restart requests a
+fresh authored session through the host's Rust lifecycle and does not mutate
+the saved slot. The browser game menu exposes Exit as a disabled,
+native-host-only option rather than attempting to close a web tab.
 
 ## Collapsed-party world state
 
@@ -209,7 +212,8 @@ admitted before it can replace the current floor, so malformed, incompatible,
 or exhausted results cannot partially publish state.
 
 The Rust host publishes the live session and accepts only strict,
-revision-bound typed commands plus explicit save/reopen lifecycle requests. Its
+revision-bound typed commands plus explicit save/load/restart lifecycle
+requests. Its
 projection includes phase, preparation
 readiness, the shared stash while preparing, complete party identity, class,
 level, experience, abilities, defenses, feats, actions and loadouts, the current
@@ -243,7 +247,10 @@ from accepted movement/turn receipts and discarded after presentation; reduced
 motion snaps immediately. The preparation workbench, initiative, movement,
 action selection, tabbed party sheet, field packs, and detailed rules log are
 overlays around that same canvas. Preparation offers native drag/drop plus a
-click-select destination alternative and busy-gates every mutation surface. The
+click-select destination alternative and busy-gates every mutation surface. A
+single Menu control above the minimap (and in preparation) owns Save, Load,
+New / Restart, and the native-only Exit action; it is a modal presentation
+adapter over Rust lifecycle operations, not a second persistence owner. The
 expedition Party/Packs disclosures are truthful nonmodal, keyboard-operable,
 read-only regions. Selecting an action highlights only its Rust-projected legal
 targets; resolved attacks drive bounded retained impact presentation. Enemy

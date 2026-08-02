@@ -52,6 +52,7 @@ export interface SessionTransportPort {
   command(command: SessionCommandDto): Promise<SessionView>;
   save(): Promise<SessionView>;
   reopen(): Promise<SessionView>;
+  restart(): Promise<SessionView>;
 }
 
 export class SessionStoreCore {
@@ -109,6 +110,12 @@ export class SessionStoreCore {
   async reopen(): Promise<boolean> {
     return this.persistenceRequest('Saved session reopened.', () =>
       this.transport.reopen(),
+    );
+  }
+
+  async restart(): Promise<boolean> {
+    return this.persistenceRequest('New expedition started.', () =>
+      this.transport.restart(),
     );
   }
 

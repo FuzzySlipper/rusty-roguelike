@@ -147,10 +147,12 @@ describe('SessionTransport', () => {
     });
     await expect(transport.save()).resolves.toEqual(TERMINAL_SESSION);
     await expect(transport.reopen()).resolves.toEqual(TERMINAL_SESSION);
+    await expect(transport.restart()).resolves.toEqual(TERMINAL_SESSION);
     expect(urls).toEqual([
       '/api/v1/session/commands',
       '/api/v1/session/save',
       '/api/v1/session/reopen',
+      '/api/v1/session/restart',
     ]);
   });
 

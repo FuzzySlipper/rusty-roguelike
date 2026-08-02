@@ -36,7 +36,10 @@ multi-member effects.
 
 The admitted floor and compiled rules form the live Rust `WorldState` and
 `GameSession`; the host publishes their strict projection and accepts typed,
-revision-bound gameplay commands. Complete schema-4 saves include the registered
+revision-bound gameplay commands. The browser's single Game menu routes Save,
+Load, and New / Restart through those Rust lifecycle operations. Exit is
+intentionally disabled in the web build because a browser cannot truthfully
+close its own tab; a future native host owns that operation. Complete schema-4 saves include the registered
 Engine entity snapshot, exact floor/provenance and content identities, initiative,
 RNG and target cursors, inventory/equipment, progression facts, terminal state,
 and the complete bounded Rust log. The current same-origin host save slot is

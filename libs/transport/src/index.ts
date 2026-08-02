@@ -55,6 +55,10 @@ export class SessionTransport {
     return this.decode(await this.http.post('/api/v1/session/reopen', {}));
   }
 
+  async restart(): Promise<SessionView> {
+    return this.decode(await this.http.post('/api/v1/session/restart', {}));
+  }
+
   private async decode(response: {
     readonly ok: boolean;
     readonly status: number;

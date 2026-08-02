@@ -134,6 +134,7 @@ describe('SessionStoreCore', () => {
       command: async () => live,
       save: async () => live,
       reopen: async () => saved,
+      restart: async () => SESSION,
     };
     const store = new SessionStoreCore(transport);
     await store.load();
@@ -144,6 +145,9 @@ describe('SessionStoreCore', () => {
     expect(store.state()).toEqual({ status: 'ready', value: saved });
     expect(store.log()).toEqual(saved.log);
     expect(store.persistenceNotice()).toBe('Saved session reopened.');
+    await expect(store.restart()).resolves.toBe(true);
+    expect(store.state()).toEqual({ status: 'ready', value: SESSION });
+    expect(store.persistenceNotice()).toBe('New expedition started.');
   });
 
   it('admits only one delayed mutation and permits a later command after settlement', async () => {
@@ -159,6 +163,7 @@ describe('SessionStoreCore', () => {
       },
       save: async () => SESSION,
       reopen: async () => SESSION,
+      restart: async () => SESSION,
     };
     const store = new SessionStoreCore(transport);
     await store.load();
@@ -219,6 +224,7 @@ describe('SessionStoreCore', () => {
       },
       save: async () => SESSION,
       reopen: async () => SESSION,
+      restart: async () => SESSION,
     };
     const store = new SessionStoreCore(transport);
     await store.load();

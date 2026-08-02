@@ -183,6 +183,55 @@ type Drawer = 'party' | 'inventory' | null;
         padding: 0.4rem 0.32rem;
       }
 
+      .game-menu-layer {
+        display: grid;
+        inset: 0;
+        place-items: center;
+        pointer-events: auto;
+        position: absolute;
+        z-index: 8;
+      }
+
+      .game-menu-backdrop {
+        background: rgb(3 9 11 / 0.72);
+        inset: 0;
+        position: absolute;
+      }
+
+      .game-menu {
+        max-width: min(420px, calc(100vw - 2rem));
+        padding: 1rem;
+        position: relative;
+        width: 100%;
+        z-index: 1;
+      }
+
+      .game-menu header {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .game-menu h2 {
+        margin: 0;
+      }
+
+      .game-menu-actions {
+        display: grid;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      .game-menu-actions button {
+        text-align: left;
+      }
+
+      .game-menu-note {
+        color: var(--rr-muted);
+        font-size: 0.78rem;
+        margin: 0.8rem 0 0;
+      }
+
       .map-persistence-notice {
         background: rgb(7 17 20 / 0.94);
         border: 1px solid var(--rr-accent);
@@ -563,18 +612,13 @@ type Drawer = 'party' | 'inventory' | null;
                       }}</span>
                     }
                     <button
+                      #gameMenuTrigger
                       type="button"
-                      [disabled]="session.busy()"
-                      (click)="saveSession()"
+                      aria-haspopup="dialog"
+                      [attr.aria-expanded]="gameMenuOpen()"
+                      (click)="openGameMenu()"
                     >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      [disabled]="session.busy()"
-                      (click)="reopenSession()"
-                    >
-                      Reopen
+                      Menu
                     </button>
                   </div>
                   <rr-preparation [view]="state.value" />
@@ -652,18 +696,13 @@ type Drawer = 'party' | 'inventory' | null;
                           Packs
                         </button>
                         <button
+                          #gameMenuTrigger
                           type="button"
-                          [disabled]="session.busy()"
-                          (click)="saveSession()"
+                          aria-haspopup="dialog"
+                          [attr.aria-expanded]="gameMenuOpen()"
+                          (click)="openGameMenu()"
                         >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          [disabled]="session.busy()"
-                          (click)="reopenSession()"
-                        >
-                          Reopen
+                          Menu
                         </button>
                       </div>
                       @if (session.persistenceNotice(); as notice) {
@@ -903,6 +942,69 @@ type Drawer = 'party' | 'inventory' | null;
                     }
                   </div>
                 }
+                @if (gameMenuOpen()) {
+                  <div class="game-menu-layer">
+                    <div
+                      class="game-menu-backdrop"
+                      role="presentation"
+                      (click)="closeGameMenu()"
+                    ></div>
+                    <section
+                      #gameMenuPanel
+                      class="panel game-menu"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="game-menu-heading"
+                      tabindex="-1"
+                      (keydown)="gameMenuKeydown($event)"
+                    >
+                      <header>
+                        <h2 id="game-menu-heading">Game menu</h2>
+                        <button
+                          type="button"
+                          aria-label="Close game menu"
+                          (click)="closeGameMenu()"
+                        >
+                          ×
+                        </button>
+                      </header>
+                      <div class="game-menu-actions">
+                        <button
+                          type="button"
+                          [disabled]="session.busy()"
+                          (click)="restartSession()"
+                        >
+                          New / Restart expedition
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="session.busy()"
+                          (click)="saveSession()"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="session.busy()"
+                          (click)="loadSession()"
+                        >
+                          Load saved session
+                        </button>
+                        <button
+                          type="button"
+                          disabled
+                          aria-describedby="game-menu-exit-note"
+                        >
+                          Exit
+                        </button>
+                      </div>
+                      <p id="game-menu-exit-note" class="game-menu-note">
+                        Exit is reserved for native builds; browser sessions
+                        stay open.
+                      </p>
+                    </section>
+                  </div>
+                }
               </section>
             }
           }
@@ -916,6 +1018,7 @@ export class GameShellComponent implements OnInit, OnDestroy {
   protected readonly session = inject(SessionStore);
   protected readonly selectedActionId = signal<string | null>(null);
   protected readonly drawer = signal<Drawer>(null);
+  protected readonly gameMenuOpen = signal(false);
   protected readonly selectedAction = computed(() => {
     const state = this.session.state();
     if (state.status !== 'ready') {
@@ -932,7 +1035,13 @@ export class GameShellComponent implements OnInit, OnDestroy {
     viewChild<ElementRef<HTMLButtonElement>>('partyTrigger');
   private readonly inventoryTrigger =
     viewChild<ElementRef<HTMLButtonElement>>('inventoryTrigger');
+  private readonly gameMenuTrigger =
+    viewChild<ElementRef<HTMLButtonElement>>('gameMenuTrigger');
+  private readonly gameMenuPanel =
+    viewChild<ElementRef<HTMLElement>>('gameMenuPanel');
   private restoreDrawerFocus: Exclude<Drawer, null> | null = null;
+  private focusGameMenuOnOpen = false;
+  private restoreGameMenuFocus = false;
   private stopKeyboard: (() => void) | null = null;
 
   constructor() {
@@ -953,6 +1062,16 @@ export class GameShellComponent implements OnInit, OnDestroy {
       const panel = this.rulesLog()?.nativeElement;
       if (panel !== undefined) {
         panel.scrollTop = panel.scrollHeight;
+      }
+      if (this.gameMenuOpen() && this.focusGameMenuOnOpen) {
+        this.focusGameMenuOnOpen = false;
+        this.gameMenuPanel()
+          ?.nativeElement.querySelector<HTMLElement>('button:not(:disabled)')
+          ?.focus();
+      }
+      if (!this.gameMenuOpen() && this.restoreGameMenuFocus) {
+        this.restoreGameMenuFocus = false;
+        this.gameMenuTrigger()?.nativeElement.focus();
       }
       const restore = this.restoreDrawerFocus;
       if (this.drawer() === null && restore !== null) {
@@ -980,14 +1099,64 @@ export class GameShellComponent implements OnInit, OnDestroy {
     void this.session.load();
   }
 
-  protected saveSession(): void {
-    void this.session.save();
+  protected async saveSession(): Promise<void> {
+    if (await this.session.save()) {
+      this.closeGameMenu();
+    }
   }
 
-  protected reopenSession(): void {
+  protected async loadSession(): Promise<void> {
     this.drawer.set(null);
     this.selectedActionId.set(null);
-    void this.session.reopen();
+    if (await this.session.reopen()) {
+      this.closeGameMenu();
+    }
+  }
+
+  protected async restartSession(): Promise<void> {
+    this.drawer.set(null);
+    this.selectedActionId.set(null);
+    if (await this.session.restart()) {
+      this.closeGameMenu();
+    }
+  }
+
+  protected openGameMenu(): void {
+    this.restoreGameMenuFocus = false;
+    this.restoreDrawerFocus = null;
+    this.drawer.set(null);
+    this.focusGameMenuOnOpen = true;
+    this.gameMenuOpen.set(true);
+  }
+
+  protected closeGameMenu(): void {
+    if (!this.gameMenuOpen()) {
+      return;
+    }
+    this.restoreGameMenuFocus = true;
+    this.gameMenuOpen.set(false);
+  }
+
+  protected gameMenuKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Tab') {
+      return;
+    }
+    const panel = event.currentTarget as HTMLElement;
+    const buttons = Array.from(
+      panel.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'),
+    );
+    const first = buttons[0];
+    const last = buttons.at(-1);
+    if (first === undefined || last === undefined) {
+      return;
+    }
+    if (event.shiftKey && event.target === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && event.target === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   protected openDrawer(drawer: Exclude<Drawer, null>): void {
@@ -1153,6 +1322,13 @@ export class GameShellComponent implements OnInit, OnDestroy {
   }
 
   private keydown(event: KeyboardEvent): void {
+    if (this.gameMenuOpen()) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeGameMenu();
+      }
+      return;
+    }
     if (this.drawer() !== null) {
       if (event.key === 'Escape') {
         event.preventDefault();
