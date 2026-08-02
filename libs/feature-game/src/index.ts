@@ -232,6 +232,14 @@ type Drawer = 'party' | 'inventory' | null;
         margin: 0.8rem 0 0;
       }
 
+      .game-menu-error {
+        background: rgb(72 17 20 / 0.96);
+        border: 1px solid rgb(255 135 135 / 0.55);
+        color: #ffd9d1;
+        margin: 0.8rem 0 0;
+        padding: 0.7rem 0.9rem;
+      }
+
       .map-persistence-notice {
         background: rgb(7 17 20 / 0.94);
         border: 1px solid var(--rr-accent);
@@ -968,6 +976,20 @@ type Drawer = 'party' | 'inventory' | null;
                           ×
                         </button>
                       </header>
+                      @if (session.commandError(); as failure) {
+                        <p
+                          id="game-menu-error"
+                          class="game-menu-error"
+                          role="alert"
+                          aria-atomic="true"
+                        >
+                          <strong>Action failed.</strong>
+                          @if (failure.code !== null) {
+                            <span> {{ failure.code }} ·</span>
+                          }
+                          <span> {{ failure.detail }}</span>
+                        </p>
+                      }
                       <div class="game-menu-actions">
                         <button
                           type="button"

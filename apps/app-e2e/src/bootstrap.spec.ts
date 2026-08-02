@@ -364,6 +364,59 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     'data-discovered-cells',
     String(initialDiscoveredCells),
   );
+  const beforeMenuFailure = await readSession(page);
+  await page.route(
+    '**/api/v1/session/reopen',
+    async (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'session_load_failed',
+          detail: 'Saved session could not be loaded for this proof.',
+        }),
+      }),
+    { times: 1 },
+  );
+  const menuTrigger = page.locator('.map-toolbar').getByRole('button', {
+    name: 'Menu',
+    exact: true,
+  });
+  await menuTrigger.click();
+  const failureMenu = page.getByRole('dialog', { name: 'Game menu' });
+  const failureResponse = page.waitForResponse(
+    (candidate) =>
+      new URL(candidate.url()).pathname === '/api/v1/session/reopen' &&
+      candidate.request().method() === 'POST',
+  );
+  await failureMenu.getByRole('button', { name: 'Load saved session' }).click();
+  expect((await failureResponse).status()).toBe(409);
+  await expect
+    .poll(
+      () =>
+        consoleErrors.filter((message) => message.includes('status of 409'))
+          .length,
+    )
+    .toBe(1);
+  consoleErrors.splice(
+    consoleErrors.findIndex((message) => message.includes('status of 409')),
+    1,
+  );
+  await expect(failureMenu).toBeVisible();
+  await expect(failureMenu.getByRole('alert')).toContainText(
+    'session_load_failed',
+  );
+  await expect(failureMenu.getByRole('alert')).toContainText(
+    'Saved session could not be loaded for this proof.',
+  );
+  await expect(stage).toHaveAttribute(
+    'data-session-revision',
+    String(beforeMenuFailure.revision),
+  );
+  expect(await readSession(page)).toEqual(beforeMenuFailure);
+  await page.keyboard.press('Escape');
+  await expect(failureMenu).toBeHidden();
+  await expect(menuTrigger).toBeFocused();
   await saveAndWait(page);
   await issueAndWait(page, stage, 'Step right');
   await expect(minimap).toHaveAttribute(
