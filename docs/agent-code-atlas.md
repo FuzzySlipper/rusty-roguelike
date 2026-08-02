@@ -15,7 +15,7 @@
 | `rust/crates/rusty-roguelike/src/rules/mechanics.rs`            | Direct Engine mechanics catalog projection                                             | Engine `StatService` integration test                 |
 | `rust/crates/rusty-roguelike/src/rules/component.rs`            | Durable registered actor/build/collapsed-party components                              | Rust rules tests                                      |
 | `rust/crates/rusty-roguelike/src/world/component.rs`            | Durable party pose/observed terrain and enemy placement/participation components       | Rust world restore tests                              |
-| `rust/crates/rusty-roguelike/src/world/navigation.rs`           | Engine navigation/collision plus bounded forward recursive shadowcasting               | Rust world movement/occlusion tests                   |
+| `rust/crates/rusty-roguelike/src/world/navigation.rs`           | Engine navigation/collision, bounded local scene topology, and forward shadowcasting   | Rust world movement/visibility tests                  |
 | `rust/crates/rusty-roguelike/src/world/state.rs`                | Atomic collapsed-party movement, discovery, dormancy, and restore authority            | Rust world lifecycle tests                            |
 | `rust/crates/rusty-roguelike/src/world/projection.rs`           | Bounded relative world and discovery-safe detailed minimap DTOs                        | Rust world projection tests; protocol decoder tests   |
 | `rust/crates/rusty-roguelike/src/session/types.rs`              | Session commands, activation/order views, receipts, durable log, failures              | Rust session tests                                    |

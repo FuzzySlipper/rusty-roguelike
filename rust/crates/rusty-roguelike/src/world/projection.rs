@@ -25,13 +25,15 @@ pub(super) fn project_world(
 ) -> Result<WorldView, WorldStateError> {
     let party = component::<PartyExplorationComponent>(entities, party_entity)?;
     let visible_terrain = spatial.visible_terrain(party.position(), party.facing());
+    let scene_terrain = spatial.scene_terrain(party.position(), party.facing());
     let visible_floor = &visible_terrain.floor;
     let visible_set = visible_floor
         .iter()
         .copied()
         .collect::<std::collections::BTreeSet<_>>();
 
-    let mut cells = visible_floor
+    let mut cells = scene_terrain
+        .floor
         .iter()
         .copied()
         .map(|cell| {
@@ -42,7 +44,7 @@ pub(super) fn project_world(
                 WorldViewCellKind::Floor,
             )
         })
-        .chain(visible_terrain.walls.iter().copied().map(|cell| {
+        .chain(scene_terrain.walls.iter().copied().map(|cell| {
             view_cell(
                 party.position(),
                 party.facing(),
@@ -59,10 +61,15 @@ pub(super) fn project_world(
     }
     cells.sort_by_key(|cell| (cell.depth, cell.lateral, kind_order(cell.kind)));
 
+    let scene_floor = scene_terrain
+        .floor
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
     let mut scene_placements = floor
         .scene_placements
         .iter()
-        .filter(|placement| visible_set.contains(&super::WorldCell::from(&placement.cell)))
+        .filter(|placement| scene_floor.contains(&super::WorldCell::from(&placement.cell)))
         .map(|placement| {
             let position = super::WorldCell::from(&placement.cell);
             let (lateral, depth) = relative(party.position(), party.facing(), position);

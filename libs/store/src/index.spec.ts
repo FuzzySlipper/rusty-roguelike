@@ -74,7 +74,7 @@ const SESSION: SessionView = {
   latestReceipts: [],
   log: [],
   world: {
-    schemaVersion: 3,
+    schemaVersion: 4,
     revision: 1,
     floorId: 'floor.store',
     facing: 'north',

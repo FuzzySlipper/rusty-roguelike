@@ -113,7 +113,7 @@ fn collision_projection_stops_at_first_wall_and_hidden_actors_remain_dormant() {
         depth: 2,
         kind: WorldViewCellKind::Wall,
     }));
-    assert!(!view.cells.iter().any(|cell| {
+    assert!(view.cells.iter().any(|cell| {
         cell.lateral == 0 && cell.depth >= 3 && cell.kind == WorldViewCellKind::Floor
     }));
     assert!(view.visible_actors.is_empty());
@@ -146,7 +146,7 @@ fn collision_projection_stops_at_first_wall_and_hidden_actors_remain_dormant() {
 }
 
 #[test]
-fn scene_projection_is_occlusion_safe_and_rotates_absolute_facing() {
+fn scene_projection_keeps_bounded_topology_and_rotates_absolute_facing() {
     let mut floor = occlusion_floor();
     floor.scene_placements = vec![
         FloorScenePlacement {
@@ -184,19 +184,34 @@ fn scene_projection_is_occlusion_safe_and_rotates_absolute_facing() {
                 content_id: "prop.torch.medieval".to_owned(),
             },
         },
+        FloorScenePlacement {
+            id: "torch.hidden.light".to_owned(),
+            source_instance_id: "instance.hidden".to_owned(),
+            source_socket_id: "socket.hidden.light".to_owned(),
+            cell: FloorCell { x: 2, y: 0 },
+            facing: FloorSceneFacing::South,
+            tags: vec!["torch".to_owned()],
+            content: FloorSceneContent::PointLight {
+                color_rgb: "#ffb45f".to_owned(),
+                intensity_milli: 2_500,
+                range_cells: 6,
+            },
+        },
     ];
     let mut world = occlusion_world(floor);
 
     let north = world.view().expect("north scene view");
-    assert_eq!(north.scene_placements.len(), 2);
+    assert_eq!(north.scene_placements.len(), 4);
     assert!(north
         .scene_placements
         .iter()
+        .filter(|placement| placement.id.starts_with("torch.entry"))
         .all(|placement| placement.facing == RelativeSceneFacing::Forward));
-    assert!(!north
+    assert!(north
         .scene_placements
         .iter()
-        .any(|placement| placement.id == "torch.hidden.prop"));
+        .filter(|placement| placement.id.starts_with("torch.hidden"))
+        .all(|placement| placement.facing == RelativeSceneFacing::Backward));
 
     let east = world.turn_right().expect("east scene view");
     assert!(east
@@ -236,10 +251,19 @@ fn locked_door_is_a_visible_minimap_fixture_and_occludes_the_forward_cone() {
         feature: Some(MinimapFeatureKind::LockedDoor),
         visible: true,
     }));
-    assert!(!view
+    assert!(view
         .cells
         .iter()
-        .any(|cell| cell.lateral == 0 && cell.depth >= 2));
+        .any(|cell| cell.lateral == 0 && cell.depth == 2 && cell.kind == WorldViewCellKind::Wall));
+    assert!(view
+        .cells
+        .iter()
+        .any(|cell| cell.lateral == 0 && cell.depth >= 3 && cell.kind == WorldViewCellKind::Floor));
+    assert!(!view
+        .minimap
+        .cells
+        .iter()
+        .any(|cell| cell.x == 2 && cell.y <= 2));
     assert!(view.visible_actors.is_empty());
 }
 

@@ -6,7 +6,7 @@ deterministic Rust-owned admission of one bounded Procgen floor. It also owns a
 strict Ruleweaver-inspired starter catalog, compiled party/enemies, registered
 Engine components, a named-mechanics-service proof, and Rust-authoritative
 collapsed-party movement, visibility, discovery, dormancy, restore validation,
-and an occlusion-safe generated world protocol.
+and a split local-scene/minimap protocol that never leaks occluded actors.
 It also owns a live Rust-hosted initiative session with exactly one movement/action
 per activation, authoritative seeded/static rolls, direct Engine stat/damage
 resolution, automatic opposition movement, and bounded no-legal progression.

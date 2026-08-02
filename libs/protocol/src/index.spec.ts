@@ -39,7 +39,7 @@ describe('decodeBootstrapReadout', () => {
 });
 
 const WORLD_VIEW = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   revision: 17,
   floorId: 'floor.occlusion-regression',
   facing: 'north',
@@ -122,7 +122,7 @@ describe('decodeWorldView', () => {
     expect(decodeWorldView(withTorch)).toEqual(withTorch);
   });
 
-  it('rejects absolute or occluded topology and malformed actor facts', () => {
+  it('accepts bounded scene topology beyond occluders but rejects malformed actor facts', () => {
     expect(() =>
       decodeWorldView({
         ...WORLD_VIEW,
@@ -132,12 +132,11 @@ describe('decodeWorldView', () => {
         ],
       }),
     ).toThrow('missing or unknown');
-    expect(() =>
-      decodeWorldView({
-        ...WORLD_VIEW,
-        cells: [...WORLD_VIEW.cells, { lateral: 0, depth: 3, kind: 'floor' }],
-      }),
-    ).toThrow('behind an occluding wall');
+    const topologyBehindWall = {
+      ...WORLD_VIEW,
+      cells: [...WORLD_VIEW.cells, { lateral: 0, depth: 3, kind: 'floor' }],
+    };
+    expect(decodeWorldView(topologyBehindWall)).toEqual(topologyBehindWall);
     expect(() =>
       decodeWorldView({
         ...WORLD_VIEW,
@@ -177,10 +176,10 @@ describe('decodeWorldView', () => {
     ).toThrow('participation fact');
     expect(() =>
       decodeWorldView({
-        ...WORLD_VIEW,
+        ...topologyBehindWall,
         visibleActors: [{ ...VISIBLE_ACTOR, depth: 3 }],
       }),
-    ).toThrow('projected floor fact');
+    ).toThrow('visible actors do not match');
     expect(() =>
       decodeWorldView({
         ...WORLD_VIEW,

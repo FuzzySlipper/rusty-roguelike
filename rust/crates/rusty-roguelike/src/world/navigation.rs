@@ -327,6 +327,29 @@ impl FloorSpatial {
         }
     }
 
+    pub(super) fn scene_terrain(&self, origin: WorldCell, facing: Facing) -> VisibleTerrain {
+        let mut floor = Vec::new();
+        let mut walls = Vec::new();
+        let (forward_x, forward_y) = facing.forward();
+        let (right_x, right_y) = facing.right_axis();
+        for depth in 0..=MAX_VIEW_DEPTH {
+            for lateral in -depth.max(1)..=depth.max(1) {
+                let x = i64::from(origin.x) + i64::from(right_x * lateral + forward_x * depth);
+                let y = i64::from(origin.y) + i64::from(right_y * lateral + forward_y * depth);
+                let (Ok(x), Ok(y)) = (i32::try_from(x), i32::try_from(y)) else {
+                    continue;
+                };
+                let cell = WorldCell { x, y };
+                if self.walkable.contains(&cell) {
+                    floor.push(cell);
+                } else {
+                    walls.push(cell);
+                }
+            }
+        }
+        VisibleTerrain { floor, walls }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn cast_light(
         &self,

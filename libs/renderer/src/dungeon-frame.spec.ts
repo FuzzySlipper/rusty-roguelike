@@ -73,7 +73,7 @@ const SESSION: SessionView = {
   latestReceipts: [],
   log: [],
   world: {
-    schemaVersion: 3,
+    schemaVersion: 4,
     revision: 9,
     floorId: 'floor.renderer',
     facing: 'north',
@@ -139,15 +139,32 @@ describe('createDungeonFrame', () => {
     const first = createDungeonFrame(SESSION);
     const repeated = createDungeonFrame(SESSION);
     expect(repeated.handles).toEqual(first.handles);
-    expect(first.frame.ops).toHaveLength(first.handles.length);
+    expect(
+      first.frame.ops.filter(
+        (operation) =>
+          operation.op === 'create' ||
+          operation.op === 'createLight' ||
+          operation.op === 'createStaticMeshInstance' ||
+          operation.op === 'createAnimatedMeshInstance',
+      ),
+    ).toHaveLength(first.handles.length);
+    expect(
+      first.frame.ops.filter((operation) => operation.op === 'defineMaterial'),
+    ).toHaveLength(6);
+    expect(first.frame.ops).toContainEqual(
+      expect.objectContaining({
+        op: 'defineStaticMesh',
+        asset: expect.objectContaining({ asset: 'asset.mesh.dungeon-cube' }),
+      }),
+    );
     const enemy = first.frame.ops.find(
       (operation) =>
-        operation.op === 'create' &&
-        operation.node.metadata.label === 'enemy-201',
+        operation.op === 'createStaticMeshInstance' &&
+        operation.instance.metadata.label === 'enemy-201',
     );
     expect(enemy).toMatchObject({
-      op: 'create',
-      node: {
+      op: 'createStaticMeshInstance',
+      instance: {
         metadata: {
           sourceEntity: 201,
           tags: ['rusty-roguelike', 'enemy', 'enemy-201'],
@@ -157,8 +174,8 @@ describe('createDungeonFrame', () => {
     expect(
       first.frame.ops.some(
         (operation) =>
-          operation.op === 'create' &&
-          operation.node.metadata.label === 'wall-1-1',
+          operation.op === 'createStaticMeshInstance' &&
+          operation.instance.metadata.label === 'wall-1-1',
       ),
     ).toBe(true);
   });
@@ -177,10 +194,16 @@ describe('createDungeonFrame', () => {
       first.handles.map((handle) => ({ op: 'destroy', handle })),
     );
     expect(
+      next.frame.ops.some((operation) => operation.op === 'defineMaterial'),
+    ).toBe(false);
+    expect(next.frame.ops).toContainEqual(
+      expect.objectContaining({ op: 'defineStaticMesh' }),
+    );
+    expect(
       next.frame.ops.some(
         (operation) =>
-          operation.op === 'create' &&
-          operation.node.metadata.tags.includes('enemy'),
+          operation.op === 'createStaticMeshInstance' &&
+          operation.instance.metadata.tags.includes('enemy'),
       ),
     ).toBe(false);
   });
@@ -216,7 +239,16 @@ describe('createDungeonFrame', () => {
     const frame = createDungeonFrame(sceneSession);
     expect(
       frame.frame.ops.filter((operation) => operation.op === 'createLight'),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
+    expect(frame.frame.ops).toContainEqual(
+      expect.objectContaining({
+        op: 'createLight',
+        light: expect.objectContaining({
+          kind: 'directional',
+          direction: [-0.35, -1, -0.45],
+        }),
+      }),
+    );
     expect(frame.frame.ops).toContainEqual(
       expect.objectContaining({
         op: 'defineAnimatedMesh',
@@ -237,6 +269,7 @@ describe('createDungeonFrame', () => {
         (operation) =>
           operation.op === 'create' ||
           operation.op === 'createLight' ||
+          operation.op === 'createStaticMeshInstance' ||
           operation.op === 'createAnimatedMeshInstance',
       ).length,
     );
@@ -263,18 +296,56 @@ describe('createDungeonFrame', () => {
     const frame = createDungeonFrame(session, [], 'aimed-shot');
     const target = frame.frame.ops.find(
       (operation) =>
-        operation.op === 'create' &&
-        operation.node.metadata.label === 'enemy-201',
+        operation.op === 'createStaticMeshInstance' &&
+        operation.instance.metadata.label === 'enemy-201',
     );
     expect(target).toMatchObject({
-      op: 'create',
-      node: { metadata: { tags: expect.arrayContaining(['legal-target']) } },
+      op: 'createStaticMeshInstance',
+      instance: {
+        metadata: { tags: expect.arrayContaining(['legal-target']) },
+      },
     });
     expect(
       createDungeonFrame(session).frame.ops.some(
         (operation) =>
-          operation.op === 'create' &&
-          operation.node.metadata.tags.includes('legal-target'),
+          operation.op === 'createStaticMeshInstance' &&
+          operation.instance.metadata.tags.includes('legal-target'),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not synthesize a camera-relative actor when the party is hit', () => {
+    const frame = createDungeonFrame({
+      ...SESSION,
+      latestReceipts: [
+        {
+          kind: 'oppositionAttacked',
+          actorEntityId: 202,
+          actionId: 'rusty-blade',
+          target: {
+            selectedMemberEntityId: 101,
+            selectionPolicy: 'round-robin-living',
+            eligibleMemberCount: 1,
+          },
+          d20: 15,
+          abilityModifier: 2,
+          attackTotal: 17,
+          defense: 14,
+          hit: true,
+          damageRolls: [4],
+          damageBonus: 1,
+          requestedDamage: 5,
+          appliedDamage: 5,
+        },
+      ],
+    });
+    expect(
+      frame.frame.ops.some(
+        (operation) =>
+          (operation.op === 'create' &&
+            operation.node.metadata.tags.includes('party-impact')) ||
+          (operation.op === 'createStaticMeshInstance' &&
+            operation.instance.metadata.tags.includes('party-impact')),
       ),
     ).toBe(false);
   });

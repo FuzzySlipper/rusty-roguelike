@@ -3,6 +3,8 @@ import {
   type RenderDiff,
   type RenderFrameDiff,
   type RenderHandle,
+  type RenderMaterialDescriptor,
+  type StaticMeshAsset,
   type Transform,
   type Vec4,
 } from '@rusty-engine/render-contracts';
@@ -33,10 +35,109 @@ const COLORS = {
   enemyHit: [1, 0.48, 0.12, 1] as Vec4,
   enemyTarget: [0.82, 0.58, 0.16, 1] as Vec4,
   floor: [0.28, 0.265, 0.225, 1] as Vec4,
-  impact: [0.95, 0.18, 0.08, 1] as Vec4,
   wall: [0.4, 0.375, 0.315, 1] as Vec4,
 };
 const CELL_SIZE = 2.4;
+const CUBE_ASSET_ID = 'asset.mesh.dungeon-cube';
+const MATERIAL_IDS = {
+  ceiling: 'material.dungeon.ceiling',
+  enemy: 'material.dungeon.enemy',
+  enemyHit: 'material.dungeon.enemy-hit',
+  enemyTarget: 'material.dungeon.enemy-target',
+  floor: 'material.dungeon.floor',
+  wall: 'material.dungeon.wall',
+} as const;
+const DUNGEON_MATERIALS = Object.entries(MATERIAL_IDS).map(
+  ([kind, id]): RenderMaterialDescriptor => ({
+    schemaVersion: 2,
+    id,
+    color: COLORS[kind as keyof typeof COLORS],
+    texture: null,
+    roughness: 0.92,
+    textureTint: [1, 1, 1, 1],
+    emissionColor: [0, 0, 0],
+    emissionIntensity: 0,
+    uvStrategy: 'flat',
+  }),
+);
+const DUNGEON_CUBE: StaticMeshAsset = {
+  asset: CUBE_ASSET_ID,
+  payload: {
+    layout: {
+      vertexCount: 24,
+      indexCount: 36,
+      indexWidth: 'u32',
+      attributes: [
+        { name: 'position', components: 3, kind: 'f32' },
+        { name: 'normal', components: 3, kind: 'f32' },
+      ],
+    },
+    groups: [{ materialSlot: 0, start: 0, count: 36 }],
+    bounds: { min: [-0.5, -0.5, -0.5], max: [0.5, 0.5, 0.5] },
+    source: {
+      kind: 'inline',
+      positions: [
+        [-0.5, -0.5, 0.5],
+        [0.5, -0.5, 0.5],
+        [0.5, 0.5, 0.5],
+        [-0.5, 0.5, 0.5],
+        [0.5, -0.5, -0.5],
+        [-0.5, -0.5, -0.5],
+        [-0.5, 0.5, -0.5],
+        [0.5, 0.5, -0.5],
+        [-0.5, 0.5, 0.5],
+        [0.5, 0.5, 0.5],
+        [0.5, 0.5, -0.5],
+        [-0.5, 0.5, -0.5],
+        [-0.5, -0.5, -0.5],
+        [0.5, -0.5, -0.5],
+        [0.5, -0.5, 0.5],
+        [-0.5, -0.5, 0.5],
+        [0.5, -0.5, 0.5],
+        [0.5, -0.5, -0.5],
+        [0.5, 0.5, -0.5],
+        [0.5, 0.5, 0.5],
+        [-0.5, -0.5, -0.5],
+        [-0.5, -0.5, 0.5],
+        [-0.5, 0.5, 0.5],
+        [-0.5, 0.5, -0.5],
+      ].flat(),
+      normals: [
+        [0, 0, 1],
+        [0, 0, 1],
+        [0, 0, 1],
+        [0, 0, 1],
+        [0, 0, -1],
+        [0, 0, -1],
+        [0, 0, -1],
+        [0, 0, -1],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, -1, 0],
+        [0, -1, 0],
+        [0, -1, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [-1, 0, 0],
+        [-1, 0, 0],
+        [-1, 0, 0],
+        [-1, 0, 0],
+      ].flat(),
+      indices: [
+        0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11, 12, 13, 14, 12,
+        14, 15, 16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
+      ],
+    },
+    provenance: 'generated',
+  },
+  materialSlots: [{ slot: 0, material: MATERIAL_IDS.wall }],
+  collision: { kind: 'visualOnly' },
+};
 export const TORCH_ASSET_ID = 'asset.prop.torch.medieval';
 export const TORCH_CONTENT_HASH =
   'sha256:49d74d297a4b7b8a271ad1299ea3a16608cb4cc460e0ea1d5a2ede36a13b5a2e';
@@ -51,6 +152,17 @@ export function createDungeonFrame(
     op: 'destroy',
   }));
   const handles: RenderHandle[] = [];
+  if (previousHandles.length === 0) {
+    ops.push(
+      ...DUNGEON_MATERIALS.map(
+        (material): RenderDiff => ({ op: 'defineMaterial', material }),
+      ),
+    );
+  }
+  // Engine releases a static asset when its last retained instance is destroyed.
+  // Re-admit the shared cube after the prior handle set is removed, before the
+  // replacement instances borrow it for this complete scene publication.
+  ops.push({ op: 'defineStaticMesh', asset: DUNGEON_CUBE });
   const ambientHandle = renderHandle(50);
   handles.push(ambientHandle);
   ops.push({
@@ -65,32 +177,45 @@ export function createDungeonFrame(
       shadowIntent: 'disabled',
     },
   });
+  const directionalHandle = renderHandle(51);
+  handles.push(directionalHandle);
+  ops.push({
+    op: 'createLight',
+    handle: directionalHandle,
+    parent: null,
+    light: {
+      kind: 'directional',
+      color: [0.86, 0.88, 0.82],
+      intensity: 0.7,
+      enabled: true,
+      direction: [-0.35, -1, -0.45],
+      shadowIntent: 'requested',
+    },
+  });
   const createCuboid = (
     handleValue: number,
     label: string,
     translation: readonly [number, number, number],
     scale: readonly [number, number, number],
-    color: Vec4,
+    material: string,
     sourceEntity: number | null,
     tags: readonly string[],
-    layer: 'scene' | 'viewmodel' = 'scene',
   ): void => {
     const handle = renderHandle(handleValue);
     handles.push(handle);
     ops.push({
-      op: 'create',
+      op: 'createStaticMeshInstance',
       handle,
       parent: null,
-      node: {
-        geometry: { kind: 'cube' },
-        material: { color, wireframe: false },
+      instance: {
+        asset: CUBE_ASSET_ID,
         transform: {
           translation,
           rotation: [0, 0, 0, 1],
           scale,
         },
         visible: true,
-        layer,
+        materialOverrides: [{ slot: 0, material }],
         metadata: {
           sourceEntity,
           sourceSceneNode: null,
@@ -112,7 +237,7 @@ export function createDungeonFrame(
         `floor-${cell.lateral}-${cell.depth}`,
         [x, -0.12, z],
         [CELL_SIZE - 0.06, 0.24, CELL_SIZE - 0.06],
-        COLORS.floor,
+        MATERIAL_IDS.floor,
         null,
         ['rusty-roguelike', 'dungeon-floor'],
       );
@@ -121,7 +246,7 @@ export function createDungeonFrame(
         `ceiling-${cell.lateral}-${cell.depth}`,
         [x, 3.05, z],
         [CELL_SIZE - 0.06, 0.18, CELL_SIZE - 0.06],
-        COLORS.ceiling,
+        MATERIAL_IDS.ceiling,
         null,
         ['rusty-roguelike', 'dungeon-ceiling'],
       );
@@ -131,7 +256,7 @@ export function createDungeonFrame(
         `wall-${cell.lateral}-${cell.depth}`,
         [x, 1.48, z],
         [CELL_SIZE, 3.2, CELL_SIZE],
-        COLORS.wall,
+        MATERIAL_IDS.wall,
         null,
         ['rusty-roguelike', 'dungeon-wall'],
       );
@@ -215,10 +340,10 @@ export function createDungeonFrame(
       [x, 0.92, z],
       [0.9, 1.75, 0.58],
       actor.entityId === hitTarget
-        ? COLORS.enemyHit
+        ? MATERIAL_IDS.enemyHit
         : legalTargets.has(actor.entityId)
-          ? COLORS.enemyTarget
-          : COLORS.enemy,
+          ? MATERIAL_IDS.enemyTarget
+          : MATERIAL_IDS.enemy,
       actor.entityId,
       [
         'rusty-roguelike',
@@ -233,10 +358,10 @@ export function createDungeonFrame(
       [x, 2.03, z],
       [0.62, 0.62, 0.62],
       actor.entityId === hitTarget
-        ? COLORS.enemyHit
+        ? MATERIAL_IDS.enemyHit
         : legalTargets.has(actor.entityId)
-          ? COLORS.enemyTarget
-          : COLORS.enemy,
+          ? MATERIAL_IDS.enemyTarget
+          : MATERIAL_IDS.enemy,
       actor.entityId,
       [
         'rusty-roguelike',
@@ -244,23 +369,6 @@ export function createDungeonFrame(
         `enemy-${actor.entityId}`,
         ...(legalTargets.has(actor.entityId) ? ['legal-target'] : []),
       ],
-    );
-  }
-
-  if (
-    session.latestReceipts.some(
-      (receipt) => receipt.kind === 'oppositionAttacked',
-    )
-  ) {
-    createCuboid(
-      9_001,
-      `party-impact-${session.revision}`,
-      [0, 0.2, -0.7],
-      [1.35, 0.06, 0.18],
-      COLORS.impact,
-      null,
-      ['rusty-roguelike', 'party-impact'],
-      'viewmodel',
     );
   }
 

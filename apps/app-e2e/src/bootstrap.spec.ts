@@ -133,6 +133,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   ).length;
   const initialVisibleEnemies = initialView.world.visibleActors.length;
   expect(initialVisibleEnemies).toBe(1);
+  expect(initialView.world.cells.length).toBeGreaterThan(initialVisibleCells);
+  await expect(
+    page.locator('[data-renderer-backend="rusty-engine-three"]'),
+  ).toHaveAttribute('data-scene-cells', String(initialView.world.cells.length));
   await expect(
     page.locator('[data-renderer-backend="rusty-engine-three"]'),
   ).toHaveAttribute(
@@ -181,6 +185,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await expect(minimap).toBeFocused();
   await assertAbove(mapToolbar, minimap);
   await assertTransparentGapReachesCanvas(page, mapToolbar, minimap);
+  await testInfo.attach(`lit-scene-${testInfo.project.name}.png`, {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  });
 
   await page.route(
     '**/api/v1/session/commands',
@@ -390,12 +398,30 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
       'data-session-revision',
       String(beforeTurn + 1),
     );
-    await expect(
-      page.locator('[data-renderer-backend="rusty-engine-three"]'),
-    ).toHaveAttribute('data-visible-torches', '1');
-    await expect(
-      page.locator('[data-renderer-backend="rusty-engine-three"]'),
-    ).toHaveAttribute('data-visible-lights', '1');
+    const turned = await readSession(page);
+    const viewport = page.locator(
+      '[data-renderer-backend="rusty-engine-three"]',
+    );
+    const torches = turned.world.scenePlacements.filter(
+      (placement) => placement.content.kind === 'prop',
+    ).length;
+    const lights = turned.world.scenePlacements.filter(
+      (placement) => placement.content.kind === 'point_light',
+    ).length;
+    expect(torches).toBeGreaterThan(0);
+    expect(lights).toBe(torches);
+    await expect(viewport).toHaveAttribute(
+      'data-visible-torches',
+      String(torches),
+    );
+    await expect(viewport).toHaveAttribute(
+      'data-visible-lights',
+      String(lights),
+    );
+    await expect(viewport).toHaveAttribute(
+      'data-scene-cells',
+      String(turned.world.cells.length),
+    );
     await assertVerticallySeparated(
       objective,
       page.getByRole('complementary', { name: 'Party vitality' }),

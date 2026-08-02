@@ -158,20 +158,23 @@ registered components. Every admitted walkable cell and every restored durable
 position must be reachable from the authored entry through the same Engine
 navigation projection used by movement.
 
-Visibility is a bounded forward cone produced by deterministic recursive
-shadowcasting and constrained by Engine collision raycasts. Walls, corners, and
-authored locked portal fixtures occlude later cells while the first blocker
-remains observable.
+Gameplay visibility is a bounded forward cone produced by deterministic
+recursive shadowcasting and constrained by Engine collision raycasts. Walls,
+corners, and authored locked portal fixtures occlude later cells while the first
+blocker remains observable.
 Seeing a dormant enemy promotes it permanently into encounter participation;
 turning away removes it from the current visible projection without putting it
 back to sleep. Party discovery durably records observed floor and wall facts
-separately. The browser-facing WorldView contains the relative visible
-first-person facts plus a bounded Rust-projected minimap of only discovered
-terrain, known feature/door icons, the party pose, and currently visible
-opposition. It never contains undiscovered topology or hidden enemy positions.
-The generated TypeScript decoder rejects unknown, out-of-cone, contradictory,
-or minimap-only current facts rather than becoming another visibility
-authority.
+separately. Browser-facing WorldView schema 4 keeps two projections distinct: a
+bounded local first-person topology frustum for ordinary 3D depth/lighting, and
+a Rust-projected minimap containing only discovered terrain, known feature/door
+icons, the party pose, and currently shadowcast-visible opposition. Local scene
+topology may continue behind a front wall so the retained renderer has complete
+geometry and lights, but actor projection remains shadowcast-gated and hidden
+enemy positions never cross the protocol. The generated TypeScript decoder
+requires every currently visible minimap fact and actor to agree with the scene
+projection while rejecting unknown, out-of-frustum, contradictory, or
+hidden-actor facts rather than becoming another visibility authority.
 
 ## Upstream ownership
 
@@ -215,12 +218,16 @@ visible, and submits only projected choices; it does not recreate inventory,
 equipment, movement, targeting, initiative, or rules policy.
 
 One permanent public Engine `RendererSurface` owns the full window. World view
-schema 3 projects only scene placements whose authored cells are currently
-visible floor facts; hidden prefab topology and lights never cross the protocol.
-A pure adapter maps those scene placements, relative cells, and visible actors
-into stable retained handles, public animated-mesh/light operations, and public
-picking metadata. A low ambient term provides ordinary 3D readability while
-authored prefab point lights provide local warm illumination. Brief camera offsets are derived
+schema 4 projects bounded local scene topology and all prefab placements on its
+floor cells independently from minimap shadowcasting. A pure adapter maps those
+scene placements, relative cells, and shadowcast-visible actors into stable
+retained handles, one shared public static mesh with defined standard materials,
+public animated-mesh/light operations, and public picking metadata. Ambient plus
+directional level lights provide ordinary 3D readability while every projected
+torch mesh retains its paired authored warm point light. Opposition receipts do
+not synthesize camera-relative actor geometry; damage remains visible through
+party vitality and the rules log.
+Brief camera offsets are derived
 from accepted movement/turn receipts and discarded after presentation; reduced
 motion snaps immediately. The preparation workbench, initiative, movement,
 action selection, tabbed party sheet, field packs, and detailed rules log are

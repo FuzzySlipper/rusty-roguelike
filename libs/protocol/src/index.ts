@@ -159,18 +159,6 @@ export function decodeWorldView(value: unknown): WorldView {
     }
     cellKeys.add(key);
   }
-  for (const wall of value['cells'].filter((cell) => cell.kind === 'wall')) {
-    if (
-      wall.depth > 0 &&
-      value['cells'].some(
-        (cell) =>
-          cell.depth > wall.depth &&
-          cell.lateral * wall.depth === wall.lateral * cell.depth,
-      )
-    ) {
-      throw new Error('world view contains facts behind an occluding wall');
-    }
-  }
   if (
     !Array.isArray(value['scenePlacements']) ||
     value['scenePlacements'].length >
@@ -262,20 +250,22 @@ function decodeMinimap(value: unknown, world: WorldView): void {
   if (partyCell?.terrain !== 'floor' || !partyCell.visible) {
     throw new Error('minimap party does not occupy a currently visible floor');
   }
-  for (const cell of world.cells) {
-    const absolute = absoluteCell(party, world.facing, cell);
-    const minimapCell = cells.get(
-      String(absolute.x) + ':' + String(absolute.y),
-    );
-    if (minimapCell?.terrain !== cell.kind || !minimapCell.visible) {
-      throw new Error('minimap current terrain does not match the world view');
+  const sceneCells = new Map(
+    world.cells.map((cell) => {
+      const absolute = absoluteCell(party, world.facing, cell);
+      return [
+        String(absolute.x) + ':' + String(absolute.y),
+        cell.kind,
+      ] as const;
+    }),
+  );
+  for (const cell of cells.values()) {
+    if (
+      cell.visible &&
+      sceneCells.get(String(cell.x) + ':' + String(cell.y)) !== cell.terrain
+    ) {
+      throw new Error('minimap current terrain is absent from the scene view');
     }
-  }
-  if (
-    [...cells.values()].filter((cell) => cell.visible).length !==
-    world.cells.length
-  ) {
-    throw new Error('minimap current terrain does not match the world view');
   }
   if (
     !Array.isArray(value['visibleActors']) ||

@@ -72,7 +72,7 @@ export type ActorCandidate = { id: RoguelikeId, entityId: number, name: string, 
 export type PartyCandidate = { id: RoguelikeId, entityId: number, members: Array<RoguelikeId>, };
 
 
-export const WORLD_VIEW_SCHEMA_VERSION = 3 as const;
+export const WORLD_VIEW_SCHEMA_VERSION = 4 as const;
 export const WORLD_VIEW_LIMITS = Object.freeze({
 maxDepth: 6,
 maxDiscoveredCells: 4096,

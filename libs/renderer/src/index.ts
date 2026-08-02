@@ -123,6 +123,7 @@ const MOTION_DURATION_MS = 96;
       [attr.data-renderer-status]="rendererStatus()"
       [attr.data-visible-torches]="visibleTorchCount()"
       [attr.data-visible-lights]="visibleLightCount()"
+      [attr.data-scene-cells]="sceneCellCount()"
     >
       <canvas
         #canvas
@@ -149,6 +150,7 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
   protected readonly sceneLabel = signal('First-person generated dungeon');
   protected readonly visibleTorchCount = signal(0);
   protected readonly visibleLightCount = signal(0);
+  protected readonly sceneCellCount = signal(0);
   private readonly canvas =
     viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private surface: RendererSurface | null = null;
@@ -312,6 +314,7 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
         (placement) => placement.content.kind === 'point_light',
       ).length,
     );
+    this.sceneCellCount.set(session.world.cells.length);
     this.rendererError.set(null);
     this.rendererStatus.set('ready');
     const cue = cameraMotionCue(session.latestReceipts);
