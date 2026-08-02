@@ -7,8 +7,9 @@ strict Ruleweaver-inspired starter catalog, compiled party/enemies, registered
 Engine components, a named-mechanics-service proof, and Rust-authoritative
 collapsed-party movement, visibility, discovery, dormancy, restore validation,
 and a split local-scene/minimap protocol that never leaks occluded actors.
-It also owns a live Rust-hosted initiative session with exactly one movement/action
-per activation, authoritative seeded/static rolls, direct Engine stat/damage
+It also owns a live Rust-hosted initiative session with exactly one movement,
+action, turn, or explicit Wait per activation, authoritative seeded/static rolls,
+direct Engine stat/damage
 resolution, automatic opposition movement, and bounded no-legal progression.
 Opposition attacks now target the collapsed party square, select a living member
 with Rust-owned per-enemy round-robin fairness, and publish a complete strictly
@@ -29,7 +30,7 @@ multi-member effects.
 
 The admitted floor and compiled rules form the live Rust `WorldState` and
 `GameSession`; the host publishes their strict projection and accepts typed,
-revision-bound gameplay commands. Complete schema-3 saves include the registered
+revision-bound gameplay commands. Complete schema-4 saves include the registered
 Engine entity snapshot, exact floor/provenance and content identities, initiative,
 RNG and target cursors, inventory/equipment, progression facts, terminal state,
 and the complete bounded Rust log. The current same-origin host save slot is

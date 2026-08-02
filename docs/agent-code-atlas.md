@@ -18,7 +18,7 @@
 | `rust/crates/rusty-roguelike/src/world/navigation.rs`           | Engine navigation/collision, bounded local scene topology, and forward shadowcasting   | Rust world movement/visibility tests                  |
 | `rust/crates/rusty-roguelike/src/world/state.rs`                | Atomic collapsed-party movement, discovery, dormancy, and restore authority            | Rust world lifecycle tests                            |
 | `rust/crates/rusty-roguelike/src/world/projection.rs`           | Bounded relative world and discovery-safe detailed minimap DTOs                        | Rust world projection tests; protocol decoder tests   |
-| `rust/crates/rusty-roguelike/src/session/types.rs`              | Session commands, activation/order views, receipts, durable log, failures              | Rust session tests                                    |
+| `rust/crates/rusty-roguelike/src/session/types.rs`              | Session commands, one-activation Wait, order views, receipts, durable log, failures    | Rust session tests                                    |
 | `rust/crates/rusty-roguelike/src/session/roll.rs`               | Seeded/static authoritative action-roll source                                         | Rust roll atomicity tests                             |
 | `rust/crates/rusty-roguelike/src/session/runtime.rs`            | Initiative order, cursor, bounded automatic settlement, and terminal state             | Rust session lifecycle tests                          |
 | `rust/crates/rusty-roguelike/src/session/persistence.rs`        | Closed complete save, fresh-process restore, identity and lifecycle validation         | Rust save/reopen and forgery tests                    |

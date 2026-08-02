@@ -11,9 +11,11 @@ The gate proves exact dependency carriers, Rust formatting/tests/clippy, strict
 protocol generation, browser boundaries, lint/typecheck/unit tests, production
 build, and real Rust-served Chromium at desktop and mobile sizes.
 
-The desktop browser path equips the complete authored stash, proves the
-equipment-granted Focus Orb action, enters the generated floor, observes dormant
-enemies join only after discovery and a round rebuild, encounters all fifteen
+The desktop browser path starts from the complete canonical equipped loadout,
+then proves optional preparation by unequipping and restoring Scale Mail before
+using the equipment-granted Focus Orb action. It enters the generated floor,
+observes dormant enemies join only after discovery and a round rebuild,
+encounters all fifteen
 opponents across the generated floor, resolves the complete hostile roster
 without a modal combat screen, consumes an explicit Wait through Space/click
 while preserving disclosure keyboard behavior, inspects Rust-selected
