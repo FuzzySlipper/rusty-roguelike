@@ -469,11 +469,14 @@ fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
     assert_eq!(after_mira.current.as_ref().unwrap().entity_id, 101);
     assert!(after_mira.latest_receipts.iter().any(|receipt| matches!(
         receipt,
-        TurnReceipt::OppositionAttacked {
-            actor_entity_id: 202,
-            ..
+        TurnReceipt::OppositionMoved {
+            actor_entity_id: 202
         }
     )));
+    assert_ne!(
+        session.world.enemy_position(EntityId::new(202)).unwrap(),
+        session.world.party_position().unwrap()
+    );
 }
 
 #[test]
@@ -521,6 +524,46 @@ fn adjacent_no_legal_opposition_passes_and_newly_seen_actor_joins_next_round() {
     let next_round = turn_right(&mut session);
     assert_eq!(next_round.round, 2);
     assert!(next_round.order.iter().any(|slot| slot.entity_id == 202));
+}
+
+#[test]
+fn ranged_opposition_moves_to_a_free_adjacent_cell_before_attacking() {
+    let floor = open_arena();
+    let rules = single_enemy_rules();
+    let seeded = WorldState::new(floor.clone(), rules).unwrap();
+    let mut durable = seeded.durable_state().unwrap();
+    durable.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        crate::WorldCell { x: 2, y: 4 },
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    let mut session =
+        prepared_session(WorldState::restore(floor, single_enemy_rules(), durable).unwrap());
+
+    turn_right(&mut session);
+    let moved = turn_right(&mut session);
+    assert!(moved.latest_receipts.iter().any(|receipt| matches!(
+        receipt,
+        TurnReceipt::OppositionMoved {
+            actor_entity_id: 202
+        }
+    )));
+    assert!(!moved.latest_receipts.iter().any(|receipt| matches!(
+        receipt,
+        TurnReceipt::OppositionAttacked {
+            actor_entity_id: 202,
+            ..
+        }
+    )));
+    assert_eq!(
+        session.world.enemy_position(EntityId::new(202)).unwrap(),
+        crate::WorldCell { x: 2, y: 3 }
+    );
+    assert_ne!(
+        session.world.enemy_position(EntityId::new(202)).unwrap(),
+        session.world.party_position().unwrap()
+    );
 }
 
 #[test]
