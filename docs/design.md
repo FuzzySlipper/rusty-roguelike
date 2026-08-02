@@ -117,12 +117,12 @@ does not wrap those mechanisms in a shared RPG facade.
 
 ## Complete session persistence
 
-Save schema 2 is a closed Rust-owned contract. It records the exact public
+Save schema 3 is a closed Rust-owned contract. It records the exact public
 Engine and Procgen revisions, compiled starter-rules fingerprint, admitted floor
 and complete Procgen provenance, Engine's registered durable entity snapshot,
 session revision/round/phase/outcome, derived initiative order and cursor,
 action-roll index, per-enemy target cursors, latest receipts, and the complete
-bounded rules log. Session view schema 4 projects that Rust log directly; the
+bounded rules log. Session view schema 5 projects that Rust log directly; the
 browser no longer assembles a parallel history from transient receipts.
 
 Restore recompiles the starter rules and regenerates the floor from the saved
@@ -183,6 +183,12 @@ policy live under `rust/content/procgen`. Rust parses them into Procgen's public
 types and runs the complete filesystem-free `ProcgenCore` pipeline in memory.
 The game admits only a successful unit-cell, four-way, bounded, connected
 lock/key floor with the expected entry, goal, key, gate, and portal semantics.
+Floor schema 2 additionally admits Procgen-authored prefab scene sockets as
+inert prop and point-light placements. Rust requires the exact validated
+catalog placement chain, bounded known content, unique placement identity,
+walkable placement cells, and paired torch/light sockets before publication.
+The scene placements have no collision, navigation, visibility, or gameplay
+authority.
 
 Every admitted floor retains the exact Procgen revision, authored seed and
 derived stage seeds, selected attempt, plus canonical hashes for all authored,
@@ -201,9 +207,13 @@ The browser strictly decodes that view, keeps classified transport failures
 visible, and submits only projected choices; it does not recreate inventory,
 equipment, movement, targeting, initiative, or rules policy.
 
-One permanent public Engine `RendererSurface` owns the full window. A pure
-adapter maps only Rust-projected relative cells and visible actors into stable
-retained handles and public picking metadata. Brief camera offsets are derived
+One permanent public Engine `RendererSurface` owns the full window. World view
+schema 3 projects only scene placements whose authored cells are currently
+visible floor facts; hidden prefab topology and lights never cross the protocol.
+A pure adapter maps those scene placements, relative cells, and visible actors
+into stable retained handles, public animated-mesh/light operations, and public
+picking metadata. A low ambient term provides ordinary 3D readability while
+authored prefab point lights provide local warm illumination. Brief camera offsets are derived
 from accepted movement/turn receipts and discarded after presentation; reduced
 motion snaps immediately. The preparation workbench, initiative, movement,
 action selection, tabbed party sheet, field packs, and detailed rules log are

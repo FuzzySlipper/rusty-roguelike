@@ -18,6 +18,9 @@ pub(crate) fn generated_world_typescript() -> String {
         EnemyParticipation::decl(),
         WorldViewCellKind::decl(),
         WorldViewCell::decl(),
+        RelativeSceneFacing::decl(),
+        VisibleSceneContent::decl(),
+        VisibleScenePlacementView::decl(),
         VisibleActorView::decl(),
         MinimapTerrainKind::decl(),
         MinimapFeatureKind::decl(),
@@ -38,6 +41,7 @@ export const WORLD_VIEW_LIMITS = Object.freeze({{\n\
   maxProjectedFacts: {MAX_PROJECTED_WORLD_FACTS},\n\
   maxMinimapFacts: {MAX_MINIMAP_FACTS},\n\
   maxVisibleActors: {MAX_VISIBLE_ACTORS},\n\
+  maxVisibleScenePlacements: {MAX_VISIBLE_SCENE_PLACEMENTS},\n\
   maxFloorIdBytes: {MAX_WORLD_FLOOR_ID_BYTES},\n\
 }} as const);\n\n{declarations}"
     )

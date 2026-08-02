@@ -29,12 +29,19 @@ multi-member effects.
 
 The admitted floor and compiled rules form the live Rust `WorldState` and
 `GameSession`; the host publishes their strict projection and accepts typed,
-revision-bound gameplay commands. Complete schema-2 saves include the registered
+revision-bound gameplay commands. Complete schema-3 saves include the registered
 Engine entity snapshot, exact floor/provenance and content identities, initiative,
 RNG and target cursors, inventory/equipment, progression facts, terminal state,
 and the complete bounded Rust log. The current same-origin host save slot is
 intentionally process-local; durable filesystem/profile selection belongs to a
 future native host rather than the browser presentation layer.
+
+Prefab scene sockets currently place a single optimized medieval-torch prop and
+paired warm point light in selected room shapes. Lighting is deliberately a
+fixed authored first pass: there is no generated light-density analysis,
+adaptive fill-light placement, emissive flame animation, or prop collision.
+The torch donor is CC BY-NC-SA 4.0, so the bundled derivative is non-commercial
+and share-alike; its attribution and license ship beside the GLB.
 
 The real-host product proof now completes the bounded floor: it empties the
 shared stash into legal equipment, begins the continuous initiative expedition,

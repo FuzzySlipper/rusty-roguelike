@@ -18,7 +18,7 @@ use super::{
     MAX_SESSION_RECEIPTS,
 };
 
-pub const GAME_SAVE_SCHEMA_VERSION: u32 = 2;
+pub const GAME_SAVE_SCHEMA_VERSION: u32 = 3;
 const MAX_GAME_SAVE_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]

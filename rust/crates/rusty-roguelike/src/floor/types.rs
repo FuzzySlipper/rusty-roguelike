@@ -7,7 +7,7 @@ use super::{
     FloorAdmissionError,
 };
 
-pub const FLOOR_SCHEMA_VERSION: u32 = 1;
+pub const FLOOR_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FloorGenerationRequest {
@@ -77,6 +77,45 @@ pub struct FloorPortal {
     pub required_item: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FloorSceneFacing {
+    North,
+    East,
+    South,
+    West,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(
+    deny_unknown_fields,
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum FloorSceneContent {
+    Prop {
+        content_id: String,
+    },
+    PointLight {
+        color_rgb: String,
+        intensity_milli: u32,
+        range_cells: u32,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct FloorScenePlacement {
+    pub id: String,
+    pub source_instance_id: String,
+    pub source_socket_id: String,
+    pub cell: FloorCell,
+    pub facing: FloorSceneFacing,
+    pub tags: Vec<String>,
+    pub content: FloorSceneContent,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FloorGenerationProvenance {
@@ -109,6 +148,7 @@ pub struct GeneratedFloor {
     pub regions: Vec<FloorRegion>,
     pub features: Vec<FloorFeature>,
     pub portals: Vec<FloorPortal>,
+    pub scene_placements: Vec<FloorScenePlacement>,
     pub provenance: FloorGenerationProvenance,
 }
 

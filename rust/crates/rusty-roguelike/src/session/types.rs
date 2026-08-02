@@ -3,7 +3,7 @@ use ts_rs::TS;
 
 use crate::{RelativeStep, RoguelikeId, WorldView};
 
-pub const SESSION_VIEW_SCHEMA_VERSION: u32 = 4;
+pub const SESSION_VIEW_SCHEMA_VERSION: u32 = 5;
 pub const MAX_SESSION_ACTIVATIONS: usize = 64;
 pub const MAX_SESSION_RECEIPTS: usize = 256;
 pub const MAX_SESSION_LOG_ENTRIES: usize = 4_096;

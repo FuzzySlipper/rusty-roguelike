@@ -4,7 +4,8 @@ use core_ids::EntityId;
 
 use crate::{
     generate_authored_floor, starter_ruleset, CollapsedPartyComponent, FloorBounds, FloorCell,
-    FloorFeature, FloorFeatureKind, FloorPortal,
+    FloorFeature, FloorFeatureKind, FloorPortal, FloorSceneContent, FloorSceneFacing,
+    FloorScenePlacement,
 };
 
 use super::*;
@@ -133,6 +134,76 @@ fn collision_projection_stops_at_first_wall_and_hidden_actors_remain_dormant() {
         .enemies
         .iter()
         .all(|enemy| enemy.world.participation() == EnemyParticipation::Dormant));
+}
+
+#[test]
+fn scene_projection_is_occlusion_safe_and_rotates_absolute_facing() {
+    let mut floor = occlusion_floor();
+    floor.scene_placements = vec![
+        FloorScenePlacement {
+            id: "torch.entry.prop".to_owned(),
+            source_instance_id: "instance.entry".to_owned(),
+            source_socket_id: "socket.entry.prop".to_owned(),
+            cell: FloorCell { x: 2, y: 4 },
+            facing: FloorSceneFacing::North,
+            tags: vec!["torch".to_owned()],
+            content: FloorSceneContent::Prop {
+                content_id: "prop.torch.medieval".to_owned(),
+            },
+        },
+        FloorScenePlacement {
+            id: "torch.entry.light".to_owned(),
+            source_instance_id: "instance.entry".to_owned(),
+            source_socket_id: "socket.entry.light".to_owned(),
+            cell: FloorCell { x: 2, y: 4 },
+            facing: FloorSceneFacing::North,
+            tags: vec!["torch".to_owned()],
+            content: FloorSceneContent::PointLight {
+                color_rgb: "#ffb45f".to_owned(),
+                intensity_milli: 2_500,
+                range_cells: 6,
+            },
+        },
+        FloorScenePlacement {
+            id: "torch.hidden.prop".to_owned(),
+            source_instance_id: "instance.hidden".to_owned(),
+            source_socket_id: "socket.hidden.prop".to_owned(),
+            cell: FloorCell { x: 2, y: 0 },
+            facing: FloorSceneFacing::South,
+            tags: vec!["torch".to_owned()],
+            content: FloorSceneContent::Prop {
+                content_id: "prop.torch.medieval".to_owned(),
+            },
+        },
+    ];
+    let mut world = occlusion_world(floor);
+
+    let north = world.view().expect("north scene view");
+    assert_eq!(north.scene_placements.len(), 2);
+    assert!(north
+        .scene_placements
+        .iter()
+        .all(|placement| placement.facing == RelativeSceneFacing::Forward));
+    assert!(!north
+        .scene_placements
+        .iter()
+        .any(|placement| placement.id == "torch.hidden.prop"));
+
+    let east = world.turn_right().expect("east scene view");
+    assert!(east
+        .scene_placements
+        .iter()
+        .all(|placement| placement.facing == RelativeSceneFacing::Left));
+    let south = world.turn_right().expect("south scene view");
+    assert!(south
+        .scene_placements
+        .iter()
+        .all(|placement| placement.facing == RelativeSceneFacing::Backward));
+    let west = world.turn_right().expect("west scene view");
+    assert!(west
+        .scene_placements
+        .iter()
+        .all(|placement| placement.facing == RelativeSceneFacing::Right));
 }
 
 #[test]

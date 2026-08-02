@@ -53,7 +53,11 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   if (testInfo.project.name === 'mobile-chromium') {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   }
+  const torchAsset = page.waitForResponse((response) =>
+    response.url().endsWith('/assets/torch/medieval-torch.glb'),
+  );
   await page.goto('/');
+  expect((await torchAsset).ok()).toBe(true);
 
   const stage = page.locator('.stage[data-session-revision]');
   await expect(stage).toHaveAttribute('data-session-revision', '0');
@@ -110,6 +114,26 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   const initialVisibleCells = initialView.world.minimap.cells.filter(
     (cell) => cell.visible,
   ).length;
+  await expect(
+    page.locator('[data-renderer-backend="rusty-engine-three"]'),
+  ).toHaveAttribute(
+    'data-visible-torches',
+    String(
+      initialView.world.scenePlacements.filter(
+        (placement) => placement.content.kind === 'prop',
+      ).length,
+    ),
+  );
+  await expect(
+    page.locator('[data-renderer-backend="rusty-engine-three"]'),
+  ).toHaveAttribute(
+    'data-visible-lights',
+    String(
+      initialView.world.scenePlacements.filter(
+        (placement) => placement.content.kind === 'point_light',
+      ).length,
+    ),
+  );
   await expect(minimap).toHaveAttribute('data-minimap-revision', '8');
   await expect(minimap).toHaveAttribute(
     'data-discovered-cells',
@@ -323,6 +347,12 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   } else {
     await page.keyboard.press('e');
     await expect(stage).toHaveAttribute('data-session-revision', '9');
+    await expect(
+      page.locator('[data-renderer-backend="rusty-engine-three"]'),
+    ).toHaveAttribute('data-visible-torches', '1');
+    await expect(
+      page.locator('[data-renderer-backend="rusty-engine-three"]'),
+    ).toHaveAttribute('data-visible-lights', '1');
     await assertVerticallySeparated(
       objective,
       page.getByRole('complementary', { name: 'Party vitality' }),
@@ -356,6 +386,25 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png',
   });
+});
+
+test('renderer exposes a corrupt torch resource as a visible failure', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  await page.route('**/assets/torch/medieval-torch.glb', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'model/gltf-binary',
+      body: 'corrupt fixture asset',
+    }),
+  );
+  await page.goto('/');
+  const viewport = page.locator('[data-renderer-backend="rusty-engine-three"]');
+  await expect(viewport).toHaveAttribute('data-renderer-status', 'error');
+  await expect(viewport.getByRole('alert')).toContainText(
+    /expected sha256:[0-9a-f]{64}, received sha256:[0-9a-f]{64}/u,
+  );
 });
 
 const LOADOUT = [

@@ -3,12 +3,13 @@ use ts_rs::TS;
 
 use crate::{FloorCell, RoguelikeId};
 
-pub const WORLD_VIEW_SCHEMA_VERSION: u32 = 2;
+pub const WORLD_VIEW_SCHEMA_VERSION: u32 = 3;
 pub const MAX_VIEW_DEPTH: i32 = 6;
 pub const MAX_DISCOVERED_CELLS: usize = 4_096;
 pub const MAX_PROJECTED_WORLD_FACTS: usize = 256;
 pub const MAX_MINIMAP_FACTS: usize = MAX_DISCOVERED_CELLS * 2;
 pub const MAX_VISIBLE_ACTORS: usize = 64;
+pub const MAX_VISIBLE_SCENE_PLACEMENTS: usize = 64;
 pub const MAX_WORLD_FLOOR_ID_BYTES: usize = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]
@@ -101,6 +102,49 @@ pub enum WorldViewCellKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 #[ts(rename_all = "kebab-case")]
+pub enum RelativeSceneFacing {
+    Forward,
+    Right,
+    Backward,
+    Left,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+#[ts(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum VisibleSceneContent {
+    Prop {
+        content_id: String,
+    },
+    PointLight {
+        color_rgb: String,
+        intensity_milli: u32,
+        range_cells: u32,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct VisibleScenePlacementView {
+    pub id: String,
+    pub lateral: i16,
+    pub depth: u8,
+    pub facing: RelativeSceneFacing,
+    pub content: VisibleSceneContent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(rename_all = "kebab-case")]
 pub enum MinimapTerrainKind {
     Floor,
     Wall,
@@ -184,6 +228,7 @@ pub struct WorldView {
     pub facing: Facing,
     pub discovered_cell_count: u16,
     pub cells: Vec<WorldViewCell>,
+    pub scene_placements: Vec<VisibleScenePlacementView>,
     pub visible_actors: Vec<VisibleActorView>,
     pub minimap: MinimapView,
 }

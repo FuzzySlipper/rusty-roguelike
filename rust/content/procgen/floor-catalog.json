@@ -378,6 +378,50 @@
           "tags": ["flow_junction"]
         }
       ],
+      "sceneSockets": [
+        {
+          "id": "torch.west.prop",
+          "x": 0,
+          "y": 4,
+          "facing": "east",
+          "tags": ["torch", "wall_mount"],
+          "content": { "kind": "prop", "contentId": "prop.torch.medieval" }
+        },
+        {
+          "id": "torch.west.light",
+          "x": 0,
+          "y": 4,
+          "facing": "east",
+          "tags": ["torch", "warm_light"],
+          "content": {
+            "kind": "point_light",
+            "colorRgb": "#ffb45f",
+            "intensityMilli": 2500,
+            "rangeCells": 6
+          }
+        },
+        {
+          "id": "torch.east.prop",
+          "x": 8,
+          "y": 4,
+          "facing": "west",
+          "tags": ["torch", "wall_mount"],
+          "content": { "kind": "prop", "contentId": "prop.torch.medieval" }
+        },
+        {
+          "id": "torch.east.light",
+          "x": 8,
+          "y": 4,
+          "facing": "west",
+          "tags": ["torch", "warm_light"],
+          "content": {
+            "kind": "point_light",
+            "colorRgb": "#ffb45f",
+            "intensityMilli": 2500,
+            "rangeCells": 6
+          }
+        }
+      ],
       "tags": [
         "large",
         "flow_junction",
@@ -833,6 +877,29 @@
           "tags": ["preparation"]
         }
       ],
+      "sceneSockets": [
+        {
+          "id": "torch.west.prop",
+          "x": 0,
+          "y": 4,
+          "facing": "east",
+          "tags": ["torch", "wall_mount"],
+          "content": { "kind": "prop", "contentId": "prop.torch.medieval" }
+        },
+        {
+          "id": "torch.west.light",
+          "x": 0,
+          "y": 4,
+          "facing": "east",
+          "tags": ["torch", "warm_light"],
+          "content": {
+            "kind": "point_light",
+            "colorRgb": "#ffb45f",
+            "intensityMilli": 2500,
+            "rangeCells": 6
+          }
+        }
+      ],
       "tags": [
         "small",
         "small_pocket",
@@ -902,6 +969,29 @@
           "x": 1,
           "y": 1,
           "tags": ["goal"]
+        }
+      ],
+      "sceneSockets": [
+        {
+          "id": "torch.wall.prop",
+          "x": 0,
+          "y": 1,
+          "facing": "east",
+          "tags": ["torch", "wall_mount"],
+          "content": { "kind": "prop", "contentId": "prop.torch.medieval" }
+        },
+        {
+          "id": "torch.wall.light",
+          "x": 0,
+          "y": 1,
+          "facing": "east",
+          "tags": ["torch", "warm_light"],
+          "content": {
+            "kind": "point_light",
+            "colorRgb": "#ffb45f",
+            "intensityMilli": 2500,
+            "rangeCells": 6
+          }
         }
       ],
       "tags": ["destination", "goal", "marker_room"]

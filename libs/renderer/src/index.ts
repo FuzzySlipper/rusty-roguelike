@@ -21,6 +21,7 @@ import {
   browserNow,
   browserPrefersReducedMotion,
   cancelBrowserFrame,
+  loadBrowserBinaryAsset,
   observeElementSize,
   requestBrowserFrame,
 } from '@rusty-roguelike/platform';
@@ -29,6 +30,8 @@ import type { SessionView } from '@rusty-roguelike/protocol';
 import {
   cameraMotionCue,
   createDungeonFrame,
+  TORCH_ASSET_ID,
+  TORCH_CONTENT_HASH,
   type CameraMotionCue,
 } from './dungeon-frame';
 
@@ -65,7 +68,7 @@ const MOTION_DURATION_MS = 96;
       }
 
       .viewport {
-        background: #05090c;
+        background: #18130e;
         overflow: hidden;
       }
 
@@ -75,13 +78,11 @@ const MOTION_DURATION_MS = 96;
       }
 
       .viewport::after {
-        background:
-          radial-gradient(circle at center, transparent 42%, rgb(0 0 0 / 0.5)),
-          repeating-linear-gradient(
-            0deg,
-            transparent 0 3px,
-            rgb(255 255 255 / 0.012) 3px 4px
-          );
+        background: repeating-linear-gradient(
+          0deg,
+          transparent 0 3px,
+          rgb(255 255 255 / 0.008) 3px 4px
+        );
         content: '';
         inset: 0;
         pointer-events: none;
@@ -120,6 +121,8 @@ const MOTION_DURATION_MS = 96;
       [attr.aria-label]="sceneLabel()"
       data-renderer-backend="rusty-engine-three"
       [attr.data-renderer-status]="rendererStatus()"
+      [attr.data-visible-torches]="visibleTorchCount()"
+      [attr.data-visible-lights]="visibleLightCount()"
     >
       <canvas
         #canvas
@@ -144,6 +147,8 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
     'loading',
   );
   protected readonly sceneLabel = signal('First-person generated dungeon');
+  protected readonly visibleTorchCount = signal(0);
+  protected readonly visibleLightCount = signal(0);
   private readonly canvas =
     viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private surface: RendererSurface | null = null;
@@ -181,31 +186,52 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
 
   async ngAfterViewInit(): Promise<void> {
     try {
-      const { mountRendererSurface, sampleCameraTransition } = await import(
-        '@rusty-engine/renderer-host'
-      );
+      const { mountRendererAnimatedMeshSurface, sampleCameraTransition } =
+        await import('@rusty-engine/renderer-host');
       if (this.destroyed) {
         return;
       }
       this.sampleTransition = sampleCameraTransition;
       const canvas = this.canvas().nativeElement;
-      this.surface = mountRendererSurface(canvas, {
+      const surface = await mountRendererAnimatedMeshSurface(canvas, {
         autoStart: true,
-        clearColor: 0x05090c,
+        clearColor: 0x18130e,
+        animatedMeshManifest: {
+          kind: 'rusty_renderer_animated_mesh_resources.v1',
+          resources: [
+            {
+              asset: TORCH_ASSET_ID,
+              contentHash: TORCH_CONTENT_HASH,
+              clipIds: [],
+            },
+          ],
+        },
+        resolveAnimatedMeshResource: () =>
+          loadBrowserBinaryAsset('/assets/torch/medieval-torch.glb'),
         frame: { schemaVersion: 1, ops: [] },
         pixelRatio: browserDevicePixelRatio(),
         projection: CAMERA_PROJECTION,
       });
+      if (this.destroyed) {
+        surface.dispose();
+        return;
+      }
+      this.surface = surface;
       this.surface.setCameraPose({
         position: CAMERA_POSITION,
         pitchDegrees: 0,
         yawDegrees: 0,
       });
-      this.publishSession(this.session(), this.selectedActionId());
+      const published = this.publishSession(
+        this.session(),
+        this.selectedActionId(),
+      );
       this.stopResize = observeElementSize(canvas, () =>
         this.surface?.renderOnce(),
       );
-      this.rendererStatus.set('ready');
+      if (published) {
+        this.rendererStatus.set('ready');
+      }
     } catch (error) {
       this.rendererError.set(
         `Rusty Engine could not mount the retained scene: ${
@@ -249,10 +275,10 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
   private publishSession(
     session: SessionView,
     selectedActionId: string | null,
-  ): void {
+  ): boolean {
     const surface = this.surface;
     if (surface === null) {
-      return;
+      return false;
     }
     this.cancelMotion();
     const dungeon = createDungeonFrame(
@@ -260,13 +286,34 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
       this.retainedHandles,
       selectedActionId,
     );
-    surface.applyFrame(dungeon.frame);
+    const receipt = surface.applyFrame(dungeon.frame);
+    if (!receipt.applied) {
+      this.rendererError.set(
+        `Rusty Engine rejected the retained scene: ${receipt.diagnostics
+          .map((diagnostic) => diagnostic.message)
+          .join('; ')}`,
+      );
+      this.rendererStatus.set('error');
+      return false;
+    }
     this.retainedHandles = dungeon.handles;
     this.renderedRevision = session.revision;
     this.renderedSelection = selectedActionId;
     this.sceneLabel.set(
       `First-person dungeon facing ${session.world.facing}; ${session.world.visibleActors.length} visible enemies`,
     );
+    this.visibleTorchCount.set(
+      session.world.scenePlacements.filter(
+        (placement) => placement.content.kind === 'prop',
+      ).length,
+    );
+    this.visibleLightCount.set(
+      session.world.scenePlacements.filter(
+        (placement) => placement.content.kind === 'point_light',
+      ).length,
+    );
+    this.rendererError.set(null);
+    this.rendererStatus.set('ready');
     const cue = cameraMotionCue(session.latestReceipts);
     if (cue === null || browserPrefersReducedMotion()) {
       surface.setCameraPose({
@@ -275,9 +322,10 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
         yawDegrees: 0,
       });
       surface.renderOnce();
-      return;
+      return true;
     }
     this.animateMotion(cue);
+    return true;
   }
 
   private animateMotion(cue: CameraMotionCue): void {

@@ -5,7 +5,7 @@ import type { SessionView, TurnReceipt } from '@rusty-roguelike/protocol';
 import { cameraMotionCue, createDungeonFrame } from './dungeon-frame';
 
 const SESSION: SessionView = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   revision: 4,
   phase: 'expedition',
   round: 2,
@@ -73,7 +73,7 @@ const SESSION: SessionView = {
   latestReceipts: [],
   log: [],
   world: {
-    schemaVersion: 2,
+    schemaVersion: 3,
     revision: 9,
     floorId: 'floor.renderer',
     facing: 'north',
@@ -83,6 +83,7 @@ const SESSION: SessionView = {
       { lateral: 0, depth: 1, kind: 'floor' },
       { lateral: 1, depth: 1, kind: 'wall' },
     ],
+    scenePlacements: [],
     visibleActors: [
       {
         actorId: 'enemy.scout',
@@ -182,6 +183,63 @@ describe('createDungeonFrame', () => {
           operation.node.metadata.tags.includes('enemy'),
       ),
     ).toBe(false);
+  });
+
+  it('adapts only Rust-projected scene props and lights into Engine operations', () => {
+    const sceneSession: SessionView = {
+      ...SESSION,
+      world: {
+        ...SESSION.world,
+        scenePlacements: [
+          {
+            id: 'torch.visible.prop',
+            lateral: 0,
+            depth: 1,
+            facing: 'right',
+            content: { kind: 'prop', contentId: 'prop.torch.medieval' },
+          },
+          {
+            id: 'torch.visible.light',
+            lateral: 0,
+            depth: 1,
+            facing: 'right',
+            content: {
+              kind: 'point_light',
+              colorRgb: '#ffb45f',
+              intensityMilli: 2500,
+              rangeCells: 6,
+            },
+          },
+        ],
+      },
+    };
+    const frame = createDungeonFrame(sceneSession);
+    expect(
+      frame.frame.ops.filter((operation) => operation.op === 'createLight'),
+    ).toHaveLength(2);
+    expect(frame.frame.ops).toContainEqual(
+      expect.objectContaining({
+        op: 'defineAnimatedMesh',
+        asset: expect.objectContaining({ asset: 'asset.prop.torch.medieval' }),
+      }),
+    );
+    expect(frame.frame.ops).toContainEqual(
+      expect.objectContaining({
+        op: 'createAnimatedMeshInstance',
+        instance: expect.objectContaining({
+          asset: 'asset.prop.torch.medieval',
+          metadata: expect.objectContaining({ label: 'torch.visible.prop' }),
+        }),
+      }),
+    );
+    expect(frame.handles).toHaveLength(
+      frame.frame.ops.filter(
+        (operation) =>
+          operation.op === 'create' ||
+          operation.op === 'createLight' ||
+          operation.op === 'createAnimatedMeshInstance',
+      ).length,
+    );
   });
 
   it('telegraphs only the Rust-projected targets of the transient selected action', () => {

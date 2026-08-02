@@ -39,7 +39,7 @@ describe('decodeBootstrapReadout', () => {
 });
 
 const WORLD_VIEW = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   revision: 17,
   floorId: 'floor.occlusion-regression',
   facing: 'north',
@@ -49,6 +49,7 @@ const WORLD_VIEW = {
     { lateral: 0, depth: 1, kind: 'floor' },
     { lateral: 0, depth: 2, kind: 'wall' },
   ],
+  scenePlacements: [],
   visibleActors: [],
   minimap: {
     party: { x: 2, y: 4 },
@@ -94,6 +95,31 @@ describe('decodeWorldView', () => {
   it('accepts the bounded relative Rust projection', () => {
     expect(decodeWorldView(WORLD_VIEW)).toEqual(WORLD_VIEW);
     expect(decodeWorldView(WORLD_WITH_ACTOR)).toEqual(WORLD_WITH_ACTOR);
+    const withTorch = {
+      ...WORLD_VIEW,
+      scenePlacements: [
+        {
+          id: 'scene.torch.1.prop',
+          lateral: 0,
+          depth: 1,
+          facing: 'right',
+          content: { kind: 'prop', contentId: 'prop.torch.medieval' },
+        },
+        {
+          id: 'scene.torch.1.light',
+          lateral: 0,
+          depth: 1,
+          facing: 'right',
+          content: {
+            kind: 'point_light',
+            colorRgb: '#ffb45f',
+            intensityMilli: 2500,
+            rangeCells: 6,
+          },
+        },
+      ],
+    };
+    expect(decodeWorldView(withTorch)).toEqual(withTorch);
   });
 
   it('rejects absolute or occluded topology and malformed actor facts', () => {
@@ -169,6 +195,58 @@ describe('decodeWorldView', () => {
     ).toThrow('projected floor fact');
   });
 
+  it('rejects leaked or malformed authored scene placements', () => {
+    const prop = {
+      id: 'scene.torch.1.prop',
+      lateral: 0,
+      depth: 1,
+      facing: 'right',
+      content: { kind: 'prop', contentId: 'prop.torch.medieval' },
+    };
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        scenePlacements: [{ ...prop, depth: 3 }],
+      }),
+    ).toThrow('projected floor fact');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        scenePlacements: [{ ...prop, depth: 2 }],
+      }),
+    ).toThrow('projected floor fact');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        scenePlacements: [
+          { ...prop, content: { ...prop.content, contentId: 'prop.forged' } },
+        ],
+      }),
+    ).toThrow('unknown content identity');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        scenePlacements: [
+          {
+            ...prop,
+            content: {
+              kind: 'point_light',
+              colorRgb: '#ffb45f',
+              intensityMilli: 2500,
+              rangeCells: 13,
+            },
+          },
+        ],
+      }),
+    ).toThrow('scene light range');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        scenePlacements: [{ ...prop, browserOwned: true }],
+      }),
+    ).toThrow('missing or unknown');
+  });
+
   it('rejects hidden or contradictory minimap facts at the browser boundary', () => {
     expect(() =>
       decodeWorldView({
@@ -235,7 +313,7 @@ const OPPOSITION_ATTACK = {
 };
 
 const SESSION_VIEW = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   revision: 4,
   phase: 'expedition',
   round: 2,

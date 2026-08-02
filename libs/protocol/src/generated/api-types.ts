@@ -2,7 +2,7 @@
 
 export const BOOTSTRAP_SCHEMA_VERSION = 1 as const;
 export const RUSTY_ENGINE_REVISION = 'fb608e323a8b44a55195f5720101224ff37fd5db' as const;
-export const RUSTY_PROCGEN_REVISION = '1540ed9deb43cb259b94778cca2c2188ac635f03' as const;
+export const RUSTY_PROCGEN_REVISION = 'aaa40a79c689c27e78f60cdf28e85a739d2aa233' as const;
 
 export type BootstrapReadoutDto = {
 readonly schemaVersion: typeof BOOTSTRAP_SCHEMA_VERSION;
@@ -72,13 +72,14 @@ export type ActorCandidate = { id: RoguelikeId, entityId: number, name: string, 
 export type PartyCandidate = { id: RoguelikeId, entityId: number, members: Array<RoguelikeId>, };
 
 
-export const WORLD_VIEW_SCHEMA_VERSION = 2 as const;
+export const WORLD_VIEW_SCHEMA_VERSION = 3 as const;
 export const WORLD_VIEW_LIMITS = Object.freeze({
 maxDepth: 6,
 maxDiscoveredCells: 4096,
 maxProjectedFacts: 256,
 maxMinimapFacts: 8192,
 maxVisibleActors: 64,
+maxVisibleScenePlacements: 64,
 maxFloorIdBytes: 128,
 } as const);
 
@@ -94,6 +95,12 @@ export type WorldViewCellKind = "floor" | "wall";
 
 export type WorldViewCell = { lateral: number, depth: number, kind: WorldViewCellKind, };
 
+export type RelativeSceneFacing = "forward" | "right" | "backward" | "left";
+
+export type VisibleSceneContent = { "kind": "prop", contentId: string, } | { "kind": "point_light", colorRgb: string, intensityMilli: number, rangeCells: number, };
+
+export type VisibleScenePlacementView = { id: string, lateral: number, depth: number, facing: RelativeSceneFacing, content: VisibleSceneContent, };
+
 export type VisibleActorView = { actorId: RoguelikeId, entityId: number, name: string, lateral: number, depth: number, participating: boolean, };
 
 export type MinimapTerrainKind = "floor" | "wall";
@@ -106,9 +113,9 @@ export type MinimapActorView = { actorId: RoguelikeId, entityId: number, name: s
 
 export type MinimapView = { party: WorldCell, facing: Facing, cells: Array<MinimapCellView>, visibleActors: Array<MinimapActorView>, };
 
-export type WorldView = { schemaVersion: number, revision: number, floorId: string, facing: Facing, discoveredCellCount: number, cells: Array<WorldViewCell>, visibleActors: Array<VisibleActorView>, minimap: MinimapView, };
+export type WorldView = { schemaVersion: number, revision: number, floorId: string, facing: Facing, discoveredCellCount: number, cells: Array<WorldViewCell>, scenePlacements: Array<VisibleScenePlacementView>, visibleActors: Array<VisibleActorView>, minimap: MinimapView, };
 
-export const SESSION_VIEW_SCHEMA_VERSION = 4 as const;
+export const SESSION_VIEW_SCHEMA_VERSION = 5 as const;
 export const SESSION_VIEW_LIMITS = Object.freeze({
 maxActivations: 64,
 maxReceipts: 256,

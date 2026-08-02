@@ -6,7 +6,7 @@ import { SessionTransportError } from '@rusty-roguelike/transport';
 import { SessionStoreCore, type SessionTransportPort } from './index';
 
 const SESSION: SessionView = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   revision: 0,
   phase: 'expedition',
   round: 1,
@@ -74,12 +74,13 @@ const SESSION: SessionView = {
   latestReceipts: [],
   log: [],
   world: {
-    schemaVersion: 2,
+    schemaVersion: 3,
     revision: 1,
     floorId: 'floor.store',
     facing: 'north',
     discoveredCellCount: 1,
     cells: [{ lateral: 0, depth: 0, kind: 'floor' }],
+    scenePlacements: [],
     visibleActors: [],
     minimap: {
       party: { x: 4, y: 4 },

@@ -11,8 +11,10 @@
   movement, visibility, and deterministic random mechanisms; the game retains
   Roguelike policy, action resolution, and state.
 - Rusty Procgen: `https://github.com/FuzzySlipper/rusty-procgen` at
-  `1540ed9deb43cb259b94778cca2c2188ac635f03`. Rust links the public
-  filesystem-free `rusty_procgen_preflight::core::ProcgenCore` facade.
+  `aaa40a79c689c27e78f60cdf28e85a739d2aa233`. Rust links the public
+  filesystem-free `rusty_procgen_preflight::core::ProcgenCore` facade and
+  consumes its validated prefab scene-socket placements as inert generation
+  facts. Torch content and rendering remain owned by this game.
 
 `dependency-sources.json` and both lockfiles are the executable identity proof.
 There are no sibling path fallbacks.
@@ -58,3 +60,11 @@ catalog, party, enemy, class, feat, item, and action vocabulary. Ruleweaver is
 not a runtime or build dependency.
 
 Donor evidence never overrides this repository's design.
+
+## Presentation asset
+
+The bundled torch is an optimized derivative of
+[Medieval Torch - Free](https://sketchfab.com/3d-models/medieval-torch-free-065861234a824cb982764f04627331c9)
+by [Typhen](https://sketchfab.com/typhen). It is licensed CC BY-NC-SA 4.0;
+the attribution, modification note, license link, and non-commercial/share-alike
+restriction ship beside the GLB in `apps/app/public/assets/torch`.

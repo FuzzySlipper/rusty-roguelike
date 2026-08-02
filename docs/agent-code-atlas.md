@@ -6,7 +6,7 @@
 | `rust/content/procgen/`                                         | Authored seed intent, compact shape catalog, and bounded generation policy             | Rust floor tests                                      |
 | `rust/crates/rusty-roguelike/src/bootstrap.rs`                  | Immutable dependency readout and generated bootstrap protocol owner                    | Rust bootstrap tests                                  |
 | `rust/crates/rusty-roguelike/src/floor/authoring.rs`            | Strict embedded authoring input decoding                                               | Rust floor tests                                      |
-| `rust/crates/rusty-roguelike/src/floor/generation.rs`           | Direct public `ProcgenCore` generation pipeline and provenance capture                 | Rust floor tests                                      |
+| `rust/crates/rusty-roguelike/src/floor/`                        | Direct public `ProcgenCore` pipeline, provenance, prefab scene-socket admission        | Rust floor tests                                      |
 | `rust/crates/rusty-roguelike/src/floor/admission.rs`            | Roguelike-owned bounded topology, semantic, and provenance admission                   | Rust floor tests                                      |
 | `rust/crates/rusty-roguelike/src/floor/types.rs`                | Admitted floor DTO, exact provenance, and atomic floor replacement                     | Rust floor tests                                      |
 | `rust/content/rules/starter.json`                               | Inert Roguelike-owned starter rules, party, enemies, classes, feats, items             | Rust rules tests                                      |
@@ -30,7 +30,7 @@
 | `libs/platform/`                                                | Browser HTTP, frames, input, resize, motion, drag-data, and pixel-ratio ports          | typecheck; consumers                                  |
 | `libs/transport/`                                               | Strict bootstrap/session transport and classified command failures                     | Vitest                                                |
 | `libs/store/`                                                   | Bounded async command/save/reopen admission and Rust-log publication                   | delayed-transport Vitest; browser lifecycle           |
-| `libs/renderer/`                                                | Rust-view retained-frame adapter, Engine picking, tween, and surface lifecycle         | Vitest; real WebGL expedition                         |
+| `libs/renderer/`, `apps/app/public/assets/torch/`               | Rust-view retained adapter, Engine mesh/light ops, picking, tween, asset lifecycle     | Vitest; real WebGL expedition and asset-failure proof |
 | `libs/feature-game/src/preparation.ts`                          | Busy-safe preparation composition and revision-bound loadout commands                  | real desktop/mobile preparation                       |
 | `libs/feature-game/src/loadout-panel.ts`                        | Presentational drag/drop and click-select loadout surface                              | real desktop/mobile preparation                       |
 | `libs/feature-game/src/party-sheet.ts`                          | Read-only keyboard-tabbed complete character and loadout inspection                    | real desktop/mobile expedition                        |

@@ -14,12 +14,14 @@ fn exact_public_procgen_pipeline_is_deterministic_and_admitted() {
     let first = super::generate_authored_floor(SEED).expect("first admitted floor");
     let repeated = super::generate_authored_floor(SEED).expect("repeated admitted floor");
     assert_eq!(first, repeated);
-    assert_eq!(first.schema_version, 1);
+    assert_eq!(first.schema_version, 2);
     assert!(first.bounds.width <= 128);
     assert!(first.bounds.height <= 128);
     assert!(first.walkable_cells.len() <= 4_096);
     assert_eq!(first.regions.len(), 4);
     assert_eq!(first.portals.len(), 4);
+    assert!(!first.scene_placements.is_empty());
+    assert_eq!(first.scene_placements.len() % 2, 0);
     assert_eq!(
         first
             .portals

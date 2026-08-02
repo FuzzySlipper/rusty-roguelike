@@ -24,6 +24,7 @@ import {
   type SessionView,
   type TurnReceipt,
   type VisibleActorView,
+  type VisibleScenePlacementView,
   type WorldView,
   type WorldViewCell,
 } from './generated/api-types';
@@ -79,6 +80,7 @@ const WORLD_VIEW_KEYS = [
   'floorId',
   'minimap',
   'revision',
+  'scenePlacements',
   'schemaVersion',
   'visibleActors',
 ] as const;
@@ -90,6 +92,20 @@ const VISIBLE_ACTOR_KEYS = [
   'lateral',
   'name',
   'participating',
+] as const;
+const VISIBLE_SCENE_KEYS = [
+  'content',
+  'depth',
+  'facing',
+  'id',
+  'lateral',
+] as const;
+const SCENE_PROP_KEYS = ['contentId', 'kind'] as const;
+const SCENE_POINT_LIGHT_KEYS = [
+  'colorRgb',
+  'intensityMilli',
+  'kind',
+  'rangeCells',
 ] as const;
 const MINIMAP_KEYS = ['cells', 'facing', 'party', 'visibleActors'] as const;
 const WORLD_POSITION_KEYS = ['x', 'y'] as const;
@@ -154,6 +170,33 @@ export function decodeWorldView(value: unknown): WorldView {
     ) {
       throw new Error('world view contains facts behind an occluding wall');
     }
+  }
+  if (
+    !Array.isArray(value['scenePlacements']) ||
+    value['scenePlacements'].length >
+      WORLD_VIEW_LIMITS.maxVisibleScenePlacements
+  ) {
+    throw new Error('visible scene placements are not a bounded array');
+  }
+  const sceneIds = new Set<string>();
+  for (const placement of value['scenePlacements']) {
+    decodeVisibleScenePlacement(placement);
+    if (
+      !value['cells'].some(
+        (cell) =>
+          cell.kind === 'floor' &&
+          cell.lateral === placement.lateral &&
+          cell.depth === placement.depth,
+      )
+    ) {
+      throw new Error(
+        'visible scene placement does not occupy a projected floor fact',
+      );
+    }
+    if (sceneIds.has(placement.id)) {
+      throw new Error('world view contains duplicate scene placements');
+    }
+    sceneIds.add(placement.id);
   }
   if (
     !Array.isArray(value['visibleActors']) ||
@@ -1197,6 +1240,52 @@ function decodeVisibleActor(value: unknown): asserts value is VisibleActorView {
   if (value['participating'] !== true) {
     throw new Error('visible actor has an invalid participation fact');
   }
+}
+
+function decodeVisibleScenePlacement(
+  value: unknown,
+): asserts value is VisibleScenePlacementView {
+  requireExactRecord(value, VISIBLE_SCENE_KEYS, 'visible scene placement');
+  requireRelativePosition(value);
+  requireBoundedText(value['id'], 1, 192, 'scene placement identity');
+  if (
+    !['forward', 'right', 'backward', 'left'].includes(String(value['facing']))
+  ) {
+    throw new Error('visible scene placement has an invalid facing');
+  }
+  const content = value['content'];
+  if (!isRecord(content)) {
+    throw new Error('visible scene content must be an object');
+  }
+  if (content['kind'] === 'prop') {
+    requireExactRecord(content, SCENE_PROP_KEYS, 'visible scene prop');
+    if (content['contentId'] !== 'prop.torch.medieval') {
+      throw new Error('visible scene prop has an unknown content identity');
+    }
+    return;
+  }
+  if (content['kind'] === 'point_light') {
+    requireExactRecord(
+      content,
+      SCENE_POINT_LIGHT_KEYS,
+      'visible scene point light',
+    );
+    if (
+      typeof content['colorRgb'] !== 'string' ||
+      !/^#[0-9a-fA-F]{6}$/.test(content['colorRgb'])
+    ) {
+      throw new Error('visible scene point light has an invalid color');
+    }
+    requireSafeInteger(
+      content['intensityMilli'],
+      1,
+      10_000,
+      'scene light intensity',
+    );
+    requireSafeInteger(content['rangeCells'], 1, 12, 'scene light range');
+    return;
+  }
+  throw new Error('visible scene content has an unknown kind');
 }
 
 function requireRelativePosition(value: Record<string, unknown>): void {

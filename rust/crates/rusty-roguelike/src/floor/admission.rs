@@ -1,20 +1,24 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use rusty_procgen_preflight::core::ProcgenCore;
-use rusty_procgen_preflight::{GridConnectivity, PieceInstance, PiecePlacement};
+use rusty_procgen_preflight::{
+    GridConnectivity, PieceInstance, PiecePlacement, SceneFacing, SceneSocketContent,
+};
 
 use crate::RUSTY_PROCGEN_REVISION;
 
 use super::{
     authoring::AuthoredGenerationInputs, generation::ProcgenFloorOutput, FloorAdmissionError,
     FloorBounds, FloorCell, FloorFeature, FloorFeatureKind, FloorPortal, FloorRegion,
-    FloorRegionKind, GeneratedFloor,
+    FloorRegionKind, FloorSceneContent, FloorSceneFacing, FloorScenePlacement, GeneratedFloor,
 };
 
 const MAX_FLOOR_WIDTH: u32 = 128;
 const MAX_FLOOR_HEIGHT: u32 = 128;
 const MAX_WALKABLE_CELLS: usize = 4_096;
+const MAX_SCENE_PLACEMENTS: usize = 64;
 const EXPECTED_NODES: [&str; 4] = ["gate.locked_1", "goal", "key.gate_1", "start"];
+const TORCH_CONTENT_ID: &str = "prop.torch.medieval";
 
 pub(crate) fn admit_procgen_floor(
     inputs: &AuthoredGenerationInputs,
@@ -33,7 +37,7 @@ pub(crate) fn admit_procgen_floor(
             "the accepted result does not retain the authored catalog policy",
         );
     }
-    require_result_validation(&output)?;
+    require_result_validation(inputs, &output)?;
     let placement = output.result.placement.as_ref().ok_or_else(|| {
         FloorAdmissionError::new(
             "procgen_placement_missing",
@@ -59,6 +63,7 @@ pub(crate) fn admit_procgen_floor(
     require_connected(&walkable_cells)?;
     let (regions, features) = admit_regions(placement, &walkable_cells)?;
     let portals = admit_portals(placement, &walkable_cells)?;
+    let scene_placements = admit_scene_placements(placement, &walkable_cells)?;
     let result_hash_suffix = output
         .provenance
         .procgen_result_hash
@@ -73,6 +78,7 @@ pub(crate) fn admit_procgen_floor(
         regions,
         features,
         portals,
+        scene_placements,
         provenance: output.provenance,
     })
 }
@@ -194,7 +200,10 @@ fn require_hash<T: serde::Serialize>(
     }
 }
 
-fn require_result_validation(output: &ProcgenFloorOutput) -> Result<(), FloorAdmissionError> {
+fn require_result_validation(
+    inputs: &AuthoredGenerationInputs,
+    output: &ProcgenFloorOutput,
+) -> Result<(), FloorAdmissionError> {
     for (code, report) in [
         (
             "procgen_accepted_geometry_invalid",
@@ -249,6 +258,12 @@ fn require_result_validation(output: &ProcgenFloorOutput) -> Result<(), FloorAdm
             "the accepted result omitted its placement",
         )
     })?;
+    let shape_match = output.result.shape_match.as_ref().ok_or_else(|| {
+        FloorAdmissionError::new(
+            "procgen_shape_match_missing",
+            "the accepted result omitted its exact catalog shape match",
+        )
+    })?;
     if geometry.candidate_id != output.candidate.candidate_id
         || plan.candidate_id != output.candidate.candidate_id
         || output.source_geometry.candidate_id != output.candidate.candidate_id
@@ -267,7 +282,8 @@ fn require_result_validation(output: &ProcgenFloorOutput) -> Result<(), FloorAdm
             diagnostic_summary(&fresh_geometry.diagnostics),
         );
     }
-    let fresh_placement = ProcgenCore::validate_placement(placement);
+    let fresh_placement =
+        ProcgenCore::validate_placement_with_catalog(&inputs.catalog, plan, shape_match, placement);
     if !fresh_placement.ok {
         return rejected(
             "procgen_fresh_placement_invalid",
@@ -283,6 +299,134 @@ fn require_result_validation(output: &ProcgenFloorOutput) -> Result<(), FloorAdm
         );
     }
     Ok(())
+}
+
+fn admit_scene_placements(
+    placement: &PiecePlacement,
+    walkable: &[FloorCell],
+) -> Result<Vec<FloorScenePlacement>, FloorAdmissionError> {
+    let walkable = walkable
+        .iter()
+        .map(|cell| (cell.x, cell.y))
+        .collect::<BTreeSet<_>>();
+    let mut ids = BTreeSet::new();
+    let mut pair_counts = BTreeMap::<(&str, i32, i32), (usize, usize)>::new();
+    let mut admitted = Vec::new();
+    for instance in &placement.instances {
+        for scene in &instance.scene_placements {
+            if admitted.len() >= MAX_SCENE_PLACEMENTS {
+                return rejected(
+                    "floor_scene_placement_overflow",
+                    format!("scene placements exceed the maximum of {MAX_SCENE_PLACEMENTS}"),
+                );
+            }
+            if !ids.insert(scene.id.as_str()) {
+                return rejected(
+                    "floor_scene_placement_duplicate",
+                    format!("scene placement {} is repeated", scene.id),
+                );
+            }
+            if scene.id.is_empty()
+                || scene.id.len() > 192
+                || scene.instance_id != instance.instance_id
+                || scene.source_socket_id.is_empty()
+                || scene.source_socket_id.len() > 96
+                || !walkable.contains(&(scene.x, scene.y))
+            {
+                return rejected(
+                    "floor_scene_placement_invalid",
+                    format!(
+                        "scene placement {} has invalid identity or position",
+                        scene.id
+                    ),
+                );
+            }
+            let tags = sorted_unique(scene.tags.clone());
+            if tags.len() != scene.tags.len()
+                || tags.len() > 16
+                || tags.iter().any(|tag| tag.is_empty() || tag.len() > 64)
+            {
+                return rejected(
+                    "floor_scene_placement_invalid",
+                    format!("scene placement {} has invalid tags", scene.id),
+                );
+            }
+            let counts = pair_counts
+                .entry((scene.instance_id.as_str(), scene.x, scene.y))
+                .or_default();
+            let content = match &scene.content {
+                SceneSocketContent::Prop { content_id } => {
+                    if content_id != TORCH_CONTENT_ID {
+                        return rejected(
+                            "floor_scene_content_unknown",
+                            format!(
+                                "scene placement {} uses unknown prop {content_id}",
+                                scene.id
+                            ),
+                        );
+                    }
+                    counts.0 += 1;
+                    FloorSceneContent::Prop {
+                        content_id: content_id.clone(),
+                    }
+                }
+                SceneSocketContent::PointLight {
+                    color_rgb,
+                    intensity_milli,
+                    range_cells,
+                } => {
+                    if !valid_rgb(color_rgb)
+                        || !(1..=10_000).contains(intensity_milli)
+                        || !(1..=12).contains(range_cells)
+                    {
+                        return rejected(
+                            "floor_scene_light_invalid",
+                            format!("scene placement {} has unsupported light bounds", scene.id),
+                        );
+                    }
+                    counts.1 += 1;
+                    FloorSceneContent::PointLight {
+                        color_rgb: color_rgb.clone(),
+                        intensity_milli: *intensity_milli,
+                        range_cells: *range_cells,
+                    }
+                }
+            };
+            admitted.push(FloorScenePlacement {
+                id: scene.id.clone(),
+                source_instance_id: scene.instance_id.clone(),
+                source_socket_id: scene.source_socket_id.clone(),
+                cell: FloorCell {
+                    x: scene.x,
+                    y: scene.y,
+                },
+                facing: match scene.facing {
+                    SceneFacing::North => FloorSceneFacing::North,
+                    SceneFacing::East => FloorSceneFacing::East,
+                    SceneFacing::South => FloorSceneFacing::South,
+                    SceneFacing::West => FloorSceneFacing::West,
+                },
+                tags,
+                content,
+            });
+        }
+    }
+    if admitted.is_empty() || pair_counts.values().any(|counts| *counts != (1, 1)) {
+        return rejected(
+            "floor_scene_pairing_invalid",
+            "every authored torch cell must contain exactly one prop and one point light",
+        );
+    }
+    admitted.sort_by(|left, right| left.id.cmp(&right.id));
+    Ok(admitted)
+}
+
+fn valid_rgb(value: &str) -> bool {
+    value.len() == 7
+        && value.starts_with('#')
+        && value.as_bytes()[1..]
+            .iter()
+            .all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn diagnostic_summary(diagnostics: &[rusty_procgen_preflight::Diagnostic]) -> String {

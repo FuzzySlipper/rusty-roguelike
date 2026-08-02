@@ -19,6 +19,16 @@ export const browserHttpClient: HttpClientPort = {
     }),
 };
 
+export async function loadBrowserBinaryAsset(
+  url: string,
+): Promise<ArrayBuffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`asset request failed with HTTP ${response.status}`);
+  }
+  return response.arrayBuffer();
+}
+
 export function browserDevicePixelRatio(): number {
   const ratio = globalThis.devicePixelRatio;
   return Number.isFinite(ratio) && ratio > 0 ? Math.min(ratio, 2) : 1;
