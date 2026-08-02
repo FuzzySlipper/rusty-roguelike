@@ -4,8 +4,10 @@ export const DUNGEON_VIEW_CAMERA_ID = 'camera.dungeon-local-overview';
 export const DUNGEON_VIEW_TARGET_ID = 'target.dungeon-local-overview';
 
 /**
- * Presentation-only view of the already admitted retained scene. It receives
- * no discovery, visibility, navigation, or gameplay facts.
+ * Offscreen lookup view of the already admitted retained scene. It receives
+ * no discovery, visibility, navigation, or gameplay facts and is deliberately
+ * not presented into the primary canvas; the detailed Rust minimap owns the
+ * visible map presentation.
  */
 export function createDungeonViewComposition(
   targetRevision: number,
@@ -50,20 +52,7 @@ export function createDungeonViewComposition(
         order: 10,
       },
     ],
-    presentations: [
-      {
-        id: 'presentation.dungeon-local-overview',
-        sourceTargetId: DUNGEON_VIEW_TARGET_ID,
-        sourceTargetRevision: targetRevision,
-        destination: {
-          kind: 'primary',
-          viewport: compact
-            ? { x: 0.66, y: 0.7, width: 0.3, height: 0.26 }
-            : { x: 0.68, y: 0.62, width: 0.28, height: 0.32 },
-        },
-        order: 20,
-      },
-    ],
+    presentations: [],
   };
 }
 

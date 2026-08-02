@@ -9,8 +9,8 @@ import {
   DUNGEON_VIEW_TARGET_ID,
 } from './view-composition';
 
-describe('dungeon picture-in-picture presentation', () => {
-  it('uses only bounded renderer presentation facts over the retained scene', () => {
+describe('dungeon offscreen lookup composition', () => {
+  it('retains only bounded renderer facts without a primary presentation', () => {
     const composition = validateRendererViewComposition(
       createDungeonViewComposition(7, false),
     );
@@ -31,6 +31,7 @@ describe('dungeon picture-in-picture presentation', () => {
       targetId: DUNGEON_VIEW_TARGET_ID,
       targetRevision: 7,
     });
+    expect(composition.presentations).toEqual([]);
     expect(JSON.stringify(composition)).not.toMatch(
       /discover|visible|actor|navigation|legal/iu,
     );
@@ -43,11 +44,6 @@ describe('dungeon picture-in-picture presentation', () => {
       createDungeonViewComposition(8, true),
     );
     expect(compact.targets[0]?.width).toBe(128);
-    expect(compact.presentations[0]?.destination.viewport).toEqual({
-      x: 0.66,
-      y: 0.7,
-      width: 0.3,
-      height: 0.26,
-    });
+    expect(compact.presentations).toEqual([]);
   });
 });

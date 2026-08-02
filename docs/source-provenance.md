@@ -69,7 +69,8 @@ Donor evidence never overrides this repository's design.
 Engine revision `04970a44ef2e87a3453f086469deff64f5ae56f4` supplies the
 schema-1 renderer lighting policy used to disable neutral world illumination
 while retaining a neutral viewmodel rig, plus the schema-1 bounded
-multi-camera/offscreen-target contract used by the local picture-in-picture.
+multi-camera/offscreen-target contract used by the retained local-overview
+lookup target.
 The bundled torch is an optimized derivative of
 [Medieval Torch - Free](https://sketchfab.com/3d-models/medieval-torch-free-065861234a824cb982764f04627331c9)
 by [Typhen](https://sketchfab.com/typhen). It is licensed CC BY-NC-SA 4.0;

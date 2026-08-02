@@ -144,6 +144,7 @@ const MOTION_DURATION_MS = 96;
       [attr.data-view-target-revision]="viewTargetRevision()"
       [attr.data-view-target-size]="viewTargetSize()"
       [attr.data-view-target-status]="viewTargetStatus()"
+      [attr.data-view-presentation-count]="viewPresentationCount()"
     >
       <canvas
         #canvas
@@ -179,6 +180,7 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
   protected readonly viewTargetRevision = signal(0);
   protected readonly viewTargetSize = signal(0);
   protected readonly viewTargetStatus = signal('unavailable');
+  protected readonly viewPresentationCount = signal(0);
   private readonly canvas =
     viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private surface: RendererSurface | null = null;
@@ -463,5 +465,6 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
     this.viewTargetRevision.set(target?.revision ?? 0);
     this.viewTargetSize.set(target?.width ?? 0);
     this.viewTargetStatus.set(target?.status ?? 'unavailable');
+    this.viewPresentationCount.set(readout.resources.presentationCount);
   }
 }

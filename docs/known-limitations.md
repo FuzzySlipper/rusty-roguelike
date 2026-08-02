@@ -21,11 +21,13 @@ multi-member effects.
   inspection, the live collapsed-party expedition, brief Engine camera
   presentation, visible enemy picking, action alternatives, party vitality,
   read-only field packs, and detailed rules receipts.
-- The canvas includes one bounded GPU-presented local-overview target over the
-  same Rust-admitted retained scene. It is deliberately not the detailed
-  minimap: it has no discovered-map memory, visibility computation, icons,
-  input, CPU readback, post-processing, or gameplay authority. The accessible
-  minimap remains the complete presentation of Rust's separate minimap DTO.
+- The renderer retains one bounded offscreen local-overview target over the
+  same Rust-admitted retained scene for lookup and future native presentation
+  work. It is deliberately not composited into the canvas or used as the
+  detailed minimap: it has no discovered-map memory, visibility computation,
+  icons, input, CPU readback, post-processing, or gameplay authority. The
+  accessible polished minimap is the sole visible presentation of Rust's
+  separate minimap DTO.
 - Expedition loadouts are intentionally read-only. A later equipment-in-turn
   design must assign an explicit activation cost before mutation can be admitted;
   this phase does not treat opening Packs as a free equipment action.

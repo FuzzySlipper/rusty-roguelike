@@ -22,9 +22,11 @@ while preserving disclosure keyboard behavior, inspects Rust-selected
 party-member damage,
 uses the game menu to save/load and restart, saves/reopens active combat,
 reaches victory, and reopens the terminal save. It
-also proves that the detailed minimap follows Rust discovery, remembered versus
-current visibility, enemy appearance, revision replacement, and classified
-failure nonmutation. The retained Engine surface loads the exact-hash torch GLB,
+also proves that exactly one polished detailed minimap follows Rust discovery,
+remembered versus current visibility, enemy appearance, revision replacement,
+and classified failure nonmutation while the retained Engine local-overview
+target stays offscreen with zero primary presentations. The retained Engine
+surface loads the exact-hash torch GLB,
 disables neutral world lighting through the public schema-1 policy, renders only
 Rust-projected prefab torch/light pairs, and exposes corrupt asset bytes as a
 visible classified renderer failure. Desktop and mobile Chromium assert the
