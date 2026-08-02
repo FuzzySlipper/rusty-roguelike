@@ -2,7 +2,7 @@
 
 export const BOOTSTRAP_SCHEMA_VERSION = 1 as const;
 export const RUSTY_ENGINE_REVISION = 'fb608e323a8b44a55195f5720101224ff37fd5db' as const;
-export const RUSTY_PROCGEN_REVISION = '6e4ec8fdfe78854873dba73257427f7f8e982bd5' as const;
+export const RUSTY_PROCGEN_REVISION = '722e2c479bdf88ab39b66d2d33ab466b698ec7df' as const;
 
 export type BootstrapReadoutDto = {
 readonly schemaVersion: typeof BOOTSTRAP_SCHEMA_VERSION;

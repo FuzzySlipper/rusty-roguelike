@@ -26,4 +26,4 @@ serde_json = "1.0.140"
 tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread"] }
 tower-http = { version = "0.6.6", features = ["fs"] }
 ts-rs = { version = "11.0.1", features = ["serde-compat"] }
-rusty-procgen-preflight = { git = "https://github.com/FuzzySlipper/rusty-procgen", rev = "6e4ec8fdfe78854873dba73257427f7f8e982bd5", package = "rusty-procgen-preflight" }
+rusty-procgen-preflight = { git = "https://github.com/FuzzySlipper/rusty-procgen", rev = "722e2c479bdf88ab39b66d2d33ab466b698ec7df", package = "rusty-procgen-preflight" }

@@ -11,7 +11,7 @@
   movement, visibility, and deterministic random mechanisms; the game retains
   Roguelike policy, action resolution, and state.
 - Rusty Procgen: `https://github.com/FuzzySlipper/rusty-procgen` at
-  `6e4ec8fdfe78854873dba73257427f7f8e982bd5`. Rust links the public
+  `722e2c479bdf88ab39b66d2d33ab466b698ec7df`. Rust links the public
   filesystem-free `rusty_procgen_preflight::core::ProcgenCore` facade and
   consumes its validated prefab scene-socket placements as inert generation
   facts. Torch content and rendering remain owned by this game.

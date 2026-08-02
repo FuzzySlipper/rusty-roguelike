@@ -282,7 +282,7 @@ fn require_result_validation(
             diagnostic_summary(&fresh_geometry.diagnostics),
         );
     }
-    let fresh_placement = ProcgenCore::validate_catalog_aware_placement_with_catalog(
+    let fresh_placement = ProcgenCore::validate_placement_with_catalog(
         &inputs.catalog,
         &output.source_plan,
         plan,
