@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "rustyEngine": {
     "repository": "https://github.com/FuzzySlipper/rusty-engine",
-    "commit": "8673aaa6d0b811195b3904f34d7729c0d6e92530"
+    "commit": "04970a44ef2e87a3453f086469deff64f5ae56f4"
   },
   "rustyProcgen": {
     "repository": "https://github.com/FuzzySlipper/rusty-procgen",

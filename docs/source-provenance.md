@@ -3,7 +3,7 @@
 ## Runtime dependencies
 
 - Rusty Engine: `https://github.com/FuzzySlipper/rusty-engine` at
-  `8673aaa6d0b811195b3904f34d7729c0d6e92530`. The product consumes its public
+  `04970a44ef2e87a3453f086469deff64f5ae56f4`. The product consumes its public
   retained renderer packages plus exact `core-ids`, `entity-state`,
   `gameplay-rules`, `gameplay-mechanics`, `core-space`, `core-voxel`,
   `svc-volume`, `svc-spatial`, `svc-pathfinding`, `svc-collision`, and `svc-rng`
@@ -66,7 +66,7 @@ Donor evidence never overrides this repository's design.
 
 ## Presentation asset
 
-Engine revision `8673aaa6d0b811195b3904f34d7729c0d6e92530` supplies the
+Engine revision `04970a44ef2e87a3453f086469deff64f5ae56f4` supplies the
 schema-1 renderer lighting policy used to disable neutral world illumination
 while retaining a neutral viewmodel rig, plus the schema-1 bounded
 multi-camera/offscreen-target contract used by the local picture-in-picture.
