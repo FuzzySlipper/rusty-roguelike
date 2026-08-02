@@ -15,6 +15,8 @@ pub const MAX_ROGUELIKE_STATIC_ROLLS: usize = 4_096;
 pub const MAX_ROGUELIKE_RANGE: u8 = 16;
 pub const MAX_ROGUELIKE_EXPERIENCE: u32 = 1_000_000_000;
 
+#[cfg(test)]
+pub(crate) use authored::starter_ruleset_with_opposition;
 pub use authored::{starter_candidate, starter_rule_package, starter_ruleset};
 pub use candidate::*;
 pub use compiler::RoguelikeCompileError;

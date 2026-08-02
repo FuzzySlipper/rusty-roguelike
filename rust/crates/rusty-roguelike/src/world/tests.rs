@@ -46,10 +46,51 @@ fn admitted_floor_seeds_one_collapsed_party_and_four_facing_engine_views() {
 }
 
 #[test]
+fn opposition_is_distributed_across_engine_reachable_floor_strata() {
+    for seed in [SEED, SEED + 1, SEED + 2] {
+        let floor = generate_authored_floor(seed).expect("admitted floor");
+        let world = WorldState::new(floor.clone(), starter_ruleset().expect("starter rules"))
+            .expect("world");
+        let durable = world.durable_state().expect("durable world");
+        assert_eq!(durable.enemies.len(), 5);
+        let prohibited = floor
+            .features
+            .iter()
+            .map(|feature| WorldCell::from(&feature.cell))
+            .chain(
+                floor
+                    .portals
+                    .iter()
+                    .flat_map(|portal| portal.cells.iter().map(WorldCell::from)),
+            )
+            .collect::<BTreeSet<_>>();
+        let mut distances = durable
+            .enemies
+            .iter()
+            .map(|enemy| {
+                assert!(!prohibited.contains(&enemy.world.position()));
+                route(&floor, durable.party.position(), enemy.world.position())
+                    .expect("every enemy must remain Engine-admitted reachable")
+                    .len()
+                    - 1
+            })
+            .collect::<Vec<_>>();
+        distances.sort_unstable();
+        assert!(distances[0] > MAX_VIEW_DEPTH as usize);
+        assert!(distances[0] <= 12, "seed {seed} delayed first contact");
+        assert!(distances[4] > distances[0] + 12);
+        assert!(distances.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(durable
+            .enemies
+            .iter()
+            .all(|enemy| enemy.world.participation() == EnemyParticipation::Dormant));
+    }
+}
+
+#[test]
 fn collision_projection_stops_at_first_wall_and_hidden_actors_remain_dormant() {
     let floor = occlusion_floor();
-    let mut world =
-        WorldState::new(floor, starter_ruleset().expect("starter rules")).expect("occlusion world");
+    let mut world = occlusion_world(floor);
     let view = world.view().expect("world view");
 
     assert!(view.cells.contains(&WorldViewCell {
@@ -106,8 +147,7 @@ fn locked_door_is_a_visible_minimap_fixture_and_occludes_the_forward_cone() {
         traversal: "locked".to_owned(),
         required_item: Some("key.test".to_owned()),
     }];
-    let world =
-        WorldState::new(floor, starter_ruleset().expect("starter rules")).expect("door world");
+    let world = occlusion_world(floor);
     let view = world.view().expect("door view");
     assert!(view.minimap.cells.contains(&MinimapCellView {
         x: 2,
@@ -126,8 +166,7 @@ fn locked_door_is_a_visible_minimap_fixture_and_occludes_the_forward_cone() {
 #[test]
 fn discovering_an_enemy_starts_participation_which_survives_lost_sight() {
     let floor = occlusion_floor();
-    let rules = starter_ruleset().expect("starter rules");
-    let mut world = WorldState::new(floor.clone(), rules).expect("occlusion world");
+    let mut world = occlusion_world(floor.clone());
     let target = world
         .durable_state()
         .expect("durable world")
@@ -193,8 +232,7 @@ fn discovering_an_enemy_starts_participation_which_survives_lost_sight() {
 #[test]
 fn rejected_movement_and_forged_or_disconnected_restore_publish_nothing() {
     let floor = occlusion_floor();
-    let rules = starter_ruleset().expect("starter rules");
-    let mut world = WorldState::new(floor.clone(), rules).expect("occlusion world");
+    let mut world = occlusion_world(floor.clone());
     world.step(RelativeStep::Forward).expect("open first step");
     let before_rejection = world.durable_state().expect("durable before rejection");
     let error = world
@@ -209,19 +247,15 @@ fn rejected_movement_and_forged_or_disconnected_restore_publish_nothing() {
     let mut forged = serde_json::to_value(&before_rejection).expect("encode durable world");
     forged["party"]["position"] = serde_json::json!({ "x": 2, "y": 2 });
     let forged: WorldDurableState = serde_json::from_value(forged).expect("strict forged shape");
-    let error = WorldState::restore(
-        floor.clone(),
-        starter_ruleset().expect("starter rules"),
-        forged,
-    )
-    .err()
-    .expect("nonwalkable restore must reject");
+    let error = WorldState::restore(floor.clone(), two_enemy_rules(), forged)
+        .err()
+        .expect("nonwalkable restore must reject");
     assert_eq!(error.code(), "world_position_not_walkable");
 
     let mut disconnected = floor;
     disconnected.bounds.width = 7;
     disconnected.walkable_cells.push(FloorCell { x: 6, y: 4 });
-    let error = WorldState::new(disconnected, starter_ruleset().expect("starter rules"))
+    let error = WorldState::new(disconnected, two_enemy_rules())
         .err()
         .expect("disconnected floor must reject");
     assert_eq!(error.code(), "world_position_disconnected");
@@ -230,15 +264,10 @@ fn rejected_movement_and_forged_or_disconnected_restore_publish_nothing() {
 #[test]
 fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
     let floor = occlusion_floor();
-    let world = WorldState::new(floor.clone(), starter_ruleset().expect("starter rules"))
-        .expect("occlusion world");
+    let world = WorldState::new(floor.clone(), two_enemy_rules()).expect("occlusion world");
     let durable = world.durable_state().expect("durable world");
-    let reopened = WorldState::restore(
-        floor.clone(),
-        starter_ruleset().expect("starter rules"),
-        durable.clone(),
-    )
-    .expect("canonical reopen");
+    let reopened = WorldState::restore(floor.clone(), two_enemy_rules(), durable.clone())
+        .expect("canonical reopen");
     assert_eq!(reopened.durable_state().expect("reopened durable"), durable);
 
     let mut forged = durable.clone();
@@ -252,13 +281,9 @@ fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
         forged.party.discovered_walls().to_vec(),
     )
     .expect("canonical forged discovery");
-    let error = WorldState::restore(
-        floor.clone(),
-        starter_ruleset().expect("starter rules"),
-        forged,
-    )
-    .err()
-    .expect("dormant actor on discovered cell must reject");
+    let error = WorldState::restore(floor.clone(), two_enemy_rules(), forged)
+        .err()
+        .expect("dormant actor on discovered cell must reject");
     assert_eq!(error.code(), "world_dormancy_forged");
 
     let mut noncanonical = serde_json::to_value(&durable).expect("encode durable world");
@@ -268,13 +293,9 @@ fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
         .reverse();
     let noncanonical: WorldDurableState =
         serde_json::from_value(noncanonical).expect("noncanonical durable shape");
-    let error = WorldState::restore(
-        floor.clone(),
-        starter_ruleset().expect("starter rules"),
-        noncanonical,
-    )
-    .err()
-    .expect("noncanonical discovery must reject");
+    let error = WorldState::restore(floor.clone(), two_enemy_rules(), noncanonical)
+        .err()
+        .expect("noncanonical discovery must reject");
     assert_eq!(error.code(), "world_discovery_not_canonical");
 
     let mut forged_wall = durable.clone();
@@ -288,18 +309,14 @@ fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
         walls,
     )
     .expect("canonical forged wall shape");
-    let error = WorldState::restore(
-        floor.clone(),
-        starter_ruleset().expect("starter rules"),
-        forged_wall,
-    )
-    .err()
-    .expect("walkable discovered wall must reject");
+    let error = WorldState::restore(floor.clone(), two_enemy_rules(), forged_wall)
+        .err()
+        .expect("walkable discovered wall must reject");
     assert_eq!(error.code(), "world_discovered_wall_invalid");
 
     let mut missing = durable;
     missing.enemies.pop();
-    let error = WorldState::restore(floor, starter_ruleset().expect("starter rules"), missing)
+    let error = WorldState::restore(floor, two_enemy_rules(), missing)
         .err()
         .expect("missing enemy must reject");
     assert_eq!(error.code(), "world_enemy_roster_mismatch");
@@ -308,8 +325,7 @@ fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
 #[test]
 fn snapshot_restore_rejects_omitted_currently_visible_wall_discovery() {
     let floor = occlusion_floor();
-    let world = WorldState::new(floor.clone(), starter_ruleset().expect("starter rules"))
-        .expect("occlusion world");
+    let world = occlusion_world(floor.clone());
     let mut snapshot = world.entity_snapshot();
     let party = snapshot
         .registered_components
@@ -326,10 +342,9 @@ fn snapshot_restore_rejects_omitted_currently_visible_wall_discovery() {
         .is_some_and(|walls| !walls.is_empty()));
     party_value.value["discoveredWalls"] = serde_json::json!([]);
 
-    let error =
-        WorldState::restore_snapshot(floor, starter_ruleset().expect("starter rules"), snapshot)
-            .err()
-            .expect("visible wall omission must reject");
+    let error = WorldState::restore_snapshot(floor, two_enemy_rules(), snapshot)
+        .err()
+        .expect("visible wall omission must reject");
     assert_eq!(error.code(), "world_discovery_incomplete");
 }
 
@@ -452,7 +467,7 @@ fn positioned_movement_world(
     mover: WorldCell,
     blocker: WorldCell,
 ) -> WorldState {
-    let seeded = WorldState::new(floor.clone(), starter_ruleset().unwrap()).unwrap();
+    let seeded = WorldState::new(floor.clone(), two_enemy_rules()).unwrap();
     let mut durable = seeded.durable_state().unwrap();
     durable.enemies[0].world = EnemyWorldComponent::new(
         floor.floor_id.clone(),
@@ -466,7 +481,29 @@ fn positioned_movement_world(
         EnemyParticipation::Participating,
     )
     .unwrap();
-    WorldState::restore(floor, starter_ruleset().unwrap(), durable).unwrap()
+    WorldState::restore(floor, two_enemy_rules(), durable).unwrap()
+}
+
+fn occlusion_world(floor: crate::GeneratedFloor) -> WorldState {
+    let seeded = WorldState::new(floor.clone(), two_enemy_rules()).expect("seed occlusion world");
+    let mut durable = seeded.durable_state().expect("durable occlusion world");
+    for (enemy, position) in durable
+        .enemies
+        .iter_mut()
+        .zip([WorldCell { x: 2, y: 0 }, WorldCell { x: 2, y: 1 }])
+    {
+        enemy.world = EnemyWorldComponent::new(
+            floor.floor_id.clone(),
+            position,
+            EnemyParticipation::Dormant,
+        )
+        .expect("hidden occlusion placement");
+    }
+    WorldState::restore(floor, two_enemy_rules(), durable).expect("restore occlusion world")
+}
+
+fn two_enemy_rules() -> crate::RoguelikeRuleset {
+    crate::rules::starter_ruleset_with_opposition(&[201, 202]).unwrap()
 }
 
 fn party_position(world: &WorldState) -> WorldCell {

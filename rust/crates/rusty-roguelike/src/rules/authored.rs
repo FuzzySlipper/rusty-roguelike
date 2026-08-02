@@ -16,6 +16,12 @@ pub fn starter_rule_package() -> Result<gameplay_rules::AdmittedRulePackage, Rog
 {
     let candidate = starter_candidate()
         .map_err(|error| RoguelikeCompileError::InvalidPayload(error.to_string()))?;
+    starter_rule_package_for_candidate(candidate)
+}
+
+fn starter_rule_package_for_candidate(
+    candidate: RoguelikeRulesCandidate,
+) -> Result<gameplay_rules::AdmittedRulePackage, RoguelikeCompileError> {
     let source_id = RuleSourceId::parse("starter-rules").map_err(RoguelikeCompileError::Package)?;
     let source = RuleSource::new(source_id.clone(), STARTER_SOURCE_PATH)
         .map_err(RoguelikeCompileError::Package)?;
@@ -71,4 +77,16 @@ pub fn starter_rule_package() -> Result<gameplay_rules::AdmittedRulePackage, Rog
 
 pub fn starter_ruleset() -> Result<RoguelikeRuleset, RoguelikeCompileError> {
     RoguelikeRuleset::compile(vec![starter_rule_package()?])
+}
+
+#[cfg(test)]
+pub(crate) fn starter_ruleset_with_opposition(
+    opposition_entity_ids: &[u64],
+) -> Result<RoguelikeRuleset, RoguelikeCompileError> {
+    let mut candidate = starter_candidate()
+        .map_err(|error| RoguelikeCompileError::InvalidPayload(error.to_string()))?;
+    candidate.actors.retain(|actor| {
+        actor.side == ActorSideCandidate::Party || opposition_entity_ids.contains(&actor.entity_id)
+    });
+    RoguelikeRuleset::compile(vec![starter_rule_package_for_candidate(candidate)?])
 }

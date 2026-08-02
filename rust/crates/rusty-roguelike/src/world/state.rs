@@ -23,7 +23,7 @@ use super::navigation::FloorSpatial;
 use super::projection::project_world;
 use super::{
     EnemyParticipation, EnemyWorldComponent, Facing, PartyExplorationComponent, RelativeStep,
-    WorldCell, WorldStateError, WorldView,
+    WorldCell, WorldStateError, WorldView, MAX_VIEW_DEPTH,
 };
 
 pub const WORLD_DURABLE_SCHEMA_VERSION: u32 = 2;
@@ -166,7 +166,7 @@ impl WorldState {
             .values()
             .filter(|actor| actor.side == ActorSideCandidate::Opposition)
             .collect::<Vec<_>>();
-        let placements = initial_enemy_positions(&floor, entry, opposition.len())?;
+        let placements = initial_enemy_positions(&floor, &spatial, entry, opposition.len())?;
         for (actor, position) in opposition.into_iter().zip(placements) {
             attach(
                 &mut entities,
@@ -872,31 +872,52 @@ fn entry_cell(floor: &GeneratedFloor) -> Result<WorldCell, WorldStateError> {
 
 fn initial_enemy_positions(
     floor: &GeneratedFloor,
+    spatial: &FloorSpatial,
     entry: WorldCell,
     count: usize,
 ) -> Result<Vec<WorldCell>, WorldStateError> {
+    let prohibited = floor
+        .features
+        .iter()
+        .map(|feature| WorldCell::from(&feature.cell))
+        .chain(
+            floor
+                .portals
+                .iter()
+                .flat_map(|portal| portal.cells.iter().map(WorldCell::from)),
+        )
+        .chain(std::iter::once(entry))
+        .collect::<BTreeSet<_>>();
     let mut candidates = floor
         .walkable_cells
         .iter()
         .map(WorldCell::from)
-        .filter(|cell| *cell != entry)
-        .collect::<Vec<_>>();
-    candidates.sort_by(|left, right| {
-        distance(entry, *right)
-            .cmp(&distance(entry, *left))
-            .then_with(|| left.cmp(right))
-    });
+        .filter(|cell| !prohibited.contains(cell))
+        .map(|cell| Ok((spatial.path_distance(entry, cell)?, cell)))
+        .collect::<Result<Vec<_>, WorldStateError>>()?;
+    candidates.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
     if candidates.len() < count {
         return Err(error(
             "world_enemy_placement_exhausted",
             "floor has too few distinct enemy placement cells",
         ));
     }
-    Ok(candidates.into_iter().take(count).collect())
-}
-
-fn distance(left: WorldCell, right: WorldCell) -> i64 {
-    i64::from(left.x.abs_diff(right.x)) + i64::from(left.y.abs_diff(right.y))
+    let first_beyond_view = candidates
+        .iter()
+        .position(|(distance, _)| *distance > MAX_VIEW_DEPTH as usize)
+        .filter(|index| candidates.len() - *index >= count)
+        .unwrap_or_default();
+    let available = candidates.len() - first_beyond_view;
+    Ok((0..count)
+        .map(|index| {
+            let rank = if count == 1 {
+                0
+            } else {
+                index * (available - 1) / (count - 1)
+            };
+            candidates[first_beyond_view + rank].1
+        })
+        .collect())
 }
 
 #[derive(Debug, Clone)]

@@ -165,6 +165,29 @@ impl FloorSpatial {
         Ok(())
     }
 
+    pub(super) fn path_distance(
+        &self,
+        start: WorldCell,
+        goal: WorldCell,
+    ) -> Result<usize, WorldStateError> {
+        self.require_reachable(start, goal)?;
+        let readout = find_path(
+            &self.navigation,
+            NavPathQuery {
+                start: self.voxel(start),
+                goal: self.voxel(goal),
+                max_visited: self.walkable.len(),
+            },
+        )
+        .map_err(|detail| error("world_navigation_failed", format!("{detail:?}")))?;
+        readout.path.len().checked_sub(1).ok_or_else(|| {
+            error(
+                "world_navigation_failed",
+                "Engine reached path did not contain its origin",
+            )
+        })
+    }
+
     pub(super) fn require_wall(&self, cell: WorldCell) -> Result<(), WorldStateError> {
         if !self.inside_bounds(cell) || self.walkable.contains(&cell) {
             return Err(error(

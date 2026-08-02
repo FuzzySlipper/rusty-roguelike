@@ -378,7 +378,7 @@ fn preparation_loadout_is_engine_backed_typed_and_atomic() {
 
 #[test]
 fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
-    let world = WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap();
+    let world = WorldState::new(open_arena(), two_enemy_rules()).unwrap();
     let before = world.durable_state().unwrap().party.position();
     let mut session = prepared_session(world);
     let initial = session.view().unwrap();
@@ -650,6 +650,27 @@ fn route_to_first_encounter(session: &mut GameSession) {
       right right forward
     ";
     for token in ROUTE.split_whitespace() {
+        let current = session.view().unwrap();
+        if current
+            .order
+            .iter()
+            .any(|activation| activation.side == TurnSide::Opposition)
+        {
+            return;
+        }
+        if !current.world.visible_actors.is_empty() {
+            for _ in 0..4 {
+                let advanced = turn_right(session);
+                if advanced
+                    .order
+                    .iter()
+                    .any(|activation| activation.side == TurnSide::Opposition)
+                {
+                    return;
+                }
+            }
+            panic!("visible opposition did not join the next round");
+        }
         let step = match token {
             "forward" => RelativeStep::Forward,
             "backward" => RelativeStep::Backward,
@@ -659,18 +680,59 @@ fn route_to_first_encounter(session: &mut GameSession) {
         };
         let view = session.view().unwrap();
         let actor = view.current.unwrap().entity_id;
-        session
-            .command(SessionCommand::Step {
-                actor_entity_id: actor,
-                expected_revision: view.revision,
-                step,
-            })
-            .unwrap();
+        let next = match session.command(SessionCommand::Step {
+            actor_entity_id: actor,
+            expected_revision: view.revision,
+            step,
+        }) {
+            Ok(next) => next,
+            Err(error)
+                if error.code() == "session_party_step_rejected"
+                    && error.detail().contains("world_step_occupied") =>
+            {
+                let rotations = match step {
+                    RelativeStep::Forward => 0,
+                    RelativeStep::Right => 1,
+                    RelativeStep::Backward => 2,
+                    RelativeStep::Left => 3,
+                };
+                for _ in 0..rotations {
+                    let turned = turn_right(session);
+                    if turned
+                        .order
+                        .iter()
+                        .any(|activation| activation.side == TurnSide::Opposition)
+                    {
+                        return;
+                    }
+                }
+                for _ in 0..4 {
+                    let advanced = turn_right(session);
+                    if advanced
+                        .order
+                        .iter()
+                        .any(|activation| activation.side == TurnSide::Opposition)
+                    {
+                        return;
+                    }
+                }
+                panic!("occupied route cell did not reveal its actor");
+            }
+            Err(error) => panic!("fixed route step failed: {error}"),
+        };
+        if next
+            .order
+            .iter()
+            .any(|activation| activation.side == TurnSide::Opposition)
+        {
+            return;
+        }
     }
+    panic!("fixed route did not reveal an encounter");
 }
 
 fn autoplay_to_terminal(session: &mut GameSession) {
-    for _ in 0..2_000 {
+    for _ in 0..1_000 {
         let view = session.view().unwrap();
         if view.outcome != crate::SessionOutcome::Ongoing {
             return;
@@ -710,6 +772,27 @@ fn autoplay_to_terminal(session: &mut GameSession) {
             })
             .map(|enemy| enemy.world.position())
             .collect::<BTreeSet<_>>();
+        if let Some(adjacent) = goals.iter().find(|goal| {
+            party.x.abs_diff(goal.x) + party.y.abs_diff(goal.y) == 1
+                && view.world.visible_actors.is_empty()
+        }) {
+            let desired = match (adjacent.x - party.x, adjacent.y - party.y) {
+                (0, -1) => crate::Facing::North,
+                (1, 0) => crate::Facing::East,
+                (0, 1) => crate::Facing::South,
+                (-1, 0) => crate::Facing::West,
+                _ => unreachable!("adjacent cardinal goal"),
+            };
+            if facing != desired {
+                session
+                    .command(SessionCommand::TurnRight {
+                        actor_entity_id: decision.actor_entity_id,
+                        expected_revision: decision.expected_revision,
+                    })
+                    .unwrap();
+                continue;
+            }
+        }
         let step = decision.legal_steps.iter().copied().min_by_key(|step| {
             navigation_distance(
                 relative_destination(party, facing, *step),
@@ -734,7 +817,30 @@ fn autoplay_to_terminal(session: &mut GameSession) {
                 .unwrap();
         }
     }
-    panic!("autoplay did not reach a terminal outcome within its fixed bound");
+    let view = session.view().unwrap();
+    let durable = session.world.durable_state().unwrap();
+    let alive = durable
+        .enemies
+        .iter()
+        .filter_map(|enemy| {
+            session
+                .world
+                .entities()
+                .component::<gameplay_mechanics::TracksComponent>(EntityId::new(enemy.entity_id))
+                .unwrap()
+                .and_then(|tracks| tracks.current(&crate::vitality_track_id()))
+                .filter(|value| value.get() > 0)
+                .map(|value| (enemy.entity_id, enemy.world.position(), value.get()))
+        })
+        .collect::<Vec<_>>();
+    panic!(
+        "autoplay stalled at round {}, party {:?}, facing {:?}, visible {:?}, alive {:?}",
+        view.round,
+        durable.party.position(),
+        durable.party.facing(),
+        view.world.visible_actors,
+        alive
+    );
 }
 
 fn relative_destination(
@@ -940,6 +1046,9 @@ fn single_enemy_rules() -> RoguelikeRuleset {
 
 fn rules_without_goblin_attack() -> RoguelikeRuleset {
     let mut candidate = starter_candidate().unwrap();
+    candidate.actors.retain(|actor| {
+        actor.side == crate::ActorSideCandidate::Party || matches!(actor.entity_id, 201 | 202)
+    });
     candidate
         .actors
         .iter_mut()
@@ -948,6 +1057,10 @@ fn rules_without_goblin_attack() -> RoguelikeRuleset {
         .actions
         .retain(|action| action.as_str() == "move");
     RoguelikeRuleset::compile(vec![package_for_test(candidate)]).unwrap()
+}
+
+fn two_enemy_rules() -> RoguelikeRuleset {
+    crate::rules::starter_ruleset_with_opposition(&[201, 202]).unwrap()
 }
 
 fn package_for_test(candidate: RoguelikeRulesCandidate) -> gameplay_rules::AdmittedRulePackage {

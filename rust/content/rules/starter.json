@@ -415,6 +415,72 @@
       "actions": ["move", "ember-shot"],
       "feats": ["burning-gaze"],
       "items": ["ember-focus"]
+    },
+    {
+      "id": "tunnel-runner",
+      "entityId": 104,
+      "name": "Tunnel Runner",
+      "title": "Knife in the Dark",
+      "side": "opposition",
+      "level": 1,
+      "experience": 0,
+      "vitality": 9,
+      "inventoryCapacity": 4,
+      "class": "goblin-raider",
+      "classLevel": 1,
+      "abilities": [
+        { "ability": "might", "score": 9 },
+        { "ability": "finesse", "score": 15 },
+        { "ability": "intellect", "score": 8 },
+        { "ability": "spirit", "score": 9 }
+      ],
+      "actions": ["move", "rusty-blade"],
+      "feats": ["goblin-cunning"],
+      "items": ["rusty-knife"]
+    },
+    {
+      "id": "cinder-eye",
+      "entityId": 105,
+      "name": "Cinder Eye",
+      "title": "Ashen Lookout",
+      "side": "opposition",
+      "level": 1,
+      "experience": 0,
+      "vitality": 10,
+      "inventoryCapacity": 4,
+      "class": "ember-eye",
+      "classLevel": 1,
+      "abilities": [
+        { "ability": "might", "score": 7 },
+        { "ability": "finesse", "score": 13 },
+        { "ability": "intellect", "score": 10 },
+        { "ability": "spirit", "score": 14 }
+      ],
+      "actions": ["move", "ember-shot"],
+      "feats": ["burning-gaze"],
+      "items": ["ember-focus"]
+    },
+    {
+      "id": "slag-cutpurse",
+      "entityId": 106,
+      "name": "Slag Cutpurse",
+      "title": "Ruin Lurker",
+      "side": "opposition",
+      "level": 1,
+      "experience": 0,
+      "vitality": 9,
+      "inventoryCapacity": 4,
+      "class": "goblin-raider",
+      "classLevel": 1,
+      "abilities": [
+        { "ability": "might", "score": 10 },
+        { "ability": "finesse", "score": 14 },
+        { "ability": "intellect", "score": 9 },
+        { "ability": "spirit", "score": 8 }
+      ],
+      "actions": ["move", "rusty-blade"],
+      "feats": ["goblin-cunning"],
+      "items": ["rusty-knife"]
     }
   ],
   "party": {

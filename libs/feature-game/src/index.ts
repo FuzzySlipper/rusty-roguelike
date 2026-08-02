@@ -581,7 +581,7 @@ type Drawer = 'party' | 'inventory' | null;
                         }
                         @default {
                           <strong>Purge the ember den</strong>
-                          <span>Find and defeat both dormant raiders.</span>
+                          <span>Find and defeat all five dormant raiders.</span>
                         }
                       }
                     </section>
