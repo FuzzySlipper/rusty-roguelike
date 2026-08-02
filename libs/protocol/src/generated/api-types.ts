@@ -115,7 +115,7 @@ export type MinimapView = { party: WorldCell, facing: Facing, cells: Array<Minim
 
 export type WorldView = { schemaVersion: number, revision: number, floorId: string, facing: Facing, discoveredCellCount: number, cells: Array<WorldViewCell>, scenePlacements: Array<VisibleScenePlacementView>, visibleActors: Array<VisibleActorView>, minimap: MinimapView, };
 
-export const SESSION_VIEW_SCHEMA_VERSION = 5 as const;
+export const SESSION_VIEW_SCHEMA_VERSION = 6 as const;
 export const SESSION_VIEW_LIMITS = Object.freeze({
 maxActivations: 64,
 maxReceipts: 256,
@@ -156,15 +156,15 @@ export type PreparationView = { stash: LoadoutView, ready: boolean, };
 
 export type LegalActionView = { actionId: RoguelikeId, name: string, legalTargetEntityIds: Array<number>, };
 
-export type PartyDecisionView = { actorEntityId: number, expectedRevision: number, legalSteps: Array<RelativeStep>, canTurn: boolean, actions: Array<LegalActionView>, };
+export type PartyDecisionView = { actorEntityId: number, expectedRevision: number, legalSteps: Array<RelativeStep>, canTurn: boolean, canWait: boolean, actions: Array<LegalActionView>, };
 
 export type PartyTurnDirection = "left" | "right";
 
-export type SessionCommandDto = { "kind": "step", actorEntityId: number, expectedRevision: number, step: RelativeStep, } | { "kind": "turnLeft", actorEntityId: number, expectedRevision: number, } | { "kind": "turnRight", actorEntityId: number, expectedRevision: number, } | { "kind": "useAction", actorEntityId: number, expectedRevision: number, actionId: RoguelikeId, targetEntityId: number, } | { "kind": "moveLoadoutItem", expectedRevision: number, itemEntityId: number, fromOwnerEntityId: number, toOwnerEntityId: number, destinationSlotId: string | null, } | { "kind": "beginExpedition", expectedRevision: number, };
+export type SessionCommandDto = { "kind": "step", actorEntityId: number, expectedRevision: number, step: RelativeStep, } | { "kind": "turnLeft", actorEntityId: number, expectedRevision: number, } | { "kind": "turnRight", actorEntityId: number, expectedRevision: number, } | { "kind": "wait", actorEntityId: number, expectedRevision: number, } | { "kind": "useAction", actorEntityId: number, expectedRevision: number, actionId: RoguelikeId, targetEntityId: number, } | { "kind": "moveLoadoutItem", expectedRevision: number, itemEntityId: number, fromOwnerEntityId: number, toOwnerEntityId: number, destinationSlotId: string | null, } | { "kind": "beginExpedition", expectedRevision: number, };
 
 export type SessionErrorDto = { code: string, detail: string, };
 
-export type TurnReceipt = { "kind": "loadoutMoved", itemEntityId: number, fromOwnerEntityId: number, toOwnerEntityId: number, destinationSlotId: string | null, } | { "kind": "expeditionBegan" } | { "kind": "partyMoved", actorEntityId: number, step: RelativeStep, } | { "kind": "partyTurned", actorEntityId: number, direction: PartyTurnDirection, } | { "kind": "partyAttacked", actorEntityId: number, targetEntityId: number, actionId: RoguelikeId, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionAttacked", actorEntityId: number, actionId: RoguelikeId, target: PartySquareTargetReceipt, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionMoved", actorEntityId: number, } | { "kind": "oppositionPassed", actorEntityId: number, };
+export type TurnReceipt = { "kind": "loadoutMoved", itemEntityId: number, fromOwnerEntityId: number, toOwnerEntityId: number, destinationSlotId: string | null, } | { "kind": "expeditionBegan" } | { "kind": "partyMoved", actorEntityId: number, step: RelativeStep, } | { "kind": "partyTurned", actorEntityId: number, direction: PartyTurnDirection, } | { "kind": "partyWaited", actorEntityId: number, } | { "kind": "partyAttacked", actorEntityId: number, targetEntityId: number, actionId: RoguelikeId, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionAttacked", actorEntityId: number, actionId: RoguelikeId, target: PartySquareTargetReceipt, d20: number, abilityModifier: number, attackTotal: number, defense: number, hit: boolean, damageRolls: Array<number>, damageBonus: number, requestedDamage: number, appliedDamage: number, } | { "kind": "oppositionMoved", actorEntityId: number, } | { "kind": "oppositionPassed", actorEntityId: number, };
 
 export type SessionLogEntry = { id: number, revision: number, receipt: TurnReceipt, };
 

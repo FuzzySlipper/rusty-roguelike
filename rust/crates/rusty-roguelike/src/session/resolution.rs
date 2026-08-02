@@ -111,6 +111,7 @@ impl GameSession {
             expected_revision: self.revision,
             legal_steps,
             can_turn: owns_movement,
+            can_wait: true,
             actions,
         }))
     }
@@ -156,6 +157,11 @@ impl GameSession {
                 self.latest_receipts.push(TurnReceipt::PartyTurned {
                     actor_entity_id: actor.entity_id,
                     direction: PartyTurnDirection::Right,
+                });
+            }
+            SessionCommand::Wait { .. } => {
+                self.latest_receipts.push(TurnReceipt::PartyWaited {
+                    actor_entity_id: actor.entity_id,
                 });
             }
             SessionCommand::UseAction {

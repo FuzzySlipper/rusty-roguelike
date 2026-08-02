@@ -18,7 +18,7 @@ use super::{
     MAX_SESSION_RECEIPTS,
 };
 
-pub const GAME_SAVE_SCHEMA_VERSION: u32 = 3;
+pub const GAME_SAVE_SCHEMA_VERSION: u32 = 4;
 const MAX_GAME_SAVE_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
@@ -306,6 +306,10 @@ fn command_from_receipt(
                 expected_revision,
             },
         }),
+        TurnReceipt::PartyWaited { actor_entity_id } => Ok(SessionCommand::Wait {
+            actor_entity_id: *actor_entity_id,
+            expected_revision,
+        }),
         TurnReceipt::PartyAttacked {
             actor_entity_id,
             target_entity_id,
@@ -498,6 +502,9 @@ fn validate_receipt(
             actor_entity_id, ..
         }
         | TurnReceipt::PartyTurned {
+            actor_entity_id, ..
+        }
+        | TurnReceipt::PartyWaited {
             actor_entity_id, ..
         }
         | TurnReceipt::PartyAttacked {

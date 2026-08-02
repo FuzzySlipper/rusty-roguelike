@@ -376,7 +376,7 @@ const OPPOSITION_ATTACK = {
 };
 
 const SESSION_VIEW = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   revision: 4,
   phase: 'expedition',
   round: 2,
@@ -444,6 +444,7 @@ const SESSION_VIEW = {
     expectedRevision: 4,
     legalSteps: ['forward'],
     canTurn: true,
+    canWait: true,
     actions: [
       {
         actionId: 'aimed-shot',
@@ -556,6 +557,26 @@ describe('decodeSessionView', () => {
   });
 
   it('closes tagged receipts and party-member selection facts', () => {
+    const partyWaited = { kind: 'partyWaited', actorEntityId: 102 } as const;
+    expect(
+      decodeSessionView({
+        ...SESSION_VIEW,
+        latestReceipts: [partyWaited],
+        log: [{ id: 1, revision: 4, receipt: partyWaited }],
+      }),
+    ).toMatchObject({ latestReceipts: [partyWaited] });
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        decision: { ...SESSION_VIEW.decision, canWait: false },
+      }),
+    ).toThrow('wait fact');
+    expect(() =>
+      decodeSessionView({
+        ...SESSION_VIEW,
+        latestReceipts: [{ ...partyWaited, browserDelay: 0 }],
+      }),
+    ).toThrow('missing or unknown');
     expect(() =>
       decodeSessionView({
         ...SESSION_VIEW,

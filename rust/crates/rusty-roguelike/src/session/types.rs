@@ -3,7 +3,7 @@ use ts_rs::TS;
 
 use crate::{RelativeStep, RoguelikeId, WorldView};
 
-pub const SESSION_VIEW_SCHEMA_VERSION: u32 = 5;
+pub const SESSION_VIEW_SCHEMA_VERSION: u32 = 6;
 pub const MAX_SESSION_ACTIVATIONS: usize = 64;
 pub const MAX_SESSION_RECEIPTS: usize = 256;
 pub const MAX_SESSION_LOG_ENTRIES: usize = 4_096;
@@ -65,6 +65,10 @@ pub enum SessionCommand {
         actor_entity_id: u64,
         expected_revision: u64,
     },
+    Wait {
+        actor_entity_id: u64,
+        expected_revision: u64,
+    },
     UseAction {
         actor_entity_id: u64,
         expected_revision: u64,
@@ -104,6 +108,12 @@ pub enum SessionCommandDto {
         expected_revision: u64,
     },
     TurnRight {
+        #[ts(type = "number")]
+        actor_entity_id: u64,
+        #[ts(type = "number")]
+        expected_revision: u64,
+    },
+    Wait {
         #[ts(type = "number")]
         actor_entity_id: u64,
         #[ts(type = "number")]
@@ -161,6 +171,10 @@ impl<'de> Deserialize<'de> for SessionCommandDto {
                 actor_entity_id: u64,
                 expected_revision: u64,
             },
+            Wait {
+                actor_entity_id: u64,
+                expected_revision: u64,
+            },
             UseAction {
                 actor_entity_id: u64,
                 expected_revision: u64,
@@ -200,6 +214,13 @@ impl<'de> Deserialize<'de> for SessionCommandDto {
                 actor_entity_id,
                 expected_revision,
             } => Self::TurnRight {
+                actor_entity_id,
+                expected_revision,
+            },
+            StrictSessionCommandDto::Wait {
+                actor_entity_id,
+                expected_revision,
+            } => Self::Wait {
                 actor_entity_id,
                 expected_revision,
             },
@@ -260,6 +281,13 @@ impl From<SessionCommandDto> for SessionCommand {
                 actor_entity_id,
                 expected_revision,
             },
+            SessionCommandDto::Wait {
+                actor_entity_id,
+                expected_revision,
+            } => Self::Wait {
+                actor_entity_id,
+                expected_revision,
+            },
             SessionCommandDto::UseAction {
                 actor_entity_id,
                 expected_revision,
@@ -303,6 +331,9 @@ impl SessionCommand {
             | Self::TurnRight {
                 actor_entity_id, ..
             }
+            | Self::Wait {
+                actor_entity_id, ..
+            }
             | Self::UseAction {
                 actor_entity_id, ..
             } => Some(*actor_entity_id),
@@ -319,6 +350,9 @@ impl SessionCommand {
                 expected_revision, ..
             }
             | Self::TurnRight {
+                expected_revision, ..
+            }
+            | Self::Wait {
                 expected_revision, ..
             }
             | Self::UseAction {
@@ -472,6 +506,7 @@ pub struct PartyDecisionView {
     pub expected_revision: u64,
     pub legal_steps: Vec<RelativeStep>,
     pub can_turn: bool,
+    pub can_wait: bool,
     pub actions: Vec<LegalActionView>,
 }
 
@@ -510,6 +545,10 @@ pub enum TurnReceipt {
         #[ts(type = "number")]
         actor_entity_id: u64,
         direction: PartyTurnDirection,
+    },
+    PartyWaited {
+        #[ts(type = "number")]
+        actor_entity_id: u64,
     },
     PartyAttacked {
         #[ts(type = "number")]

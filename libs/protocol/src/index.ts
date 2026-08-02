@@ -447,6 +447,7 @@ const PARTY_DECISION_KEYS = [
   'actions',
   'actorEntityId',
   'canTurn',
+  'canWait',
   'expectedRevision',
   'legalSteps',
 ] as const;
@@ -658,6 +659,7 @@ export function decodeSessionView(value: unknown): SessionView {
     switch (receipt.kind) {
       case 'partyMoved':
       case 'partyTurned':
+      case 'partyWaited':
       case 'partyAttacked':
         if (!partyIds.has(receipt.actorEntityId)) {
           throw new Error('turn receipt disagrees with party identity');
@@ -987,6 +989,9 @@ function decodePartyDecision(
   if (typeof value['canTurn'] !== 'boolean') {
     throw new Error('party decision has an invalid turn fact');
   }
+  if (value['canWait'] !== true) {
+    throw new Error('party decision has an invalid wait fact');
+  }
   if (!Array.isArray(value['legalSteps']) || value['legalSteps'].length > 4) {
     throw new Error('legal steps are not a bounded array');
   }
@@ -1123,6 +1128,10 @@ function decodeTurnReceipt(value: unknown): asserts value is TurnReceipt {
       if (value['direction'] !== 'left' && value['direction'] !== 'right') {
         throw new Error('party turn receipt has an invalid direction');
       }
+      return;
+    case 'partyWaited':
+      requireExactRecord(value, SIMPLE_RECEIPT_KEYS, 'party wait receipt');
+      requireEntityId(value['actorEntityId'], 'receipt actor identity');
       return;
     case 'oppositionMoved':
     case 'oppositionPassed':

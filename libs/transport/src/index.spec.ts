@@ -38,7 +38,7 @@ describe('BootstrapTransport', () => {
 });
 
 const TERMINAL_SESSION = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   revision: 3,
   phase: 'expedition',
   round: 2,

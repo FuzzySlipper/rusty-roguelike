@@ -6,7 +6,7 @@ import { SessionTransportError } from '@rusty-roguelike/transport';
 import { SessionStoreCore, type SessionTransportPort } from './index';
 
 const SESSION: SessionView = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   revision: 0,
   phase: 'expedition',
   round: 1,
@@ -69,6 +69,7 @@ const SESSION: SessionView = {
     expectedRevision: 0,
     legalSteps: ['forward'],
     canTurn: true,
+    canWait: true,
     actions: [],
   },
   latestReceipts: [],
@@ -162,7 +163,7 @@ describe('SessionStoreCore', () => {
     const store = new SessionStoreCore(transport);
     await store.load();
     const command: SessionCommandDto = {
-      kind: 'turnRight',
+      kind: 'wait',
       actorEntityId: 101,
       expectedRevision: 0,
     };

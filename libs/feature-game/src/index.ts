@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 
 import {
+  keyboardEventTargetsInteractive,
   keyboardEventTargetsEditable,
   observeGlobalKeydown,
 } from '@rusty-roguelike/platform';
@@ -710,6 +711,16 @@ type Drawer = 'party' | 'inventory' | null;
                         One action · {{ state.value.current?.name }}
                       </p>
                       <div class="action-row">
+                        <button
+                          type="button"
+                          aria-label="Wait (Space)"
+                          [disabled]="
+                            !state.value.decision?.canWait || session.busy()
+                          "
+                          (click)="wait()"
+                        >
+                          Space · Wait
+                        </button>
                         @for (
                           action of state.value.decision?.actions ?? [];
                           track action.actionId;
@@ -1028,6 +1039,18 @@ export class GameShellComponent implements OnInit, OnDestroy {
     });
   }
 
+  protected wait(): void {
+    const decision = this.decision();
+    if (decision === null || !decision.canWait || this.session.busy()) {
+      return;
+    }
+    void this.dispatch({
+      kind: 'wait',
+      actorEntityId: decision.actorEntityId,
+      expectedRevision: decision.expectedRevision,
+    });
+  }
+
   protected useAction(action: LegalActionView, targetEntityId: number): void {
     const decision = this.decision();
     if (
@@ -1077,6 +1100,8 @@ export class GameShellComponent implements OnInit, OnDestroy {
         return `R${entry.revision} · Party stepped ${receipt.step}`;
       case 'partyTurned':
         return `R${entry.revision} · Party turned ${receipt.direction}`;
+      case 'partyWaited':
+        return `R${entry.revision} · Party waited`;
       case 'partyAttacked':
         return `R${entry.revision} · ${receipt.hit ? 'Hit' : 'Miss'} with ${receipt.actionId}`;
       case 'oppositionAttacked':
@@ -1099,6 +1124,8 @@ export class GameShellComponent implements OnInit, OnDestroy {
         return `Actor ${receipt.actorEntityId}; accepted relative step ${receipt.step}.`;
       case 'partyTurned':
         return `Actor ${receipt.actorEntityId}; accepted ${receipt.direction} rotation.`;
+      case 'partyWaited':
+        return `Actor ${receipt.actorEntityId}; deliberately consumed one activation without movement or a roll.`;
       case 'partyAttacked':
         return attackDetail(receipt, `target ${receipt.targetEntityId}`);
       case 'oppositionAttacked':
@@ -1145,6 +1172,17 @@ export class GameShellComponent implements OnInit, OnDestroy {
       return;
     }
     const key = event.key.toLowerCase();
+    if (key === ' ' || key === 'spacebar') {
+      if (keyboardEventTargetsInteractive(event)) {
+        return;
+      }
+      const decision = this.decision();
+      if (decision !== null && decision.canWait && !this.session.busy()) {
+        event.preventDefault();
+        this.wait();
+      }
+      return;
+    }
     const step = new Map<string, RelativeStep>([
       ['arrowup', 'forward'],
       ['w', 'forward'],

@@ -124,12 +124,13 @@ does not wrap those mechanisms in a shared RPG facade.
 
 ## Complete session persistence
 
-Save schema 3 is a closed Rust-owned contract. It records the exact public
+Save schema 4 is a closed Rust-owned contract. It records the exact public
 Engine and Procgen revisions, compiled starter-rules fingerprint, admitted floor
 and complete Procgen provenance, Engine's registered durable entity snapshot,
 session revision/round/phase/outcome, derived initiative order and cursor,
 action-roll index, per-enemy target cursors, latest receipts, and the complete
-bounded rules log. Session view schema 5 projects that Rust log directly; the
+bounded rules log, including explicit one-activation party waits. Session view
+schema 6 projects that Rust log and current `canWait` admission directly; the
 browser no longer assembles a parallel history from transient receipts.
 
 Restore recompiles the starter rules and regenerates the floor from the saved

@@ -68,6 +68,16 @@ export function keyboardEventTargetsEditable(event: KeyboardEvent): boolean {
   );
 }
 
+export function keyboardEventTargetsInteractive(event: KeyboardEvent): boolean {
+  const target = event.target;
+  return (
+    target instanceof Element &&
+    target.closest(
+      'button, a, summary, details, [role="button"], [role="menuitem"], [role="option"]',
+    ) !== null
+  );
+}
+
 const ROGUELIKE_ITEM_DRAG_TYPE = 'application/x-rusty-roguelike-loadout-item';
 
 export interface LoadoutDragPayload {

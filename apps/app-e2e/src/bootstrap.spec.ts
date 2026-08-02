@@ -101,9 +101,6 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   });
   await issueAndWait(page, stage, 'Begin expedition');
   await expect(stage).toHaveAttribute('data-session-revision', '3');
-  const expeditionRevision = Number(
-    await stage.getAttribute('data-session-revision'),
-  );
   await expect(
     page.getByRole('navigation', { name: 'Initiative order' }),
   ).toBeVisible();
@@ -124,6 +121,53 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     RUSTY_PROCGEN_REVISION,
   );
   await expect(page.locator('canvas')).toBeVisible();
+  const beforeWait = await readSession(page);
+  const waitingActor = beforeWait.decision?.actorEntityId;
+  if (waitingActor === undefined) {
+    throw new Error('expedition omitted its initial party wait decision');
+  }
+  const waitButton = page.getByRole('button', { name: 'Wait (Space)' });
+  await expect(waitButton).toBeEnabled();
+  if (testInfo.project.name === 'desktop-chromium') {
+    const partyTrigger = page.getByRole('button', { name: 'Party' });
+    await partyTrigger.focus();
+    await page.keyboard.press('Space');
+    await expect(
+      page.getByRole('region', { name: 'Party quick view' }),
+    ).toBeVisible();
+    await expect(stage).toHaveAttribute(
+      'data-session-revision',
+      String(beforeWait.revision),
+    );
+    await page.keyboard.press('Space');
+    await expect(stage).toHaveAttribute(
+      'data-session-revision',
+      String(beforeWait.revision),
+    );
+    await page.keyboard.press('Escape');
+    await expect(partyTrigger).toBeFocused();
+    await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+    await page.keyboard.press('Space');
+  } else {
+    await waitButton.click();
+  }
+  await expect(stage).toHaveAttribute(
+    'data-session-revision',
+    String(beforeWait.revision + 1),
+  );
+  const afterWait = await readSession(page);
+  expect(afterWait.latestReceipts[0]).toEqual({
+    kind: 'partyWaited',
+    actorEntityId: waitingActor,
+  });
+  expect(afterWait.current?.side).toBe('party');
+  expect(afterWait.current?.entityId).not.toBe(waitingActor);
+  expect(
+    afterWait.log
+      .filter((entry) => entry.revision === afterWait.revision)
+      .map((entry) => entry.receipt),
+  ).toEqual(afterWait.latestReceipts);
+  const expeditionRevision = afterWait.revision;
   const minimap = page.locator('rr-minimap [role="img"]');
   const mapToolbar = page.locator('.map-toolbar');
   const initialView = await readSession(page);
@@ -323,12 +367,14 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
 
     const actionRow = page.locator('.action-row');
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      if ((await actionRow.locator('button:enabled').count()) > 0) {
+      if (
+        (await actionRow.locator('button[aria-pressed]:enabled').count()) > 0
+      ) {
         break;
       }
       await issueAndWait(page, stage, 'Turn right');
     }
-    const action = actionRow.locator('button:enabled').first();
+    const action = actionRow.locator('button[aria-pressed]:enabled').first();
     await expect(action).toBeEnabled();
     await action.click();
     await expect(action).toHaveAttribute('aria-pressed', 'true');

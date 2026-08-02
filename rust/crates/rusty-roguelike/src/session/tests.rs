@@ -73,6 +73,7 @@ fn view_projects_party_status_inventory_and_the_exact_current_decision() {
     assert_eq!(decision.expected_revision, view.revision);
     assert!(!decision.legal_steps.is_empty());
     assert!(decision.can_turn);
+    assert!(decision.can_wait);
     assert!(decision.actions.iter().any(|action| {
         action.action_id.as_str() == "aimed-shot" && action.legal_target_entity_ids.contains(&202)
     }));
@@ -130,6 +131,29 @@ fn session_command_dto_is_closed_and_preserves_the_typed_action() {
             "kind": "beginExpedition",
             "expectedRevision": 0,
             "browserReady": true
+        }))
+        .is_err()
+    );
+
+    let wait: SessionCommandDto = serde_json::from_value(serde_json::json!({
+        "kind": "wait",
+        "actorEntityId": 102,
+        "expectedRevision": 4
+    }))
+    .unwrap();
+    assert!(matches!(
+        wait,
+        SessionCommandDto::Wait {
+            actor_entity_id: 102,
+            expected_revision: 4
+        }
+    ));
+    assert!(
+        serde_json::from_value::<SessionCommandDto>(serde_json::json!({
+            "kind": "wait",
+            "actorEntityId": 102,
+            "expectedRevision": 4,
+            "browserDelay": 0
         }))
         .is_err()
     );
@@ -477,6 +501,126 @@ fn initiative_order_and_single_party_action_settle_to_the_next_decision() {
         session.world.enemy_position(EntityId::new(202)).unwrap(),
         session.world.party_position().unwrap()
     );
+}
+
+#[test]
+fn wait_consumes_one_activation_settles_opposition_and_replays_exactly() {
+    let world = WorldState::new(open_arena(), two_enemy_rules()).unwrap();
+    let mut preparation = GameSession::new(world.fork().unwrap()).unwrap();
+    let initial_preparation = preparation.view().unwrap();
+    let rejected = preparation
+        .command(SessionCommand::Wait {
+            actor_entity_id: 102,
+            expected_revision: initial_preparation.revision,
+        })
+        .expect_err("wait is unavailable during preparation");
+    assert_eq!(rejected.code(), "session_preparation_active");
+    assert_eq!(preparation.view().unwrap(), initial_preparation);
+
+    let mut session = prepared_session(world);
+    let initial = session.view().unwrap();
+    let initial_save: serde_json::Value =
+        serde_json::from_str(&session.encode_save().unwrap()).unwrap();
+    let stale = session
+        .command(SessionCommand::Wait {
+            actor_entity_id: initial.current.as_ref().unwrap().entity_id,
+            expected_revision: initial.revision - 1,
+        })
+        .expect_err("stale wait rejects before staging");
+    assert_eq!(stale.code(), "session_revision_stale");
+    assert_eq!(session.view().unwrap(), initial);
+
+    let waited = session
+        .command(SessionCommand::Wait {
+            actor_entity_id: 102,
+            expected_revision: initial.revision,
+        })
+        .unwrap();
+    assert_eq!(waited.revision, initial.revision + 1);
+    assert_eq!(waited.current.as_ref().unwrap().entity_id, 103);
+    assert_eq!(
+        waited.latest_receipts,
+        vec![TurnReceipt::PartyWaited {
+            actor_entity_id: 102
+        }]
+    );
+    assert_eq!(waited.world, initial.world);
+    let waited_save: serde_json::Value =
+        serde_json::from_str(&session.encode_save().unwrap()).unwrap();
+    assert_eq!(
+        waited_save["session"]["nextRoll"],
+        initial_save["session"]["nextRoll"]
+    );
+
+    let settled = session
+        .command(SessionCommand::Wait {
+            actor_entity_id: 103,
+            expected_revision: waited.revision,
+        })
+        .unwrap();
+    assert_eq!(settled.revision, waited.revision + 1);
+    assert_eq!(settled.current.as_ref().unwrap().entity_id, 101);
+    assert!(matches!(
+        settled.latest_receipts.first(),
+        Some(TurnReceipt::PartyWaited {
+            actor_entity_id: 103
+        })
+    ));
+    assert!(settled.latest_receipts.iter().any(|receipt| matches!(
+        receipt,
+        TurnReceipt::OppositionMoved { .. }
+            | TurnReceipt::OppositionPassed { .. }
+            | TurnReceipt::OppositionAttacked { .. }
+    )));
+    let mut persistent = GameSession::new(
+        WorldState::new(
+            generate_authored_floor(SEED).unwrap(),
+            starter_ruleset().unwrap(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    complete_preparation(&mut persistent);
+    let persistent_view = persistent.view().unwrap();
+    persistent
+        .command(SessionCommand::Wait {
+            actor_entity_id: persistent_view.current.as_ref().unwrap().entity_id,
+            expected_revision: persistent_view.revision,
+        })
+        .unwrap();
+    let persistent_save = persistent.encode_save().unwrap();
+    let reopened = GameSession::decode_save(&persistent_save).unwrap();
+    assert_eq!(reopened.view().unwrap(), persistent.view().unwrap());
+    assert_eq!(reopened.encode_save().unwrap(), persistent_save);
+
+    let opposition_cursor = session
+        .order
+        .iter()
+        .position(|slot| slot.side == TurnSide::Opposition)
+        .unwrap();
+    session.cursor = opposition_cursor;
+    let opposition_view = session.view().unwrap();
+    let rejected = session
+        .command(SessionCommand::Wait {
+            actor_entity_id: opposition_view.current.as_ref().unwrap().entity_id,
+            expected_revision: opposition_view.revision,
+        })
+        .expect_err("opposition cannot submit a party wait");
+    assert_eq!(rejected.code(), "session_actor_not_current");
+    assert_eq!(session.view().unwrap(), opposition_view);
+
+    incapacitate(&mut session, 201);
+    incapacitate(&mut session, 202);
+    session.refresh_outcome().unwrap();
+    let terminal = session.view().unwrap();
+    let rejected = session
+        .command(SessionCommand::Wait {
+            actor_entity_id: 101,
+            expected_revision: terminal.revision,
+        })
+        .expect_err("terminal wait rejects before staging");
+    assert_eq!(rejected.code(), "session_terminal");
+    assert_eq!(session.view().unwrap(), terminal);
 }
 
 #[test]
