@@ -103,10 +103,78 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     RUSTY_PROCGEN_REVISION,
   );
   await expect(page.locator('canvas')).toBeVisible();
+  const minimap = page.locator('rr-minimap [role="img"]');
+  const mapToolbar = page.locator('.map-toolbar');
+  const initialView = await readSession(page);
+  const initialDiscoveredCells = initialView.world.minimap.cells.length;
+  const initialVisibleCells = initialView.world.minimap.cells.filter(
+    (cell) => cell.visible,
+  ).length;
+  await expect(minimap).toHaveAttribute('data-minimap-revision', '8');
+  await expect(minimap).toHaveAttribute(
+    'data-discovered-cells',
+    String(initialDiscoveredCells),
+  );
+  await expect(minimap).toHaveAttribute(
+    'data-visible-cells',
+    String(initialVisibleCells),
+  );
+  await expect(minimap).toHaveAttribute('data-visible-enemies', '0');
+  await expect(minimap).toHaveAttribute(
+    'aria-label',
+    new RegExp(
+      `Party facing ${initialView.world.facing}.*${initialDiscoveredCells} discovered cells`,
+      'u',
+    ),
+  );
+  await expect(minimap.locator('.feature')).not.toHaveCount(0);
+  await minimap.focus();
+  await expect(minimap).toBeFocused();
+  await assertAbove(mapToolbar, minimap);
+  await assertTransparentGapReachesCanvas(page, mapToolbar, minimap);
+
+  await page.route(
+    '**/api/v1/session/commands',
+    async (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'session_stale',
+          detail: 'Rejected minimap publication proof.',
+        }),
+      }),
+    { times: 1 },
+  );
+  await page.getByRole('button', { name: 'Step right' }).click();
+  await expect(page.getByRole('alert')).toContainText('session_stale');
+  await expect
+    .poll(
+      () =>
+        consoleErrors.filter((message) => message.includes('status of 409'))
+          .length,
+    )
+    .toBe(1);
+  consoleErrors.splice(
+    consoleErrors.findIndex((message) => message.includes('status of 409')),
+    1,
+  );
+  await expect(stage).toHaveAttribute('data-session-revision', '8');
+  await expect(minimap).toHaveAttribute('data-minimap-revision', '8');
+  await expect(minimap).toHaveAttribute(
+    'data-discovered-cells',
+    String(initialDiscoveredCells),
+  );
   await saveAndWait(page);
   await issueAndWait(page, stage, 'Step right');
+  await expect(minimap).toHaveAttribute('data-minimap-revision', '9');
   await reopenAndWait(page);
   await expect(stage).toHaveAttribute('data-session-revision', '8');
+  await expect(minimap).toHaveAttribute('data-minimap-revision', '8');
+  await expect(minimap).toHaveAttribute(
+    'data-discovered-cells',
+    String(initialDiscoveredCells),
+  );
 
   const partyTrigger = page.getByRole('button', { name: 'Party' });
   await partyTrigger.click();
@@ -139,6 +207,20 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   if (testInfo.project.name === 'desktop-chromium') {
     const firstEnemy = await followRouteToFirstEncounter(page, stage);
     await expect(stage).toHaveAttribute('data-visible-enemies', '1');
+    const encounterView = await readSession(page);
+    expect(encounterView.world.minimap.cells.length).toBeGreaterThan(
+      initialDiscoveredCells,
+    );
+    expect(
+      encounterView.world.minimap.cells.filter((cell) => cell.visible).length,
+    ).toBeLessThan(encounterView.world.minimap.cells.length);
+    await expect(minimap).toHaveAttribute(
+      'data-discovered-cells',
+      String(encounterView.world.minimap.cells.length),
+    );
+    await expect(minimap).toHaveAttribute('data-visible-enemies', '1');
+    await expect(minimap.locator('svg text.enemy')).toHaveCount(1);
+    await expect(minimap.locator('.cell.remembered')).not.toHaveCount(0);
     const initiative = page.getByRole('navigation', {
       name: 'Initiative order',
     });
@@ -146,11 +228,18 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     const combatRevision = await stage.getAttribute('data-session-revision');
     await saveAndWait(page);
     await issueAndWait(page, stage, 'Turn right');
+    await expect(minimap).toHaveAttribute('data-visible-enemies', '0');
+    await expect(minimap.locator('svg text.enemy')).toHaveCount(0);
     await reopenAndWait(page);
     await expect(stage).toHaveAttribute(
       'data-session-revision',
       String(combatRevision),
     );
+    await expect(minimap).toHaveAttribute(
+      'data-minimap-revision',
+      String(combatRevision),
+    );
+    await expect(minimap).toHaveAttribute('data-visible-enemies', '1');
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const actor = (await readSession(page)).world.visibleActors[0];
       if (actor !== undefined && actor.lateral === 0 && actor.depth > 0) {
@@ -211,6 +300,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     await expect(stage).toHaveAttribute('data-session-outcome', 'victory');
     await expect(objective).toContainText('Ember den secured');
     await expect(objective).toContainText('floor is complete');
+    await expect(minimap).toHaveAttribute('data-visible-enemies', '0');
+    expect(Number(await minimap.getAttribute('data-discovered-cells'))).toBe(
+      (await readSession(page)).world.minimap.cells.length,
+    );
     await expect(rulesLog).toContainText(/was targeted/u);
     await expect(rulesLog).toContainText(/round-robin-living/u);
 
@@ -223,6 +316,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     );
     await expect(stage).toHaveAttribute('data-session-outcome', 'victory');
     await expect(objective).toContainText('Ember den secured');
+    await expect(minimap).toHaveAttribute(
+      'data-minimap-revision',
+      String(terminalRevision),
+    );
   } else {
     await page.keyboard.press('e');
     await expect(stage).toHaveAttribute('data-session-revision', '9');
@@ -230,6 +327,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
       objective,
       page.getByRole('complementary', { name: 'Party vitality' }),
     );
+    await assertAbove(mapToolbar, minimap);
     await assertSeparated(
       page.getByRole('region', { name: 'Available actions' }),
       page.getByRole('navigation', { name: 'Movement and facing' }),
@@ -652,7 +750,9 @@ async function persistenceRequestAndWait(
   await expect(
     page.getByRole('button', { name: 'Reopen', exact: true }),
   ).toBeEnabled();
-  await expect(page.locator('.persistence-notice')).toHaveText(notice);
+  await expect(
+    page.locator('.persistence-notice, .map-persistence-notice'),
+  ).toHaveText(notice);
 }
 
 async function assertSeparated(
@@ -684,4 +784,38 @@ async function assertVerticallySeparated(
     throw new Error('responsive status panels must have browser bounds');
   }
   expect(topBox.y + topBox.height).toBeLessThanOrEqual(bottomBox.y);
+}
+
+async function assertAbove(top: Locator, bottom: Locator): Promise<void> {
+  const [topBox, bottomBox] = await Promise.all([
+    top.boundingBox(),
+    bottom.boundingBox(),
+  ]);
+  if (topBox === null || bottomBox === null) {
+    throw new Error('map toolbar and minimap must have browser bounds');
+  }
+  expect(topBox.y + topBox.height).toBeLessThanOrEqual(bottomBox.y);
+}
+
+async function assertTransparentGapReachesCanvas(
+  page: Page,
+  top: Locator,
+  bottom: Locator,
+): Promise<void> {
+  const [topBox, bottomBox] = await Promise.all([
+    top.boundingBox(),
+    bottom.boundingBox(),
+  ]);
+  if (topBox === null || bottomBox === null) {
+    throw new Error('map toolbar and minimap must have browser bounds');
+  }
+  const tagName = await page.evaluate(
+    ({ x, y }) => document.elementFromPoint(x, y)?.tagName ?? null,
+    {
+      x: bottomBox.x + bottomBox.width / 2,
+      y:
+        topBox.y + topBox.height + (bottomBox.y - topBox.y - topBox.height) / 2,
+    },
+  );
+  expect(tagName).toBe('CANVAS');
 }

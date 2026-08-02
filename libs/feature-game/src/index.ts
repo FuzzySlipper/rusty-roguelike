@@ -30,13 +30,19 @@ import {
 } from '@rusty-roguelike/store';
 
 import { PartySheetComponent } from './party-sheet';
+import { MinimapComponent } from './minimap';
 import { PreparationComponent } from './preparation';
 
 type Drawer = 'party' | 'inventory' | null;
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [GameViewportComponent, PartySheetComponent, PreparationComponent],
+  imports: [
+    GameViewportComponent,
+    MinimapComponent,
+    PartySheetComponent,
+    PreparationComponent,
+  ],
   selector: 'rr-game-shell',
   standalone: true,
   styles: [
@@ -151,12 +157,40 @@ type Drawer = 'party' | 'inventory' | null;
         box-shadow: 0 0 30px rgb(126 229 210 / 0.18);
       }
 
-      .expedition-tools {
-        display: flex;
-        gap: 0.4rem;
+      .map-cluster {
+        display: grid;
+        gap: 0.35rem;
+        max-width: calc(100vw - 1.3rem);
+        pointer-events: none;
         position: absolute;
         right: 0.65rem;
-        top: 3.75rem;
+        top: 0.65rem;
+        width: min(260px, 22vw);
+      }
+
+      .map-toolbar {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.28rem;
+        pointer-events: auto;
+      }
+
+      .map-toolbar button {
+        flex: 1 1 auto;
+        font-size: 0.72rem;
+        min-width: 0;
+        padding: 0.4rem 0.32rem;
+      }
+
+      .map-persistence-notice {
+        background: rgb(7 17 20 / 0.94);
+        border: 1px solid var(--rr-accent);
+        border-radius: 5px;
+        color: var(--rr-accent);
+        font-size: 0.68rem;
+        justify-self: end;
+        padding: 0.24rem 0.4rem;
+        pointer-events: none;
       }
 
       .persistence-tools {
@@ -411,14 +445,20 @@ type Drawer = 'party' | 'inventory' | null;
           transform: none;
         }
 
-        .expedition-tools {
+        .map-cluster {
           right: 0.5rem;
-          top: 3.65rem;
+          top: 0.5rem;
+          width: calc(48vw - 0.75rem);
         }
 
-        .expedition-tools button {
-          font-size: 0.8rem;
-          padding: 0.4rem 0.55rem;
+        .map-toolbar {
+          gap: 0.15rem;
+          padding: 0.2rem;
+        }
+
+        .map-toolbar button {
+          font-size: 0.66rem;
+          padding: 0.35rem 0.18rem;
         }
 
         .persistence-notice {
@@ -429,15 +469,14 @@ type Drawer = 'party' | 'inventory' | null;
         }
 
         .party-rail {
-          display: flex;
+          display: grid;
           left: 0.5rem;
-          max-width: calc(100vw - 1rem);
-          overflow-x: auto;
+          max-width: calc(52vw - 0.75rem);
           top: 9rem;
         }
 
         .member {
-          flex: 0 0 130px;
+          min-width: 0;
         }
 
         .actions {
@@ -515,28 +554,28 @@ type Drawer = 'party' | 'inventory' | null;
                   [selectedActionId]="selectedActionId()"
                   (actorPicked)="pickTarget($event)"
                 />
-                <div class="persistence-tools">
-                  @if (session.persistenceNotice(); as notice) {
-                    <span class="persistence-notice" role="status">{{
-                      notice
-                    }}</span>
-                  }
-                  <button
-                    type="button"
-                    [disabled]="session.busy()"
-                    (click)="saveSession()"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    [disabled]="session.busy()"
-                    (click)="reopenSession()"
-                  >
-                    Reopen
-                  </button>
-                </div>
                 @if (state.value.phase === 'preparation') {
+                  <div class="persistence-tools">
+                    @if (session.persistenceNotice(); as notice) {
+                      <span class="persistence-notice" role="status">{{
+                        notice
+                      }}</span>
+                    }
+                    <button
+                      type="button"
+                      [disabled]="session.busy()"
+                      (click)="saveSession()"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      [disabled]="session.busy()"
+                      (click)="reopenSession()"
+                    >
+                      Reopen
+                    </button>
+                  </div>
                   <rr-preparation [view]="state.value" />
                 } @else {
                   <div class="hud">
@@ -586,26 +625,54 @@ type Drawer = 'party' | 'inventory' | null;
                       }
                     </section>
 
-                    <div class="expedition-tools">
-                      <button
-                        #partyTrigger
-                        type="button"
-                        aria-controls="party-drawer"
-                        [attr.aria-expanded]="drawer() === 'party'"
-                        (click)="openDrawer('party')"
-                      >
-                        Party
-                      </button>
-                      <button
-                        #inventoryTrigger
-                        type="button"
-                        aria-controls="inventory-drawer"
-                        [attr.aria-expanded]="drawer() === 'inventory'"
-                        (click)="openDrawer('inventory')"
-                      >
-                        Packs
-                      </button>
-                    </div>
+                    <aside
+                      class="map-cluster"
+                      aria-label="Map and expedition menu"
+                    >
+                      <div class="panel map-toolbar">
+                        <button
+                          #partyTrigger
+                          type="button"
+                          aria-controls="party-drawer"
+                          [attr.aria-expanded]="drawer() === 'party'"
+                          (click)="openDrawer('party')"
+                        >
+                          Party
+                        </button>
+                        <button
+                          #inventoryTrigger
+                          type="button"
+                          aria-controls="inventory-drawer"
+                          [attr.aria-expanded]="drawer() === 'inventory'"
+                          (click)="openDrawer('inventory')"
+                        >
+                          Packs
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="session.busy()"
+                          (click)="saveSession()"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          [disabled]="session.busy()"
+                          (click)="reopenSession()"
+                        >
+                          Reopen
+                        </button>
+                      </div>
+                      @if (session.persistenceNotice(); as notice) {
+                        <span class="map-persistence-notice" role="status">{{
+                          notice
+                        }}</span>
+                      }
+                      <rr-minimap
+                        [minimap]="state.value.world.minimap"
+                        [revision]="state.value.revision"
+                      />
+                    </aside>
 
                     <aside class="panel party-rail" aria-label="Party vitality">
                       @for (

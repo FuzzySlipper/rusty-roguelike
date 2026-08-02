@@ -16,9 +16,12 @@ equipment-granted Focus Orb action, enters the generated floor, observes dormant
 enemies join only after discovery and a round rebuild, encounters all five
 opponents across the generated floor, resolves the complete hostile roster
 without a modal combat screen, inspects Rust-selected party-member damage,
-saves/reopens active combat, reaches victory, and reopens the terminal save. The
-mobile path repeats preparation and lifecycle controls, keyboard input,
-responsive panel separation, 44-pixel controls, and viewport containment.
+saves/reopens active combat, reaches victory, and reopens the terminal save. It
+also proves that the detailed minimap follows Rust discovery, remembered versus
+current visibility, enemy appearance, revision replacement, and classified
+failure nonmutation. The mobile path repeats preparation and lifecycle controls,
+keyboard input, responsive panel separation, the upper-right map/menu cluster,
+44-pixel controls, and viewport containment.
 
 Use an isolated port when another product host owns the default:
 

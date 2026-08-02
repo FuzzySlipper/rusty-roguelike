@@ -34,6 +34,7 @@
 | `libs/feature-game/src/preparation.ts`                          | Busy-safe preparation composition and revision-bound loadout commands                  | real desktop/mobile preparation                       |
 | `libs/feature-game/src/loadout-panel.ts`                        | Presentational drag/drop and click-select loadout surface                              | real desktop/mobile preparation                       |
 | `libs/feature-game/src/party-sheet.ts`                          | Read-only keyboard-tabbed complete character and loadout inspection                    | real desktop/mobile expedition                        |
+| `libs/feature-game/src/minimap.ts`                              | Presentational detailed map of the strict Rust discovery/visibility projection         | minimap unit proof; real desktop/mobile expedition    |
 | `libs/feature-game/src/index.ts`                                | Full-window canvas plus expedition action/status/log/objective composition             | real desktop/mobile expedition and terminal victory   |
 | `libs/theme/`                                                   | Product tokens and global geometry                                                     | build; browser smoke                                  |
 | `apps/app/`                                                     | Angular application binding only                                                       | build                                                 |
