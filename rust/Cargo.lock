@@ -756,7 +756,7 @@ dependencies = [
 [[package]]
 name = "rusty-procgen-preflight"
 version = "0.1.0"
-source = "git+https://github.com/FuzzySlipper/rusty-procgen?rev=aaa40a79c689c27e78f60cdf28e85a739d2aa233#aaa40a79c689c27e78f60cdf28e85a739d2aa233"
+source = "git+https://github.com/FuzzySlipper/rusty-procgen?rev=6e4ec8fdfe78854873dba73257427f7f8e982bd5#6e4ec8fdfe78854873dba73257427f7f8e982bd5"
 dependencies = [
  "clap",
  "serde",
