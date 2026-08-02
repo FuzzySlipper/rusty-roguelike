@@ -38,7 +38,7 @@ describe('BootstrapTransport', () => {
 });
 
 const TERMINAL_SESSION = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   revision: 3,
   phase: 'expedition',
   round: 2,
@@ -86,13 +86,27 @@ const TERMINAL_SESSION = {
   latestReceipts: [],
   log: [],
   world: {
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 12,
     floorId: 'floor.transport',
     facing: 'north',
     discoveredCellCount: 1,
     cells: [{ lateral: 0, depth: 0, kind: 'floor' }],
     visibleActors: [],
+    minimap: {
+      party: { x: 4, y: 4 },
+      facing: 'north',
+      cells: [
+        {
+          x: 4,
+          y: 4,
+          terrain: 'floor',
+          feature: null,
+          visible: true,
+        },
+      ],
+      visibleActors: [],
+    },
   },
 };
 

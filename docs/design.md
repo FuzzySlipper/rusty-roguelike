@@ -115,12 +115,12 @@ does not wrap those mechanisms in a shared RPG facade.
 
 ## Complete session persistence
 
-Save schema 1 is a closed Rust-owned contract. It records the exact public
+Save schema 2 is a closed Rust-owned contract. It records the exact public
 Engine and Procgen revisions, compiled starter-rules fingerprint, admitted floor
 and complete Procgen provenance, Engine's registered durable entity snapshot,
 session revision/round/phase/outcome, derived initiative order and cursor,
 action-roll index, per-enemy target cursors, latest receipts, and the complete
-bounded rules log. Session view schema 3 projects that Rust log directly; the
+bounded rules log. Session view schema 4 projects that Rust log directly; the
 browser no longer assembles a parallel history from transient receipts.
 
 Restore recompiles the starter rules and regenerates the floor from the saved
@@ -149,14 +149,20 @@ registered components. Every admitted walkable cell and every restored durable
 position must be reachable from the authored entry through the same Engine
 navigation projection used by movement.
 
-Visibility is a bounded forward view derived by Engine collision raycasts.
+Visibility is a bounded forward cone produced by deterministic recursive
+shadowcasting and constrained by Engine collision raycasts. Walls, corners, and
+authored locked portal fixtures occlude later cells while the first blocker
+remains observable.
 Seeing a dormant enemy promotes it permanently into encounter participation;
 turning away removes it from the current visible projection without putting it
-back to sleep. The browser-facing `WorldView` contains only relative visible
-floor/wall cells, visible actors, facing, and a discovery count. It does not
-contain the party's absolute square, the discovery set, enemy positions, or
-hidden topology. The generated TypeScript decoder rejects unknown absolute or
-out-of-cone facts rather than becoming another visibility authority.
+back to sleep. Party discovery durably records observed floor and wall facts
+separately. The browser-facing WorldView contains the relative visible
+first-person facts plus a bounded Rust-projected minimap of only discovered
+terrain, known feature/door icons, the party pose, and currently visible
+opposition. It never contains undiscovered topology or hidden enemy positions.
+The generated TypeScript decoder rejects unknown, out-of-cone, contradictory,
+or minimap-only current facts rather than becoming another visibility
+authority.
 
 ## Upstream ownership
 

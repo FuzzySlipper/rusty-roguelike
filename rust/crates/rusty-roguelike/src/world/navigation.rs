@@ -19,9 +19,18 @@ use super::{Facing, WorldCell, WorldStateError, MAX_DISCOVERED_CELLS, MAX_VIEW_D
 pub(super) struct FloorSpatial {
     min_x: i32,
     min_y: i32,
+    max_x: i32,
+    max_y: i32,
     walkable: BTreeSet<WorldCell>,
+    opaque_walkable: BTreeSet<WorldCell>,
     navigation: NavProjection,
     collision: CollisionProjection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct VisibleTerrain {
+    pub(super) floor: Vec<WorldCell>,
+    pub(super) walls: Vec<WorldCell>,
 }
 
 impl FloorSpatial {
@@ -95,10 +104,29 @@ impl FloorSpatial {
         )
         .map_err(|detail| error("world_navigation_invalid", format!("{detail:?}")))?;
         let collision = CollisionProjection::build(&world);
+        let max_x = i32::try_from(maximum_x - 1)
+            .map_err(|_| error("world_grid_invalid", "floor x bound overflows"))?;
+        let max_y = i32::try_from(maximum_y - 1)
+            .map_err(|_| error("world_grid_invalid", "floor y bound overflows"))?;
+        let opaque_walkable = floor
+            .portals
+            .iter()
+            .filter(|portal| portal.traversal == "locked")
+            .flat_map(|portal| portal.cells.iter().map(WorldCell::from))
+            .collect::<BTreeSet<_>>();
+        if opaque_walkable.iter().any(|cell| !walkable.contains(cell)) {
+            return Err(error(
+                "world_floor_not_canonical",
+                "locked portal opacity must bind admitted walkable cells",
+            ));
+        }
         Ok(Self {
             min_x: floor.bounds.min_x,
             min_y: floor.bounds.min_y,
+            max_x,
+            max_y,
             walkable,
+            opaque_walkable,
             navigation,
             collision,
         })
@@ -132,6 +160,16 @@ impl FloorSpatial {
             return Err(error(
                 "world_position_disconnected",
                 format!("position {},{} is disconnected", goal.x, goal.y),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(super) fn require_wall(&self, cell: WorldCell) -> Result<(), WorldStateError> {
+        if !self.inside_bounds(cell) || self.walkable.contains(&cell) {
+            return Err(error(
+                "world_discovered_wall_invalid",
+                "discovered wall must be a bounded nonwalkable floor cell",
             ));
         }
         Ok(())
@@ -220,46 +258,129 @@ impl FloorSpatial {
         })
     }
 
-    pub(super) fn visible_floor_cells(&self, origin: WorldCell, facing: Facing) -> Vec<WorldCell> {
-        let mut visible = self
-            .walkable
-            .iter()
-            .copied()
+    pub(super) fn visible_terrain(&self, origin: WorldCell, facing: Facing) -> VisibleTerrain {
+        let mut shadowcast = BTreeSet::from([origin]);
+        for [xx, xy, yx, yy] in [
+            [1, 0, 0, 1],
+            [0, 1, 1, 0],
+            [0, -1, 1, 0],
+            [-1, 0, 0, 1],
+            [-1, 0, 0, -1],
+            [0, -1, -1, 0],
+            [0, 1, -1, 0],
+            [1, 0, 0, -1],
+        ] {
+            self.cast_light(
+                origin,
+                1,
+                1.0,
+                0.0,
+                MAX_VIEW_DEPTH,
+                [xx, xy, yx, yy],
+                &mut shadowcast,
+            );
+        }
+        let visible = shadowcast
+            .into_iter()
             .filter(|cell| {
                 let (lateral, depth) = relative(origin, facing, *cell);
-                (0..=MAX_VIEW_DEPTH).contains(&depth)
-                    && lateral.abs() <= depth.max(1)
-                    && self.line_is_clear(origin, *cell)
+                (0..=MAX_VIEW_DEPTH).contains(&depth) && lateral.abs() <= depth.max(1)
             })
-            .collect::<Vec<_>>();
-        visible.sort();
-        visible
+            .collect::<BTreeSet<_>>();
+        VisibleTerrain {
+            floor: visible
+                .iter()
+                .copied()
+                .filter(|cell| {
+                    self.walkable.contains(cell)
+                        && self.line_is_clear(origin, *cell)
+                        && !self.opaque_walkable_precedes(origin, *cell)
+                })
+                .collect(),
+            walls: visible
+                .into_iter()
+                .filter(|cell| {
+                    !self.walkable.contains(cell)
+                        && self.wall_is_first_hit(origin, *cell)
+                        && !self.opaque_walkable_precedes(origin, *cell)
+                })
+                .collect(),
+        }
     }
 
-    pub(super) fn first_visible_walls(
+    #[allow(clippy::too_many_arguments)]
+    fn cast_light(
         &self,
         origin: WorldCell,
-        facing: Facing,
-        visible_floor: &[WorldCell],
-    ) -> Vec<WorldCell> {
-        let mut walls = BTreeSet::new();
-        for floor in visible_floor {
-            for (dx, dy) in [(0, -1), (1, 0), (0, 1), (-1, 0)] {
-                let wall = WorldCell {
-                    x: floor.x + dx,
-                    y: floor.y + dy,
-                };
-                let (lateral, depth) = relative(origin, facing, wall);
-                if !self.walkable.contains(&wall)
-                    && (0..=MAX_VIEW_DEPTH).contains(&depth)
-                    && lateral.abs() <= depth.max(1)
-                    && self.wall_is_first_hit(origin, wall)
-                {
-                    walls.insert(wall);
+        row: i32,
+        mut start_slope: f64,
+        end_slope: f64,
+        radius: i32,
+        [xx, xy, yx, yy]: [i32; 4],
+        visible: &mut BTreeSet<WorldCell>,
+    ) {
+        if start_slope < end_slope {
+            return;
+        }
+        for distance in row..=radius {
+            let mut blocked = false;
+            let mut next_start = start_slope;
+            let mut dx = -distance;
+            let dy = -distance;
+            while dx <= 0 {
+                let left_slope = (f64::from(dx) - 0.5) / (f64::from(dy) + 0.5);
+                let right_slope = (f64::from(dx) + 0.5) / (f64::from(dy) - 0.5);
+                if start_slope < right_slope {
+                    dx += 1;
+                    continue;
                 }
+                if end_slope > left_slope {
+                    break;
+                }
+                let cell = WorldCell {
+                    x: origin.x + dx * xx + dy * xy,
+                    y: origin.y + dx * yx + dy * yy,
+                };
+                if dx * dx + dy * dy <= radius * radius && self.inside_bounds(cell) {
+                    visible.insert(cell);
+                }
+                let opaque = self.is_opaque(cell);
+                if blocked {
+                    if opaque {
+                        next_start = right_slope;
+                    } else {
+                        blocked = false;
+                        start_slope = next_start;
+                    }
+                } else if opaque && distance < radius {
+                    blocked = true;
+                    self.cast_light(
+                        origin,
+                        distance + 1,
+                        start_slope,
+                        left_slope,
+                        radius,
+                        [xx, xy, yx, yy],
+                        visible,
+                    );
+                    next_start = right_slope;
+                }
+                dx += 1;
+            }
+            if blocked {
+                break;
             }
         }
-        walls.into_iter().collect()
+    }
+
+    fn inside_bounds(&self, cell: WorldCell) -> bool {
+        (self.min_x..=self.max_x).contains(&cell.x) && (self.min_y..=self.max_y).contains(&cell.y)
+    }
+
+    fn is_opaque(&self, cell: WorldCell) -> bool {
+        !self.inside_bounds(cell)
+            || !self.walkable.contains(&cell)
+            || self.opaque_walkable.contains(&cell)
     }
 
     fn line_is_clear(&self, origin: WorldCell, target: WorldCell) -> bool {
@@ -283,6 +404,19 @@ impl FloorSpatial {
         self.collision
             .raycast(Ray::new(origin_position, direction), distance + 0.01)
             .is_some_and(|hit| hit.voxel == self.voxel(wall))
+    }
+
+    fn opaque_walkable_precedes(&self, origin: WorldCell, target: WorldCell) -> bool {
+        let target_dx = target.x - origin.x;
+        let target_dy = target.y - origin.y;
+        let target_distance_squared = target_dx * target_dx + target_dy * target_dy;
+        self.opaque_walkable.iter().any(|opaque| {
+            let opaque_dx = opaque.x - origin.x;
+            let opaque_dy = opaque.y - origin.y;
+            opaque_dx * target_dy == opaque_dy * target_dx
+                && opaque_dx * target_dx + opaque_dy * target_dy > 0
+                && opaque_dx * opaque_dx + opaque_dy * opaque_dy < target_distance_squared
+        })
     }
 
     fn voxel(&self, cell: WorldCell) -> VoxelCoord {

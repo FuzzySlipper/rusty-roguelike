@@ -19,6 +19,11 @@ pub(crate) fn generated_world_typescript() -> String {
         WorldViewCellKind::decl(),
         WorldViewCell::decl(),
         VisibleActorView::decl(),
+        MinimapTerrainKind::decl(),
+        MinimapFeatureKind::decl(),
+        MinimapCellView::decl(),
+        MinimapActorView::decl(),
+        MinimapView::decl(),
         WorldView::decl(),
     ]
     .into_iter()
@@ -31,6 +36,7 @@ export const WORLD_VIEW_LIMITS = Object.freeze({{\n\
   maxDepth: {MAX_VIEW_DEPTH},\n\
   maxDiscoveredCells: {MAX_DISCOVERED_CELLS},\n\
   maxProjectedFacts: {MAX_PROJECTED_WORLD_FACTS},\n\
+  maxMinimapFacts: {MAX_MINIMAP_FACTS},\n\
   maxVisibleActors: {MAX_VISIBLE_ACTORS},\n\
   maxFloorIdBytes: {MAX_WORLD_FLOOR_ID_BYTES},\n\
 }} as const);\n\n{declarations}"

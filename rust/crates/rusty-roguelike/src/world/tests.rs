@@ -4,7 +4,7 @@ use core_ids::EntityId;
 
 use crate::{
     generate_authored_floor, starter_ruleset, CollapsedPartyComponent, FloorBounds, FloorCell,
-    FloorFeature, FloorFeatureKind,
+    FloorFeature, FloorFeatureKind, FloorPortal,
 };
 
 use super::*;
@@ -48,7 +48,7 @@ fn admitted_floor_seeds_one_collapsed_party_and_four_facing_engine_views() {
 #[test]
 fn collision_projection_stops_at_first_wall_and_hidden_actors_remain_dormant() {
     let floor = occlusion_floor();
-    let world =
+    let mut world =
         WorldState::new(floor, starter_ruleset().expect("starter rules")).expect("occlusion world");
     let view = world.view().expect("world view");
 
@@ -66,12 +66,61 @@ fn collision_projection_stops_at_first_wall_and_hidden_actors_remain_dormant() {
         cell.lateral == 0 && cell.depth >= 3 && cell.kind == WorldViewCellKind::Floor
     }));
     assert!(view.visible_actors.is_empty());
+    assert!(view.minimap.cells.contains(&MinimapCellView {
+        x: 2,
+        y: 2,
+        terrain: MinimapTerrainKind::Wall,
+        feature: None,
+        visible: true,
+    }));
+    assert!(!view
+        .minimap
+        .cells
+        .iter()
+        .any(|cell| cell.x == 2 && cell.y <= 1));
+    let turned = world.turn_right().expect("turn away from remembered wall");
+    assert!(turned.minimap.cells.contains(&MinimapCellView {
+        x: 2,
+        y: 2,
+        terrain: MinimapTerrainKind::Wall,
+        feature: None,
+        visible: false,
+    }));
     assert!(world
         .durable_state()
         .expect("durable world")
         .enemies
         .iter()
         .all(|enemy| enemy.world.participation() == EnemyParticipation::Dormant));
+}
+
+#[test]
+fn locked_door_is_a_visible_minimap_fixture_and_occludes_the_forward_cone() {
+    let mut floor = occlusion_floor();
+    floor.floor_id = "floor.locked-door-occlusion".to_owned();
+    floor.portals = vec![FloorPortal {
+        id: "door.locked".to_owned(),
+        source_edge_id: "edge.locked".to_owned(),
+        cells: vec![FloorCell { x: 2, y: 3 }],
+        orientation: "horizontal".to_owned(),
+        traversal: "locked".to_owned(),
+        required_item: Some("key.test".to_owned()),
+    }];
+    let world =
+        WorldState::new(floor, starter_ruleset().expect("starter rules")).expect("door world");
+    let view = world.view().expect("door view");
+    assert!(view.minimap.cells.contains(&MinimapCellView {
+        x: 2,
+        y: 3,
+        terrain: MinimapTerrainKind::Floor,
+        feature: Some(MinimapFeatureKind::LockedDoor),
+        visible: true,
+    }));
+    assert!(!view
+        .cells
+        .iter()
+        .any(|cell| cell.lateral == 0 && cell.depth >= 2));
+    assert!(view.visible_actors.is_empty());
 }
 
 #[test]
@@ -200,6 +249,7 @@ fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
         forged.party.position(),
         forged.party.facing(),
         discovered,
+        forged.party.discovered_walls().to_vec(),
     )
     .expect("canonical forged discovery");
     let error = WorldState::restore(
@@ -226,6 +276,26 @@ fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
     .err()
     .expect("noncanonical discovery must reject");
     assert_eq!(error.code(), "world_discovery_not_canonical");
+
+    let mut forged_wall = durable.clone();
+    let mut walls = forged_wall.party.discovered_walls().to_vec();
+    walls.push(forged_wall.enemies[0].world.position());
+    forged_wall.party = PartyExplorationComponent::new(
+        forged_wall.party.floor_id().to_owned(),
+        forged_wall.party.position(),
+        forged_wall.party.facing(),
+        forged_wall.party.discovered().to_vec(),
+        walls,
+    )
+    .expect("canonical forged wall shape");
+    let error = WorldState::restore(
+        floor.clone(),
+        starter_ruleset().expect("starter rules"),
+        forged_wall,
+    )
+    .err()
+    .expect("walkable discovered wall must reject");
+    assert_eq!(error.code(), "world_discovered_wall_invalid");
 
     let mut missing = durable;
     missing.enemies.pop();

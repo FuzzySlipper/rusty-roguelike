@@ -2,13 +2,16 @@ use core_ids::EntityId;
 use entity_state::{EntityComponent, EntityState};
 use gameplay_mechanics::TracksComponent;
 
-use crate::{vitality_track_id, ActorSideCandidate, GeneratedFloor, RoguelikeRuleset};
+use crate::{
+    vitality_track_id, ActorSideCandidate, FloorFeatureKind, GeneratedFloor, RoguelikeRuleset,
+};
 
 use super::navigation::{relative, FloorSpatial};
 use super::{
-    EnemyParticipation, EnemyWorldComponent, PartyExplorationComponent, VisibleActorView,
-    WorldStateError, WorldView, WorldViewCell, WorldViewCellKind, MAX_PROJECTED_WORLD_FACTS,
-    MAX_VISIBLE_ACTORS, WORLD_VIEW_SCHEMA_VERSION,
+    EnemyParticipation, EnemyWorldComponent, MinimapActorView, MinimapCellView, MinimapFeatureKind,
+    MinimapTerrainKind, MinimapView, PartyExplorationComponent, VisibleActorView, WorldStateError,
+    WorldView, WorldViewCell, WorldViewCellKind, MAX_PROJECTED_WORLD_FACTS, MAX_VISIBLE_ACTORS,
+    WORLD_VIEW_SCHEMA_VERSION,
 };
 
 pub(super) fn project_world(
@@ -19,7 +22,8 @@ pub(super) fn project_world(
     party_entity: EntityId,
 ) -> Result<WorldView, WorldStateError> {
     let party = component::<PartyExplorationComponent>(entities, party_entity)?;
-    let visible_floor = spatial.visible_floor_cells(party.position(), party.facing());
+    let visible_terrain = spatial.visible_terrain(party.position(), party.facing());
+    let visible_floor = &visible_terrain.floor;
     let visible_set = visible_floor
         .iter()
         .copied()
@@ -36,19 +40,14 @@ pub(super) fn project_world(
                 WorldViewCellKind::Floor,
             )
         })
-        .chain(
-            spatial
-                .first_visible_walls(party.position(), party.facing(), &visible_floor)
-                .into_iter()
-                .map(|cell| {
-                    view_cell(
-                        party.position(),
-                        party.facing(),
-                        cell,
-                        WorldViewCellKind::Wall,
-                    )
-                }),
-        )
+        .chain(visible_terrain.walls.iter().copied().map(|cell| {
+            view_cell(
+                party.position(),
+                party.facing(),
+                cell,
+                WorldViewCellKind::Wall,
+            )
+        }))
         .collect::<Result<Vec<_>, _>>()?;
     if cells.len() > MAX_PROJECTED_WORLD_FACTS {
         return Err(error(
@@ -58,6 +57,7 @@ pub(super) fn project_world(
     }
     cells.sort_by_key(|cell| (cell.depth, cell.lateral, kind_order(cell.kind)));
 
+    let mut minimap_actors = Vec::new();
     let mut visible_actors = rules
         .actors()
         .values()
@@ -83,6 +83,14 @@ pub(super) fn project_world(
             }
             let (lateral, depth) = relative(party.position(), party.facing(), world.position());
             Some((|| {
+                minimap_actors.push(MinimapActorView {
+                    actor_id: actor.id.clone(),
+                    entity_id: actor.entity_id,
+                    name: actor.name.clone(),
+                    x: world.position().x,
+                    y: world.position().y,
+                    participating: world.participation() == EnemyParticipation::Participating,
+                });
                 Ok(VisibleActorView {
                     actor_id: actor.id.clone(),
                     entity_id: actor.entity_id,
@@ -101,6 +109,40 @@ pub(super) fn project_world(
         ));
     }
     visible_actors.sort_by_key(|actor| (actor.depth, actor.lateral, actor.entity_id));
+    minimap_actors.sort_by_key(|actor| (actor.y, actor.x, actor.entity_id));
+
+    let currently_visible = visible_terrain
+        .floor
+        .iter()
+        .chain(visible_terrain.walls.iter())
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut minimap_cells = party
+        .discovered()
+        .iter()
+        .copied()
+        .map(|cell| MinimapCellView {
+            x: cell.x,
+            y: cell.y,
+            terrain: MinimapTerrainKind::Floor,
+            feature: minimap_feature(floor, cell),
+            visible: currently_visible.contains(&cell),
+        })
+        .chain(
+            party
+                .discovered_walls()
+                .iter()
+                .copied()
+                .map(|cell| MinimapCellView {
+                    x: cell.x,
+                    y: cell.y,
+                    terrain: MinimapTerrainKind::Wall,
+                    feature: None,
+                    visible: currently_visible.contains(&cell),
+                }),
+        )
+        .collect::<Vec<_>>();
+    minimap_cells.sort_by_key(|cell| (cell.y, cell.x));
 
     let discovered_cell_count = u16::try_from(party.discovered().len()).map_err(|_| {
         error(
@@ -116,7 +158,38 @@ pub(super) fn project_world(
         discovered_cell_count,
         cells,
         visible_actors,
+        minimap: MinimapView {
+            party: party.position(),
+            facing: party.facing(),
+            cells: minimap_cells,
+            visible_actors: minimap_actors,
+        },
     })
+}
+
+fn minimap_feature(floor: &GeneratedFloor, cell: super::WorldCell) -> Option<MinimapFeatureKind> {
+    if let Some(portal) = floor.portals.iter().find(|portal| {
+        portal
+            .cells
+            .iter()
+            .any(|candidate| super::WorldCell::from(candidate) == cell)
+    }) {
+        return Some(if portal.traversal == "locked" {
+            MinimapFeatureKind::LockedDoor
+        } else {
+            MinimapFeatureKind::OpenDoor
+        });
+    }
+    floor
+        .features
+        .iter()
+        .find(|feature| super::WorldCell::from(&feature.cell) == cell)
+        .map(|feature| match feature.kind {
+            FloorFeatureKind::Entry => MinimapFeatureKind::Entry,
+            FloorFeatureKind::Goal => MinimapFeatureKind::Goal,
+            FloorFeatureKind::Key => MinimapFeatureKind::Key,
+            FloorFeatureKind::Gate => MinimapFeatureKind::LockedDoor,
+        })
 }
 
 fn view_cell(

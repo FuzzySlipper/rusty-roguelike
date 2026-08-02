@@ -3,10 +3,11 @@ use ts_rs::TS;
 
 use crate::{FloorCell, RoguelikeId};
 
-pub const WORLD_VIEW_SCHEMA_VERSION: u32 = 1;
+pub const WORLD_VIEW_SCHEMA_VERSION: u32 = 2;
 pub const MAX_VIEW_DEPTH: i32 = 6;
 pub const MAX_DISCOVERED_CELLS: usize = 4_096;
 pub const MAX_PROJECTED_WORLD_FACTS: usize = 256;
+pub const MAX_MINIMAP_FACTS: usize = MAX_DISCOVERED_CELLS * 2;
 pub const MAX_VISIBLE_ACTORS: usize = 64;
 pub const MAX_WORLD_FLOOR_ID_BYTES: usize = 128;
 
@@ -97,6 +98,59 @@ pub enum WorldViewCellKind {
     Wall,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(rename_all = "kebab-case")]
+pub enum MinimapTerrainKind {
+    Floor,
+    Wall,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(rename_all = "kebab-case")]
+pub enum MinimapFeatureKind {
+    Entry,
+    Goal,
+    Key,
+    OpenDoor,
+    LockedDoor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct MinimapCellView {
+    pub x: i32,
+    pub y: i32,
+    pub terrain: MinimapTerrainKind,
+    pub feature: Option<MinimapFeatureKind>,
+    pub visible: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct MinimapActorView {
+    pub actor_id: RoguelikeId,
+    #[ts(type = "number")]
+    pub entity_id: u64,
+    pub name: String,
+    pub x: i32,
+    pub y: i32,
+    pub participating: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct MinimapView {
+    pub party: WorldCell,
+    pub facing: Facing,
+    pub cells: Vec<MinimapCellView>,
+    pub visible_actors: Vec<MinimapActorView>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
@@ -131,6 +185,7 @@ pub struct WorldView {
     pub discovered_cell_count: u16,
     pub cells: Vec<WorldViewCell>,
     pub visible_actors: Vec<VisibleActorView>,
+    pub minimap: MinimapView,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

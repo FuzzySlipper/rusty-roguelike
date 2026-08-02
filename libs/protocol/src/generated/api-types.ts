@@ -72,11 +72,12 @@ export type ActorCandidate = { id: RoguelikeId, entityId: number, name: string, 
 export type PartyCandidate = { id: RoguelikeId, entityId: number, members: Array<RoguelikeId>, };
 
 
-export const WORLD_VIEW_SCHEMA_VERSION = 1 as const;
+export const WORLD_VIEW_SCHEMA_VERSION = 2 as const;
 export const WORLD_VIEW_LIMITS = Object.freeze({
 maxDepth: 6,
 maxDiscoveredCells: 4096,
 maxProjectedFacts: 256,
+maxMinimapFacts: 8192,
 maxVisibleActors: 64,
 maxFloorIdBytes: 128,
 } as const);
@@ -95,9 +96,19 @@ export type WorldViewCell = { lateral: number, depth: number, kind: WorldViewCel
 
 export type VisibleActorView = { actorId: RoguelikeId, entityId: number, name: string, lateral: number, depth: number, participating: boolean, };
 
-export type WorldView = { schemaVersion: number, revision: number, floorId: string, facing: Facing, discoveredCellCount: number, cells: Array<WorldViewCell>, visibleActors: Array<VisibleActorView>, };
+export type MinimapTerrainKind = "floor" | "wall";
 
-export const SESSION_VIEW_SCHEMA_VERSION = 3 as const;
+export type MinimapFeatureKind = "entry" | "goal" | "key" | "open-door" | "locked-door";
+
+export type MinimapCellView = { x: number, y: number, terrain: MinimapTerrainKind, feature: MinimapFeatureKind | null, visible: boolean, };
+
+export type MinimapActorView = { actorId: RoguelikeId, entityId: number, name: string, x: number, y: number, participating: boolean, };
+
+export type MinimapView = { party: WorldCell, facing: Facing, cells: Array<MinimapCellView>, visibleActors: Array<MinimapActorView>, };
+
+export type WorldView = { schemaVersion: number, revision: number, floorId: string, facing: Facing, discoveredCellCount: number, cells: Array<WorldViewCell>, visibleActors: Array<VisibleActorView>, minimap: MinimapView, };
+
+export const SESSION_VIEW_SCHEMA_VERSION = 4 as const;
 export const SESSION_VIEW_LIMITS = Object.freeze({
 maxActivations: 64,
 maxReceipts: 256,

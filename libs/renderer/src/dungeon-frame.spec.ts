@@ -5,7 +5,7 @@ import type { SessionView, TurnReceipt } from '@rusty-roguelike/protocol';
 import { cameraMotionCue, createDungeonFrame } from './dungeon-frame';
 
 const SESSION: SessionView = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   revision: 4,
   phase: 'expedition',
   round: 2,
@@ -73,7 +73,7 @@ const SESSION: SessionView = {
   latestReceipts: [],
   log: [],
   world: {
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 9,
     floorId: 'floor.renderer',
     facing: 'north',
@@ -93,6 +93,43 @@ const SESSION: SessionView = {
         participating: true,
       },
     ],
+    minimap: {
+      party: { x: 4, y: 4 },
+      facing: 'north',
+      cells: [
+        {
+          x: 4,
+          y: 4,
+          terrain: 'floor',
+          feature: null,
+          visible: true,
+        },
+        {
+          x: 4,
+          y: 3,
+          terrain: 'floor',
+          feature: null,
+          visible: true,
+        },
+        {
+          x: 5,
+          y: 3,
+          terrain: 'wall',
+          feature: null,
+          visible: true,
+        },
+      ],
+      visibleActors: [
+        {
+          actorId: 'enemy.scout',
+          entityId: 201,
+          name: 'Scout',
+          x: 4,
+          y: 3,
+          participating: true,
+        },
+      ],
+    },
   },
 };
 

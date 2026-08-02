@@ -39,7 +39,7 @@ describe('decodeBootstrapReadout', () => {
 });
 
 const WORLD_VIEW = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   revision: 17,
   floorId: 'floor.occlusion-regression',
   facing: 'north',
@@ -50,6 +50,22 @@ const WORLD_VIEW = {
     { lateral: 0, depth: 2, kind: 'wall' },
   ],
   visibleActors: [],
+  minimap: {
+    party: { x: 2, y: 4 },
+    facing: 'north',
+    cells: [
+      {
+        x: 2,
+        y: 4,
+        terrain: 'floor',
+        feature: 'entry',
+        visible: true,
+      },
+      { x: 2, y: 3, terrain: 'floor', feature: null, visible: true },
+      { x: 2, y: 2, terrain: 'wall', feature: null, visible: true },
+    ],
+    visibleActors: [],
+  },
 };
 
 const VISIBLE_ACTOR = {
@@ -60,13 +76,24 @@ const VISIBLE_ACTOR = {
   depth: 1,
   participating: true,
 };
+const MINIMAP_ACTOR = {
+  actorId: 'enemy.scout',
+  entityId: 201,
+  name: 'Scout',
+  x: 2,
+  y: 3,
+  participating: true,
+};
+const WORLD_WITH_ACTOR = {
+  ...WORLD_VIEW,
+  visibleActors: [VISIBLE_ACTOR],
+  minimap: { ...WORLD_VIEW.minimap, visibleActors: [MINIMAP_ACTOR] },
+};
 
 describe('decodeWorldView', () => {
   it('accepts the bounded relative Rust projection', () => {
     expect(decodeWorldView(WORLD_VIEW)).toEqual(WORLD_VIEW);
-    expect(
-      decodeWorldView({ ...WORLD_VIEW, visibleActors: [VISIBLE_ACTOR] }),
-    ).toEqual({ ...WORLD_VIEW, visibleActors: [VISIBLE_ACTOR] });
+    expect(decodeWorldView(WORLD_WITH_ACTOR)).toEqual(WORLD_WITH_ACTOR);
   });
 
   it('rejects absolute or occluded topology and malformed actor facts', () => {
@@ -141,6 +168,42 @@ describe('decodeWorldView', () => {
       }),
     ).toThrow('projected floor fact');
   });
+
+  it('rejects hidden or contradictory minimap facts at the browser boundary', () => {
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        minimap: {
+          ...WORLD_VIEW.minimap,
+          visibleActors: [{ ...MINIMAP_ACTOR, x: 1 }],
+        },
+      }),
+    ).toThrow('do not match');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        minimap: {
+          ...WORLD_VIEW.minimap,
+          cells: [
+            ...WORLD_VIEW.minimap.cells,
+            { x: 2, y: 1, terrain: 'floor', feature: null, visible: true },
+          ],
+        },
+      }),
+    ).toThrow('current terrain');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        minimap: {
+          ...WORLD_VIEW.minimap,
+          cells: [
+            ...WORLD_VIEW.minimap.cells,
+            { x: 1, y: 4, terrain: 'wall', feature: 'goal', visible: false },
+          ],
+        },
+      }),
+    ).toThrow('wall cannot carry');
+  });
 });
 
 const ACTIVATION = {
@@ -172,7 +235,7 @@ const OPPOSITION_ATTACK = {
 };
 
 const SESSION_VIEW = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   revision: 4,
   phase: 'expedition',
   round: 2,
@@ -250,7 +313,7 @@ const SESSION_VIEW = {
   },
   latestReceipts: [OPPOSITION_ATTACK],
   log: [{ id: 1, revision: 4, receipt: OPPOSITION_ATTACK }],
-  world: { ...WORLD_VIEW, visibleActors: [VISIBLE_ACTOR] },
+  world: WORLD_WITH_ACTOR,
 };
 
 const STASH_ITEM = {

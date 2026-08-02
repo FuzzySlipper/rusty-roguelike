@@ -15,6 +15,8 @@ import {
   type LoadoutItemView,
   type LoadoutView,
   type LegalActionView,
+  type MinimapActorView,
+  type MinimapCellView,
   type PartyDecisionView,
   type PartyMemberStatusView,
   type SessionErrorDto,
@@ -75,6 +77,7 @@ const WORLD_VIEW_KEYS = [
   'discoveredCellCount',
   'facing',
   'floorId',
+  'minimap',
   'revision',
   'schemaVersion',
   'visibleActors',
@@ -87,6 +90,17 @@ const VISIBLE_ACTOR_KEYS = [
   'lateral',
   'name',
   'participating',
+] as const;
+const MINIMAP_KEYS = ['cells', 'facing', 'party', 'visibleActors'] as const;
+const WORLD_POSITION_KEYS = ['x', 'y'] as const;
+const MINIMAP_CELL_KEYS = ['feature', 'terrain', 'visible', 'x', 'y'] as const;
+const MINIMAP_ACTOR_KEYS = [
+  'actorId',
+  'entityId',
+  'name',
+  'participating',
+  'x',
+  'y',
 ] as const;
 const ID_PATTERN = new RegExp(ROGUELIKE_ID_PATTERN);
 
@@ -165,7 +179,150 @@ export function decodeWorldView(value: unknown): WorldView {
     }
     entityIds.add(actor.entityId);
   }
+  decodeMinimap(value['minimap'], value as WorldView);
   return value as WorldView;
+}
+
+function decodeMinimap(value: unknown, world: WorldView): void {
+  requireExactRecord(value, MINIMAP_KEYS, 'minimap');
+  requireExactRecord(value['party'], WORLD_POSITION_KEYS, 'minimap party');
+  requireCoordinate(value['party']['x'], 'minimap party x');
+  requireCoordinate(value['party']['y'], 'minimap party y');
+  const party = value['party'] as { x: number; y: number };
+  if (value['facing'] !== world.facing) {
+    throw new Error('minimap facing does not match the world view');
+  }
+  if (
+    !Array.isArray(value['cells']) ||
+    value['cells'].length > WORLD_VIEW_LIMITS.maxMinimapFacts
+  ) {
+    throw new Error('minimap cells are not a bounded array');
+  }
+  const cells = new Map<string, MinimapCellView>();
+  for (const cell of value['cells']) {
+    decodeMinimapCell(cell);
+    const key = String(cell.x) + ':' + String(cell.y);
+    if (cells.has(key)) {
+      throw new Error('minimap contains duplicate cells');
+    }
+    cells.set(key, cell);
+  }
+  const partyKey =
+    String(value['party']['x']) + ':' + String(value['party']['y']);
+  const partyCell = cells.get(partyKey);
+  if (partyCell?.terrain !== 'floor' || !partyCell.visible) {
+    throw new Error('minimap party does not occupy a currently visible floor');
+  }
+  for (const cell of world.cells) {
+    const absolute = absoluteCell(party, world.facing, cell);
+    const minimapCell = cells.get(
+      String(absolute.x) + ':' + String(absolute.y),
+    );
+    if (minimapCell?.terrain !== cell.kind || !minimapCell.visible) {
+      throw new Error('minimap current terrain does not match the world view');
+    }
+  }
+  if (
+    [...cells.values()].filter((cell) => cell.visible).length !==
+    world.cells.length
+  ) {
+    throw new Error('minimap current terrain does not match the world view');
+  }
+  if (
+    !Array.isArray(value['visibleActors']) ||
+    value['visibleActors'].length !== world.visibleActors.length
+  ) {
+    throw new Error('minimap visible actors do not match the world view');
+  }
+  const actors = new Map<number, MinimapActorView>();
+  for (const actor of value['visibleActors']) {
+    decodeMinimapActor(actor);
+    const cell = cells.get(String(actor.x) + ':' + String(actor.y));
+    if (
+      cell?.terrain !== 'floor' ||
+      !cell.visible ||
+      actors.has(actor.entityId)
+    ) {
+      throw new Error('minimap actor does not occupy unique visible floor');
+    }
+    actors.set(actor.entityId, actor);
+  }
+  for (const actor of world.visibleActors) {
+    const absolute = absoluteCell(party, world.facing, actor);
+    const minimapActor = actors.get(actor.entityId);
+    if (
+      minimapActor?.actorId !== actor.actorId ||
+      minimapActor.name !== actor.name ||
+      minimapActor.participating !== actor.participating ||
+      minimapActor.x !== absolute.x ||
+      minimapActor.y !== absolute.y
+    ) {
+      throw new Error('minimap actor facts do not match the world view');
+    }
+  }
+}
+
+function decodeMinimapCell(value: unknown): asserts value is MinimapCellView {
+  requireExactRecord(value, MINIMAP_CELL_KEYS, 'minimap cell');
+  requireCoordinate(value['x'], 'minimap cell x');
+  requireCoordinate(value['y'], 'minimap cell y');
+  if (!['floor', 'wall'].includes(String(value['terrain']))) {
+    throw new Error('minimap cell has invalid terrain');
+  }
+  if (
+    value['feature'] !== null &&
+    !['entry', 'goal', 'key', 'open-door', 'locked-door'].includes(
+      String(value['feature']),
+    )
+  ) {
+    throw new Error('minimap cell has invalid feature');
+  }
+  if (value['terrain'] === 'wall' && value['feature'] !== null) {
+    throw new Error('minimap wall cannot carry a floor feature');
+  }
+  if (typeof value['visible'] !== 'boolean') {
+    throw new Error('minimap cell visibility must be boolean');
+  }
+}
+
+function decodeMinimapActor(value: unknown): asserts value is MinimapActorView {
+  requireExactRecord(value, MINIMAP_ACTOR_KEYS, 'minimap actor');
+  requireId(value['actorId'], 'minimap actor identity');
+  requireSafeInteger(
+    value['entityId'],
+    1,
+    Number.MAX_SAFE_INTEGER,
+    'minimap actor entity',
+  );
+  requireBoundedText(value['name'], 1, 128, 'minimap actor name');
+  requireCoordinate(value['x'], 'minimap actor x');
+  requireCoordinate(value['y'], 'minimap actor y');
+  if (typeof value['participating'] !== 'boolean') {
+    throw new Error('minimap actor participation must be boolean');
+  }
+}
+
+function absoluteCell(
+  party: { x: number; y: number },
+  facing: WorldView['facing'],
+  relative: { lateral: number; depth: number },
+): { x: number; y: number } {
+  const [forwardX, forwardY, rightX, rightY] =
+    facing === 'north'
+      ? [0, -1, 1, 0]
+      : facing === 'east'
+        ? [1, 0, 0, 1]
+        : facing === 'south'
+          ? [0, 1, -1, 0]
+          : [-1, 0, 0, -1];
+  return {
+    x: party.x + forwardX * relative.depth + rightX * relative.lateral,
+    y: party.y + forwardY * relative.depth + rightY * relative.lateral,
+  };
+}
+
+function requireCoordinate(value: unknown, label: string): void {
+  requireSafeInteger(value, -2_147_483_648, 2_147_483_647, label);
 }
 
 const SESSION_VIEW_KEYS = [

@@ -26,7 +26,7 @@ use super::{
     WorldCell, WorldStateError, WorldView,
 };
 
-pub const WORLD_DURABLE_SCHEMA_VERSION: u32 = 1;
+pub const WORLD_DURABLE_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -147,12 +147,18 @@ impl WorldState {
             CollapsedPartyComponent::new(member_entity_ids)
                 .map_err(|detail| error("world_party_seed", detail.to_string()))?,
         )?;
-        let visible = spatial.visible_floor_cells(entry, Facing::North);
+        let visible = spatial.visible_terrain(entry, Facing::North);
         attach(
             &mut entities,
             party_entity,
-            PartyExplorationComponent::new(floor.floor_id.clone(), entry, Facing::North, visible)
-                .map_err(|detail| error("world_party_seed", detail))?,
+            PartyExplorationComponent::new(
+                floor.floor_id.clone(),
+                entry,
+                Facing::North,
+                visible.floor,
+                visible.walls,
+            )
+            .map_err(|detail| error("world_party_seed", detail))?,
         )?;
 
         let opposition = rules
@@ -213,6 +219,7 @@ impl WorldState {
             durable.party.position(),
             durable.party.facing(),
             durable.party.discovered().to_vec(),
+            durable.party.discovered_walls().to_vec(),
         )
         .map_err(|detail| error("world_party_restore_invalid", detail))?;
         if party != durable.party {
@@ -224,12 +231,20 @@ impl WorldState {
         for cell in party.discovered() {
             state.spatial.require_reachable(entry, *cell)?;
         }
+        for cell in party.discovered_walls() {
+            state.spatial.require_wall(*cell)?;
+        }
         let visible = state
             .spatial
-            .visible_floor_cells(party.position(), party.facing());
+            .visible_terrain(party.position(), party.facing());
         if visible
+            .floor
             .iter()
             .any(|cell| party.discovered().binary_search(cell).is_err())
+            || visible
+                .walls
+                .iter()
+                .any(|cell| party.discovered_walls().binary_search(cell).is_err())
         {
             return Err(error(
                 "world_discovery_incomplete",
@@ -533,15 +548,24 @@ impl WorldState {
         let party = component::<PartyExplorationComponent>(entities, self.party_entity)?.clone();
         let visible = self
             .spatial
-            .visible_floor_cells(party.position(), party.facing());
+            .visible_terrain(party.position(), party.facing());
         let mut discovered = party.discovered().iter().copied().collect::<BTreeSet<_>>();
-        discovered.extend(visible.iter().copied());
+        discovered.extend(visible.floor.iter().copied());
+        let mut discovered_walls = party
+            .discovered_walls()
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        discovered_walls.extend(visible.walls.iter().copied());
         replace(
             entities,
             self.party_entity,
-            party.with_discovered(discovered.into_iter().collect()),
+            party.with_discovered(
+                discovered.into_iter().collect(),
+                discovered_walls.into_iter().collect(),
+            ),
         )?;
-        let visible = visible.into_iter().collect::<BTreeSet<_>>();
+        let visible = visible.floor.into_iter().collect::<BTreeSet<_>>();
         for actor in self
             .rules
             .actors()
@@ -563,7 +587,8 @@ impl WorldState {
         let party = self.party()?;
         let visible = self
             .spatial
-            .visible_floor_cells(party.position(), party.facing())
+            .visible_terrain(party.position(), party.facing())
+            .floor
             .into_iter()
             .collect::<BTreeSet<_>>();
         for actor in self
@@ -662,6 +687,7 @@ impl WorldState {
             party.position(),
             party.facing(),
             party.discovered().to_vec(),
+            party.discovered_walls().to_vec(),
         )
         .map_err(|detail| error("world_party_restore_invalid", detail))?;
         if &canonical_party != party {
@@ -673,9 +699,13 @@ impl WorldState {
         for cell in party.discovered() {
             self.spatial.require_reachable(entry, *cell)?;
         }
+        for cell in party.discovered_walls() {
+            self.spatial.require_wall(*cell)?;
+        }
         if self
             .spatial
-            .visible_floor_cells(party.position(), party.facing())
+            .visible_terrain(party.position(), party.facing())
+            .floor
             .iter()
             .any(|cell| party.discovered().binary_search(cell).is_err())
         {

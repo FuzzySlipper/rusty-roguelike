@@ -20,6 +20,7 @@ pub struct PartyExplorationComponent {
     position: WorldCell,
     facing: Facing,
     discovered: Vec<WorldCell>,
+    discovered_walls: Vec<WorldCell>,
 }
 
 impl PartyExplorationComponent {
@@ -30,21 +31,29 @@ impl PartyExplorationComponent {
         position: WorldCell,
         facing: Facing,
         mut discovered: Vec<WorldCell>,
+        mut discovered_walls: Vec<WorldCell>,
     ) -> Result<Self, String> {
         discovered.sort();
+        discovered_walls.sort();
         if floor_id.is_empty() || floor_id.len() > MAX_WORLD_FLOOR_ID_BYTES {
             return Err("floor identity is invalid".to_owned());
         }
         if discovered.len() > MAX_DISCOVERED_CELLS
             || discovered.windows(2).any(|pair| pair[0] == pair[1])
+            || discovered_walls.len() > MAX_DISCOVERED_CELLS
+            || discovered_walls.windows(2).any(|pair| pair[0] == pair[1])
+            || discovered
+                .iter()
+                .any(|cell| discovered_walls.binary_search(cell).is_ok())
         {
-            return Err("discovered cells are not unique and bounded".to_owned());
+            return Err("discovered terrain is not disjoint, unique, and bounded".to_owned());
         }
         Ok(Self {
             floor_id,
             position,
             facing,
             discovered,
+            discovered_walls,
         })
     }
 
@@ -64,6 +73,10 @@ impl PartyExplorationComponent {
         &self.discovered
     }
 
+    pub fn discovered_walls(&self) -> &[WorldCell] {
+        &self.discovered_walls
+    }
+
     pub(super) fn with_pose(&self, position: WorldCell, facing: Facing) -> Self {
         let mut value = self.clone();
         value.position = position;
@@ -71,9 +84,14 @@ impl PartyExplorationComponent {
         value
     }
 
-    pub(super) fn with_discovered(&self, discovered: Vec<WorldCell>) -> Self {
+    pub(super) fn with_discovered(
+        &self,
+        discovered: Vec<WorldCell>,
+        discovered_walls: Vec<WorldCell>,
+    ) -> Self {
         let mut value = self.clone();
         value.discovered = discovered;
+        value.discovered_walls = discovered_walls;
         value
     }
 }
@@ -147,11 +165,13 @@ pub fn register_world_components(
     staged.register(durable_registration::<PartyExplorationComponent>(
         PARTY_EXPLORATION_COMPONENT_TYPE_ID,
         "rusty-roguelike.party-exploration-json",
+        2,
         validate_party_component,
     ))?;
     staged.register(durable_registration::<EnemyWorldComponent>(
         ENEMY_WORLD_COMPONENT_TYPE_ID,
         "rusty-roguelike.enemy-world-json",
+        1,
         |component| validate_floor_id(component.floor_id()),
     ))?;
     *registry = staged;
@@ -167,6 +187,18 @@ fn validate_party_component(component: &PartyExplorationComponent) -> Result<(),
             .any(|pair| pair[0] >= pair[1])
     {
         return Err("discovered cells are not canonical".to_owned());
+    }
+    if component.discovered_walls().len() > MAX_DISCOVERED_CELLS
+        || component
+            .discovered_walls()
+            .windows(2)
+            .any(|pair| pair[0] >= pair[1])
+        || component
+            .discovered()
+            .iter()
+            .any(|cell| component.discovered_walls().binary_search(cell).is_ok())
+    {
+        return Err("discovered walls are not canonical and disjoint".to_owned());
     }
     Ok(())
 }
@@ -184,6 +216,7 @@ fn validate_floor_id(value: &str) -> Result<(), String> {
 fn durable_registration<T>(
     type_id: &'static str,
     codec_id: &'static str,
+    codec_version: u32,
     validator: fn(&T) -> Result<(), String>,
 ) -> ComponentRegistration<T>
 where
@@ -191,7 +224,7 @@ where
 {
     let codec = ComponentCodec::new(
         codec_id,
-        1,
+        codec_version,
         |value| serde_json::to_value(value).expect("world component serialization is infallible"),
         |value| serde_json::from_value(value).map_err(|error| error.to_string()),
     )
