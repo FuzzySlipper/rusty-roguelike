@@ -306,6 +306,37 @@ fn restore_requires_exact_roster_discovery_and_dormancy_facts() {
 }
 
 #[test]
+fn snapshot_restore_rejects_omitted_currently_visible_wall_discovery() {
+    let floor = occlusion_floor();
+    let world = WorldState::new(floor.clone(), starter_ruleset().expect("starter rules"))
+        .expect("occlusion world");
+    let mut snapshot = world.entity_snapshot();
+    let party = snapshot
+        .registered_components
+        .iter_mut()
+        .find(|component| component.type_id == PARTY_EXPLORATION_COMPONENT_TYPE_ID)
+        .expect("party exploration snapshot");
+    let party_value = party
+        .values
+        .iter_mut()
+        .find(|value| value.entity == world.party_entity().raw())
+        .expect("party exploration value");
+    assert!(party_value.value["discoveredWalls"]
+        .as_array()
+        .is_some_and(|walls| !walls.is_empty()));
+    party_value.value["discoveredWalls"] = serde_json::json!([]);
+
+    let error = WorldState::restore_snapshot(
+        floor,
+        starter_ruleset().expect("starter rules"),
+        snapshot,
+    )
+    .err()
+    .expect("visible wall omission must reject");
+    assert_eq!(error.code(), "world_discovery_incomplete");
+}
+
+#[test]
 fn opposition_navigation_routes_around_walls_and_an_occupied_preferred_step() {
     let wall_floor = movement_floor(true);
     let mut world = positioned_movement_world(

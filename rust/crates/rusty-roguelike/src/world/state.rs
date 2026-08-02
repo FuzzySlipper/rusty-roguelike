@@ -702,16 +702,21 @@ impl WorldState {
         for cell in party.discovered_walls() {
             self.spatial.require_wall(*cell)?;
         }
-        if self
+        let visible = self
             .spatial
-            .visible_terrain(party.position(), party.facing())
+            .visible_terrain(party.position(), party.facing());
+        if visible
             .floor
             .iter()
             .any(|cell| party.discovered().binary_search(cell).is_err())
+            || visible
+                .walls
+                .iter()
+                .any(|cell| party.discovered_walls().binary_search(cell).is_err())
         {
             return Err(error(
                 "world_discovery_incomplete",
-                "durable discovery omits currently visible floor cells",
+                "durable discovery omits currently visible terrain cells",
             ));
         }
 
