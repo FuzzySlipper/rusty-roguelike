@@ -326,13 +326,10 @@ fn snapshot_restore_rejects_omitted_currently_visible_wall_discovery() {
         .is_some_and(|walls| !walls.is_empty()));
     party_value.value["discoveredWalls"] = serde_json::json!([]);
 
-    let error = WorldState::restore_snapshot(
-        floor,
-        starter_ruleset().expect("starter rules"),
-        snapshot,
-    )
-    .err()
-    .expect("visible wall omission must reject");
+    let error =
+        WorldState::restore_snapshot(floor, starter_ruleset().expect("starter rules"), snapshot)
+            .err()
+            .expect("visible wall omission must reject");
     assert_eq!(error.code(), "world_discovery_incomplete");
 }
 
