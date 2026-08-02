@@ -4,7 +4,7 @@ mod rules;
 mod session;
 mod world;
 
-pub const RUSTY_ENGINE_REVISION: &str = "fb608e323a8b44a55195f5720101224ff37fd5db";
+pub const RUSTY_ENGINE_REVISION: &str = "b1f0415af6266783246371d227a2272de7d9f0d6";
 pub const RUSTY_PROCGEN_REVISION: &str = "722e2c479bdf88ab39b66d2d33ab466b698ec7df";
 
 pub use bootstrap::{bootstrap_readout, generated_typescript, BootstrapReadout};

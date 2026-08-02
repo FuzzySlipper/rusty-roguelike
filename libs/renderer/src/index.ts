@@ -123,6 +123,9 @@ const MOTION_DURATION_MS = 96;
       [attr.data-renderer-status]="rendererStatus()"
       [attr.data-visible-torches]="visibleTorchCount()"
       [attr.data-visible-lights]="visibleLightCount()"
+      [attr.data-lighting-world-default]="lightingWorldDefault()"
+      [attr.data-lighting-viewmodel-default]="lightingViewmodelDefault()"
+      [attr.data-retained-light-count]="retainedLightCount()"
       [attr.data-scene-cells]="sceneCellCount()"
     >
       <canvas
@@ -150,6 +153,9 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
   protected readonly sceneLabel = signal('First-person generated dungeon');
   protected readonly visibleTorchCount = signal(0);
   protected readonly visibleLightCount = signal(0);
+  protected readonly lightingWorldDefault = signal('unavailable');
+  protected readonly lightingViewmodelDefault = signal('unavailable');
+  protected readonly retainedLightCount = signal(0);
   protected readonly sceneCellCount = signal(0);
   private readonly canvas =
     viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
@@ -198,6 +204,11 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
       const surface = await mountRendererAnimatedMeshSurface(canvas, {
         autoStart: true,
         clearColor: 0x18130e,
+        lighting: {
+          schemaVersion: 1,
+          defaultLights: { world: 'disabled', viewmodel: 'neutral' },
+          shadows: { enabled: false, maximumActiveLights: 4 },
+        },
         animatedMeshManifest: {
           kind: 'rusty_renderer_animated_mesh_resources.v1',
           resources: [
@@ -314,6 +325,10 @@ export class GameViewportComponent implements AfterViewInit, OnDestroy {
         (placement) => placement.content.kind === 'point_light',
       ).length,
     );
+    const lighting = surface.lightingReadout();
+    this.lightingWorldDefault.set(lighting.defaultLights.world);
+    this.lightingViewmodelDefault.set(lighting.defaultLights.viewmodel);
+    this.retainedLightCount.set(lighting.retainedLights.length);
     this.sceneCellCount.set(session.world.cells.length);
     this.rendererError.set(null);
     this.rendererStatus.set('ready');

@@ -3,7 +3,7 @@
 ## Runtime dependencies
 
 - Rusty Engine: `https://github.com/FuzzySlipper/rusty-engine` at
-  `fb608e323a8b44a55195f5720101224ff37fd5db`. The product consumes its public
+  `b1f0415af6266783246371d227a2272de7d9f0d6`. The product consumes its public
   retained renderer packages plus exact `core-ids`, `entity-state`,
   `gameplay-rules`, `gameplay-mechanics`, `core-space`, `core-voxel`,
   `svc-volume`, `svc-spatial`, `svc-pathfinding`, `svc-collision`, and `svc-rng`
@@ -63,7 +63,9 @@ Donor evidence never overrides this repository's design.
 
 ## Presentation asset
 
-The bundled torch is an optimized derivative of
+Engine revision `b1f0415af6266783246371d227a2272de7d9f0d6` supplies the
+schema-1 renderer lighting policy used to disable neutral world illumination
+while retaining a neutral viewmodel rig. The bundled torch is an optimized derivative of
 [Medieval Torch - Free](https://sketchfab.com/3d-models/medieval-torch-free-065861234a824cb982764f04627331c9)
 by [Typhen](https://sketchfab.com/typhen). It is licensed CC BY-NC-SA 4.0;
 the attribution, modification note, license link, and non-commercial/share-alike

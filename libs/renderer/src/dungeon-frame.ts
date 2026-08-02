@@ -165,35 +165,6 @@ export function createDungeonFrame(
   // Re-admit the shared cube after the prior handle set is removed, before the
   // replacement instances borrow it for this complete scene publication.
   ops.push({ op: 'defineStaticMesh', asset: DUNGEON_CUBE });
-  const ambientHandle = renderHandle(50);
-  handles.push(ambientHandle);
-  ops.push({
-    op: 'createLight',
-    handle: ambientHandle,
-    parent: null,
-    light: {
-      kind: 'ambient',
-      color: [0.92, 0.88, 0.76],
-      intensity: 0.62,
-      enabled: true,
-      shadowIntent: 'disabled',
-    },
-  });
-  const directionalHandle = renderHandle(51);
-  handles.push(directionalHandle);
-  ops.push({
-    op: 'createLight',
-    handle: directionalHandle,
-    parent: null,
-    light: {
-      kind: 'directional',
-      color: [0.86, 0.88, 0.82],
-      intensity: 0.7,
-      enabled: true,
-      direction: [-0.35, -1, -0.45],
-      shadowIntent: 'requested',
-    },
-  });
   const createCuboid = (
     handleValue: number,
     label: string,

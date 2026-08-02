@@ -1,4 +1,10 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from '@playwright/test';
 
 import {
   decodeSessionView,
@@ -194,30 +200,39 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     (cell) => cell.visible,
   ).length;
   const initialVisibleEnemies = initialView.world.visibleActors.length;
+  const initialVisibleTorches = initialView.world.scenePlacements.filter(
+    (placement) => placement.content.kind === 'prop',
+  ).length;
+  const initialVisibleLights = initialView.world.scenePlacements.filter(
+    (placement) => placement.content.kind === 'point_light',
+  ).length;
   expect(initialVisibleEnemies).toBe(1);
+  expect(initialVisibleLights).toBe(initialVisibleTorches);
   expect(initialView.world.cells.length).toBeGreaterThan(initialVisibleCells);
-  await expect(
-    page.locator('[data-renderer-backend="rusty-engine-three"]'),
-  ).toHaveAttribute('data-scene-cells', String(initialView.world.cells.length));
-  await expect(
-    page.locator('[data-renderer-backend="rusty-engine-three"]'),
-  ).toHaveAttribute(
-    'data-visible-torches',
-    String(
-      initialView.world.scenePlacements.filter(
-        (placement) => placement.content.kind === 'prop',
-      ).length,
-    ),
+  const viewport = page.locator('[data-renderer-backend="rusty-engine-three"]');
+  await expect(viewport).toHaveAttribute(
+    'data-scene-cells',
+    String(initialView.world.cells.length),
   );
-  await expect(
-    page.locator('[data-renderer-backend="rusty-engine-three"]'),
-  ).toHaveAttribute(
+  await expect(viewport).toHaveAttribute(
+    'data-visible-torches',
+    String(initialVisibleTorches),
+  );
+  await expect(viewport).toHaveAttribute(
     'data-visible-lights',
-    String(
-      initialView.world.scenePlacements.filter(
-        (placement) => placement.content.kind === 'point_light',
-      ).length,
-    ),
+    String(initialVisibleLights),
+  );
+  await expect(viewport).toHaveAttribute(
+    'data-lighting-world-default',
+    'disabled',
+  );
+  await expect(viewport).toHaveAttribute(
+    'data-lighting-viewmodel-default',
+    'neutral',
+  );
+  await expect(viewport).toHaveAttribute(
+    'data-retained-light-count',
+    String(initialVisibleLights),
   );
   await expect(minimap).toHaveAttribute(
     'data-minimap-revision',
@@ -474,6 +489,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     ).length;
     expect(torches).toBeGreaterThan(0);
     expect(lights).toBe(torches);
+    await assertAuthoredTorchLighting(page, turned, testInfo);
     await expect(viewport).toHaveAttribute(
       'data-visible-torches',
       String(torches),
@@ -1025,4 +1041,151 @@ async function assertTransparentGapReachesCanvas(
     },
   );
   expect(tagName).toBe('CANVAS');
+}
+
+interface TorchFalloffMetrics {
+  readonly brightestTileLuminance: number;
+  readonly brightestTileRedMinusBlue: number;
+  readonly distantTileLuminance: number;
+  readonly height: number;
+  readonly tileColumns: number;
+  readonly tileRows: number;
+  readonly width: number;
+}
+
+async function assertAuthoredTorchLighting(
+  page: Page,
+  view: SessionView,
+  testInfo: TestInfo,
+): Promise<void> {
+  const viewport = page.locator('[data-renderer-backend="rusty-engine-three"]');
+  const torches = view.world.scenePlacements.filter(
+    (placement) => placement.content.kind === 'prop',
+  ).length;
+  const lights = view.world.scenePlacements.filter(
+    (placement) => placement.content.kind === 'point_light',
+  ).length;
+  expect(torches).toBeGreaterThan(0);
+  expect(lights).toBe(torches);
+  await expect(viewport).toHaveAttribute(
+    'data-lighting-world-default',
+    'disabled',
+  );
+  await expect(viewport).toHaveAttribute(
+    'data-lighting-viewmodel-default',
+    'neutral',
+  );
+  await expect(viewport).toHaveAttribute(
+    'data-retained-light-count',
+    String(lights),
+  );
+  const lightingPixels = await analyzeTorchFalloff(page);
+  expect(lightingPixels.brightestTileLuminance).toBeGreaterThan(
+    lightingPixels.distantTileLuminance + 8,
+  );
+  expect(lightingPixels.brightestTileRedMinusBlue).toBeGreaterThan(4);
+  await testInfo.attach(`torch-falloff-${testInfo.project.name}.json`, {
+    body: Buffer.from(JSON.stringify(lightingPixels, null, 2)),
+    contentType: 'application/json',
+  });
+  await testInfo.attach(`torch-falloff-${testInfo.project.name}.png`, {
+    body: await page.locator('canvas').screenshot(),
+    contentType: 'image/png',
+  });
+}
+
+async function analyzeTorchFalloff(page: Page): Promise<TorchFalloffMetrics> {
+  const encodedScreenshot = (
+    await page.locator('canvas').screenshot()
+  ).toString('base64');
+  return page.evaluate(async (encoded) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${encoded}`;
+    await new Promise<void>((resolve, reject) => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener(
+        'error',
+        () => reject(new Error('decode failed')),
+        {
+          once: true,
+        },
+      );
+    });
+    const analysisCanvas = document.createElement('canvas');
+    analysisCanvas.width = image.naturalWidth;
+    analysisCanvas.height = image.naturalHeight;
+    const context = analysisCanvas.getContext('2d', {
+      willReadFrequently: true,
+    });
+    if (context === null) {
+      throw new Error('screenshot analysis requires a detached 2D canvas');
+    }
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(
+      0,
+      0,
+      analysisCanvas.width,
+      analysisCanvas.height,
+    ).data;
+    const tileColumns = 8;
+    const tileRows = 6;
+    const tiles: Array<{
+      column: number;
+      luminance: number;
+      redMinusBlue: number;
+      row: number;
+    }> = [];
+    for (let row = 0; row < tileRows; row += 1) {
+      for (let column = 0; column < tileColumns; column += 1) {
+        const startX = Math.floor(
+          (column * analysisCanvas.width) / tileColumns,
+        );
+        const endX = Math.floor(
+          ((column + 1) * analysisCanvas.width) / tileColumns,
+        );
+        const startY = Math.floor((row * analysisCanvas.height) / tileRows);
+        const endY = Math.floor(((row + 1) * analysisCanvas.height) / tileRows);
+        let luminance = 0;
+        let redMinusBlue = 0;
+        let samples = 0;
+        for (let y = startY; y < endY; y += 2) {
+          for (let x = startX; x < endX; x += 2) {
+            const offset = (y * analysisCanvas.width + x) * 4;
+            const red = pixels[offset] ?? 0;
+            const green = pixels[offset + 1] ?? 0;
+            const blue = pixels[offset + 2] ?? 0;
+            luminance += red * 0.2126 + green * 0.7152 + blue * 0.0722;
+            redMinusBlue += red - blue;
+            samples += 1;
+          }
+        }
+        tiles.push({
+          column,
+          luminance: luminance / samples,
+          redMinusBlue: redMinusBlue / samples,
+          row,
+        });
+      }
+    }
+    const brightest = tiles.reduce((current, tile) =>
+      tile.luminance > current.luminance ? tile : current,
+    );
+    const distantTiles = tiles.filter(
+      (tile) =>
+        Math.abs(tile.column - brightest.column) +
+          Math.abs(tile.row - brightest.row) >=
+        4,
+    );
+    return {
+      brightestTileLuminance: brightest.luminance,
+      brightestTileRedMinusBlue: brightest.redMinusBlue,
+      distantTileLuminance:
+        distantTiles.reduce((total, tile) => total + tile.luminance, 0) /
+        distantTiles.length,
+      height: analysisCanvas.height,
+      tileColumns,
+      tileRows,
+      width: analysisCanvas.width,
+    };
+  }, encodedScreenshot);
 }

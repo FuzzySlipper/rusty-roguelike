@@ -24,8 +24,12 @@ saves/reopens active combat, reaches victory, and reopens the terminal save. It
 also proves that the detailed minimap follows Rust discovery, remembered versus
 current visibility, enemy appearance, revision replacement, and classified
 failure nonmutation. The retained Engine surface loads the exact-hash torch GLB,
-renders only Rust-projected prefab torch/light pairs, and exposes corrupt asset
-bytes as a visible classified renderer failure. The mobile path repeats
+disables neutral world lighting through the public schema-1 policy, renders only
+Rust-projected prefab torch/light pairs, and exposes corrupt asset bytes as a
+visible classified renderer failure. Desktop and mobile Chromium assert the
+public lighting readout and retained-light count; a canvas-only asymmetric tile
+analysis proves a localized warm region falls off into materially darker remote
+geometry without reading private Three or WebGL state. The mobile path repeats
 preparation and lifecycle controls, keyboard input, a visible torch/light pair,
 responsive panel separation, the upper-right map/menu cluster, 44-pixel
 controls, and viewport containment.

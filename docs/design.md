@@ -224,9 +224,11 @@ and all prefab placements on its floor cells independently from minimap
 shadowcasting. A pure adapter maps those scene placements, relative cells, and
 shadowcast-visible actors into stable retained handles, one shared public static
 mesh with defined standard materials,
-public animated-mesh/light operations, and public picking metadata. Ambient plus
-directional level lights provide ordinary 3D readability while every projected
-torch mesh retains its paired authored warm point light. Opposition receipts do
+public animated-mesh/light operations, and public picking metadata. The public
+Engine lighting policy disables the neutral world rig while retaining neutral
+viewmodel illumination. World lighting therefore comes only from the paired
+warm point lights in Rust-projected prefab scene facts; neither the browser nor
+the adapter invents a second level-lighting policy. Opposition receipts do
 not synthesize camera-relative actor geometry; damage remains visible through
 party vitality and the rules log.
 Brief camera offsets are derived

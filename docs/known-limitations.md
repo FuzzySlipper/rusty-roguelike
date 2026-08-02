@@ -39,9 +39,11 @@ intentionally process-local; durable filesystem/profile selection belongs to a
 future native host rather than the browser presentation layer.
 
 Prefab scene sockets currently place a single optimized medieval-torch prop and
-paired warm point light in selected room shapes. Lighting is deliberately a
-fixed authored first pass: there is no generated light-density analysis,
-adaptive fill-light placement, emissive flame animation, or prop collision.
+paired warm point light in selected room shapes. The world-neutral Engine rig is
+disabled, so these Rust-projected lights are the only dungeon illumination and
+their visible falloff is covered in the real browser. Lighting remains a fixed
+authored first pass: there is no generated light-density analysis, adaptive
+fill-light placement, emissive flame animation, or prop collision.
 The torch donor is CC BY-NC-SA 4.0, so the bundled derivative is non-commercial
 and share-alike; its attribution and license ship beside the GLB.
 

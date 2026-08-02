@@ -267,16 +267,13 @@ describe('createDungeonFrame', () => {
     const frame = createDungeonFrame(sceneSession);
     expect(
       frame.frame.ops.filter((operation) => operation.op === 'createLight'),
-    ).toHaveLength(3);
-    expect(frame.frame.ops).toContainEqual(
-      expect.objectContaining({
-        op: 'createLight',
-        light: expect.objectContaining({
-          kind: 'directional',
-          direction: [-0.35, -1, -0.45],
-        }),
-      }),
-    );
+    ).toHaveLength(1);
+    expect(
+      frame.frame.ops.filter(
+        (operation) =>
+          operation.op === 'createLight' && operation.light.kind !== 'point',
+      ),
+    ).toEqual([]);
     expect(frame.frame.ops).toContainEqual(
       expect.objectContaining({
         op: 'defineAnimatedMesh',
