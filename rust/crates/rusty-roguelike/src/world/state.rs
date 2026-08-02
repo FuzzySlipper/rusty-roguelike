@@ -23,7 +23,7 @@ use super::navigation::FloorSpatial;
 use super::projection::project_world;
 use super::{
     EnemyParticipation, EnemyWorldComponent, Facing, PartyExplorationComponent, RelativeStep,
-    WorldCell, WorldStateError, WorldView, MAX_VIEW_DEPTH,
+    WorldCell, WorldStateError, WorldView,
 };
 
 pub const WORLD_DURABLE_SCHEMA_VERSION: u32 = 2;
@@ -510,6 +510,12 @@ impl WorldState {
         else {
             return Ok(false);
         };
+        if occupied.contains(&destination) {
+            return Err(error(
+                "world_enemy_step_overlap",
+                "opposition navigation selected an occupied actor cell",
+            ));
+        }
         let mut staged = self.entities.clone();
         replace(&mut staged, entity, enemy.with_position(destination))?;
         self.entities = staged;
@@ -902,12 +908,7 @@ fn initial_enemy_positions(
             "floor has too few distinct enemy placement cells",
         ));
     }
-    let first_beyond_view = candidates
-        .iter()
-        .position(|(distance, _)| *distance > MAX_VIEW_DEPTH as usize)
-        .filter(|index| candidates.len() - *index >= count)
-        .unwrap_or_default();
-    let available = candidates.len() - first_beyond_view;
+    let available = candidates.len();
     Ok((0..count)
         .map(|index| {
             let rank = if count == 1 {
@@ -915,7 +916,7 @@ fn initial_enemy_positions(
             } else {
                 index * (available - 1) / (count - 1)
             };
-            candidates[first_beyond_view + rank].1
+            candidates[rank].1
         })
         .collect())
 }

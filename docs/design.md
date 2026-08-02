@@ -60,13 +60,17 @@ Combat never changes to a modal tactical board. The first-person renderer,
 party status, action controls, and log remain one composition throughout
 exploration and initiative resolution.
 
-The bounded starter-floor objective is to find and defeat all five authored
+The bounded starter-floor objective is to find and defeat all fifteen authored
 dormant raiders, distributed deterministically across near, middle, and far
-reachable floor strata. Rust derives victory only from authoritative actor
-vitality across the exact compiled opposition roster; the browser's objective
-panel merely presents the current `SessionOutcome`. Terminal sessions accept no
-further gameplay commands, but their complete state can still be saved and
-reopened through the host lifecycle.
+reachable floor strata so contact begins early without collapsing the roster at
+the entry. Living enemies occupy distinct cells, treat the collapsed party cell
+and every other living actor as blocked, and stop on an available adjacent cell
+before attacking. An actor with no legal route consumes its activation without
+moving. Rust derives victory only from authoritative actor vitality across the
+exact compiled opposition roster; the browser's objective panel merely presents
+the current `SessionOutcome`. Terminal sessions accept no further gameplay
+commands, but their complete state can still be saved and reopened through the
+host lifecycle.
 
 ## Rules compilation
 

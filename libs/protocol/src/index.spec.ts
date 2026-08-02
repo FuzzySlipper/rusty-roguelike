@@ -193,6 +193,38 @@ describe('decodeWorldView', () => {
         visibleActors: [{ ...VISIBLE_ACTOR, lateral: 1 }],
       }),
     ).toThrow('projected floor fact');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_WITH_ACTOR,
+        visibleActors: [
+          VISIBLE_ACTOR,
+          { ...VISIBLE_ACTOR, actorId: 'enemy.second', entityId: 202 },
+        ],
+        minimap: {
+          ...WORLD_WITH_ACTOR.minimap,
+          visibleActors: [
+            MINIMAP_ACTOR,
+            { ...MINIMAP_ACTOR, actorId: 'enemy.second', entityId: 202 },
+          ],
+        },
+      }),
+    ).toThrow('overlapping visible actor');
+    expect(() =>
+      decodeWorldView({
+        ...WORLD_VIEW,
+        visibleActors: [{ ...VISIBLE_ACTOR, lateral: 0, depth: 0 }],
+        minimap: {
+          ...WORLD_VIEW.minimap,
+          visibleActors: [
+            {
+              ...MINIMAP_ACTOR,
+              x: WORLD_VIEW.minimap.party.x,
+              y: WORLD_VIEW.minimap.party.y,
+            },
+          ],
+        },
+      }),
+    ).toThrow('overlapping visible actor');
   });
 
   it('rejects leaked or malformed authored scene placements', () => {

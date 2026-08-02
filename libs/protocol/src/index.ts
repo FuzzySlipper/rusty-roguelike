@@ -205,8 +205,10 @@ export function decodeWorldView(value: unknown): WorldView {
     throw new Error('visible actors are not a bounded array');
   }
   const entityIds = new Set<number>();
+  const actorCells = new Set<string>();
   for (const actor of value['visibleActors']) {
     decodeVisibleActor(actor);
+    const actorCell = `${actor.lateral}:${actor.depth}`;
     if (
       !value['cells'].some(
         (cell) =>
@@ -220,7 +222,11 @@ export function decodeWorldView(value: unknown): WorldView {
     if (entityIds.has(actor.entityId)) {
       throw new Error('world view contains duplicate visible actors');
     }
+    if (actorCell === '0:0' || actorCells.has(actorCell)) {
+      throw new Error('world view contains an overlapping visible actor');
+    }
     entityIds.add(actor.entityId);
+    actorCells.add(actorCell);
   }
   decodeMinimap(value['minimap'], value as WorldView);
   return value as WorldView;
@@ -278,17 +284,24 @@ function decodeMinimap(value: unknown, world: WorldView): void {
     throw new Error('minimap visible actors do not match the world view');
   }
   const actors = new Map<number, MinimapActorView>();
+  const actorCells = new Set<string>();
   for (const actor of value['visibleActors']) {
     decodeMinimapActor(actor);
-    const cell = cells.get(String(actor.x) + ':' + String(actor.y));
+    const actorKey = String(actor.x) + ':' + String(actor.y);
+    const cell = cells.get(actorKey);
     if (
       cell?.terrain !== 'floor' ||
       !cell.visible ||
-      actors.has(actor.entityId)
+      actors.has(actor.entityId) ||
+      actorKey === partyKey ||
+      actorCells.has(actorKey)
     ) {
-      throw new Error('minimap actor does not occupy unique visible floor');
+      throw new Error(
+        'minimap actor does not occupy a unique non-party visible floor',
+      );
     }
     actors.set(actor.entityId, actor);
+    actorCells.add(actorKey);
   }
   for (const actor of world.visibleActors) {
     const absolute = absoluteCell(party, world.facing, actor);

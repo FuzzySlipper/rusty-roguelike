@@ -11,10 +11,20 @@ import {
 } from '@rusty-roguelike/protocol';
 
 const ENEMY_NAMES = [
+  'Ash Skirmisher',
   'Cinder Eye',
+  'Cinder Stalker',
+  'Clinker Knife',
+  'Coal Sentry',
   'Ember Watcher',
+  'Ember Seer',
+  'Flare Watcher',
+  'Furnace Lookout',
   'Goblin Scrapper',
+  'Ruin Scuttler',
   'Slag Cutpurse',
+  'Slag Runner',
+  'Soot Stalker',
   'Tunnel Runner',
 ] as const;
 
@@ -99,7 +109,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   ).toBeVisible();
   const objective = page.getByRole('status', { name: 'Floor objective' });
   await expect(objective).toContainText('Purge the ember den');
-  await expect(objective).toContainText('all five dormant raiders');
+  await expect(objective).toContainText('all fifteen dormant raiders');
   await expect(
     page.getByRole('region', { name: 'Available actions' }),
   ).toBeVisible();
@@ -121,6 +131,8 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   const initialVisibleCells = initialView.world.minimap.cells.filter(
     (cell) => cell.visible,
   ).length;
+  const initialVisibleEnemies = initialView.world.visibleActors.length;
+  expect(initialVisibleEnemies).toBe(1);
   await expect(
     page.locator('[data-renderer-backend="rusty-engine-three"]'),
   ).toHaveAttribute(
@@ -153,7 +165,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     'data-visible-cells',
     String(initialVisibleCells),
   );
-  await expect(minimap).toHaveAttribute('data-visible-enemies', '0');
+  await expect(minimap).toHaveAttribute(
+    'data-visible-enemies',
+    String(initialVisibleEnemies),
+  );
   await expect(minimap).toHaveAttribute(
     'aria-label',
     new RegExp(
@@ -257,19 +272,15 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     const firstEnemy = await followRouteToFirstEncounter(page, stage);
     await expect(stage).toHaveAttribute('data-visible-enemies', '1');
     const encounterView = await readSession(page);
-    expect(encounterView.world.minimap.cells.length).toBeGreaterThan(
+    expect(encounterView.world.minimap.cells.length).toBeGreaterThanOrEqual(
       initialDiscoveredCells,
     );
-    expect(
-      encounterView.world.minimap.cells.filter((cell) => cell.visible).length,
-    ).toBeLessThan(encounterView.world.minimap.cells.length);
     await expect(minimap).toHaveAttribute(
       'data-discovered-cells',
       String(encounterView.world.minimap.cells.length),
     );
     await expect(minimap).toHaveAttribute('data-visible-enemies', '1');
     await expect(minimap.locator('svg text.enemy')).toHaveCount(1);
-    await expect(minimap.locator('.cell.remembered')).not.toHaveCount(0);
     const initiative = page.getByRole('navigation', {
       name: 'Initiative order',
     });
@@ -279,6 +290,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     await issueAndWait(page, stage, 'Turn right');
     await expect(minimap).toHaveAttribute('data-visible-enemies', '0');
     await expect(minimap.locator('svg text.enemy')).toHaveCount(0);
+    await expect(minimap.locator('.cell.remembered')).not.toHaveCount(0);
     await reopenAndWait(page);
     await expect(stage).toHaveAttribute(
       'data-session-revision',

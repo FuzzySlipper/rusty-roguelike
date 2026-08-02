@@ -238,16 +238,12 @@ impl FloorSpatial {
                     "occupied navigation exceeded the Engine projection bound",
                 ));
             }
-            if cell == goal {
-                let mut cursor = goal;
+            if cell.x.abs_diff(goal.x) + cell.y.abs_diff(goal.y) == 1 {
+                let mut cursor = cell;
                 let mut prior = previous[&cursor];
                 while let Some(parent) = prior {
                     if parent == start {
-                        return if cursor == goal {
-                            Ok(None)
-                        } else {
-                            Ok(Some(cursor))
-                        };
+                        return Ok(Some(cursor));
                     }
                     cursor = parent;
                     prior = previous[&cursor];
@@ -260,7 +256,7 @@ impl FloorSpatial {
                     y: cell.y + dy,
                 };
                 if previous.contains_key(&next)
-                    || (next != goal && occupied.contains(&next))
+                    || occupied.contains(&next)
                     || !self.navigation.is_walkable(self.voxel(next))
                 {
                     continue;

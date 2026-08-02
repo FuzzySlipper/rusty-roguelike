@@ -53,7 +53,7 @@ fn opposition_is_distributed_across_engine_reachable_floor_strata() {
         let world = WorldState::new(floor.clone(), starter_ruleset().expect("starter rules"))
             .expect("world");
         let durable = world.durable_state().expect("durable world");
-        assert_eq!(durable.enemies.len(), 5);
+        assert_eq!(durable.enemies.len(), 15);
         let prohibited = floor
             .features
             .iter()
@@ -65,6 +65,13 @@ fn opposition_is_distributed_across_engine_reachable_floor_strata() {
                     .flat_map(|portal| portal.cells.iter().map(WorldCell::from)),
             )
             .collect::<BTreeSet<_>>();
+        let positions = durable
+            .enemies
+            .iter()
+            .map(|enemy| enemy.world.position())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(positions.len(), 15);
+        assert!(!positions.contains(&durable.party.position()));
         let mut distances = durable
             .enemies
             .iter()
@@ -77,14 +84,16 @@ fn opposition_is_distributed_across_engine_reachable_floor_strata() {
             })
             .collect::<Vec<_>>();
         distances.sort_unstable();
-        assert!(distances[0] > MAX_VIEW_DEPTH as usize);
-        assert!(distances[0] <= 12, "seed {seed} delayed first contact");
-        assert!(distances[4] > distances[0] + 12);
-        assert!(distances.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(
+            distances[0] <= MAX_VIEW_DEPTH as usize,
+            "seed {seed} delayed first contact"
+        );
+        assert!(distances[7] > distances[0] + 8);
+        assert!(distances[14] > distances[7] + 8);
         assert!(durable
             .enemies
             .iter()
-            .all(|enemy| enemy.world.participation() == EnemyParticipation::Dormant));
+            .any(|enemy| enemy.world.participation() == EnemyParticipation::Dormant));
     }
 }
 
@@ -463,6 +472,52 @@ fn opposition_navigation_routes_around_walls_and_an_occupied_preferred_step() {
         world.enemy_position(EntityId::new(202)).unwrap(),
         WorldCell { x: 2, y: 1 }
     );
+
+    for _ in 0..8 {
+        let _ = world.move_enemy_toward_party(EntityId::new(201)).unwrap();
+        let party = world.party_position().unwrap();
+        let mover = world.enemy_position(EntityId::new(201)).unwrap();
+        let blocker = world.enemy_position(EntityId::new(202)).unwrap();
+        assert_ne!(mover, party);
+        assert_ne!(mover, blocker);
+    }
+    assert_eq!(
+        world.enemy_position(EntityId::new(201)).unwrap(),
+        WorldCell { x: 3, y: 4 }
+    );
+    assert!(!world.move_enemy_toward_party(EntityId::new(201)).unwrap());
+}
+
+#[test]
+fn restore_rejects_party_and_living_enemy_overlap() {
+    let floor = movement_floor(false);
+    let seeded = WorldState::new(floor.clone(), two_enemy_rules()).unwrap();
+    let canonical = seeded.durable_state().unwrap();
+
+    let mut party_overlap = canonical.clone();
+    party_overlap.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        party_overlap.party.position(),
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    let error = WorldState::restore(floor.clone(), two_enemy_rules(), party_overlap)
+        .err()
+        .expect("enemy placement on the collapsed party must reject");
+    assert_eq!(error.code(), "world_enemy_position_invalid");
+
+    let mut enemy_overlap = canonical;
+    let occupied = enemy_overlap.enemies[0].world.position();
+    enemy_overlap.enemies[1].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        occupied,
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    let error = WorldState::restore(floor, two_enemy_rules(), enemy_overlap)
+        .err()
+        .expect("two living enemies cannot share a cell");
+    assert_eq!(error.code(), "world_enemy_position_invalid");
 }
 
 fn occlusion_floor() -> crate::GeneratedFloor {

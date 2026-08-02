@@ -11,7 +11,7 @@ use super::*;
 fn starter_catalog_compiles_with_one_activation_actions_and_exact_party() {
     let rules = starter_ruleset().expect("starter rules compile");
     assert_eq!(rules.party().members.len(), 3);
-    assert_eq!(rules.actors().len(), 8);
+    assert_eq!(rules.actors().len(), 18);
     assert!(rules
         .actions()
         .values()

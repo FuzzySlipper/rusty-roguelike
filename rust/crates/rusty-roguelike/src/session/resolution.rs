@@ -410,7 +410,8 @@ impl GameSession {
                     return None;
                 };
                 (action.target == ActionTargetCandidate::HostilePartySquare
-                    && distance.is_some_and(|distance| distance <= u32::from(range)))
+                    && distance
+                        .is_some_and(|distance| distance > 0 && distance <= u32::from(range)))
                 .then(|| (id.clone(), action.clone()))
             })
             .collect::<Vec<_>>();
