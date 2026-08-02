@@ -1173,6 +1173,9 @@ export class GameShellComponent implements OnInit, OnDestroy {
     }
     const key = event.key.toLowerCase();
     if (key === ' ' || key === 'spacebar') {
+      if (event.repeat) {
+        return;
+      }
       if (keyboardEventTargetsInteractive(event)) {
         return;
       }

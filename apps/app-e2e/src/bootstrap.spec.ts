@@ -129,6 +129,24 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   const waitButton = page.getByRole('button', { name: 'Wait (Space)' });
   await expect(waitButton).toBeEnabled();
   if (testInfo.project.name === 'desktop-chromium') {
+    await page.evaluate(() => {
+      globalThis.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: ' ',
+          code: 'Space',
+          repeat: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await expect(stage).toHaveAttribute(
+      'data-session-revision',
+      String(beforeWait.revision),
+    );
+    const afterRepeatedSpace = await readSession(page);
+    expect(afterRepeatedSpace.revision).toBe(beforeWait.revision);
+    expect(afterRepeatedSpace.log).toEqual(beforeWait.log);
     const partyTrigger = page.getByRole('button', { name: 'Party' });
     await partyTrigger.focus();
     await page.keyboard.press('Space');
