@@ -21,6 +21,110 @@ use super::{
 };
 
 impl GameSession {
+    pub(super) fn initialize_canonical_loadout(&mut self) -> Result<(), SessionError> {
+        if self.loadout_ready()? {
+            return Ok(());
+        }
+        let stash = self.world.stash_entity();
+        let inventory =
+            InventoryService::view(self.world.entities(), self.world.rules().mechanics(), stash)
+                .map_err(mechanics_error)?;
+        let mut available = BTreeMap::new();
+        for item in inventory.unique_items() {
+            let component = self
+                .world
+                .entities()
+                .component::<ItemComponent>(item.entity)
+                .map_err(|detail| error("session_item_read", detail.to_string()))?
+                .ok_or_else(|| {
+                    error(
+                        "session_initial_loadout_item_missing",
+                        format!("stash item {} has no item component", item.entity),
+                    )
+                })?;
+            available
+                .entry(component.definition().clone())
+                .or_insert_with(Vec::new)
+                .push(item.entity);
+        }
+        let mut assignments = Vec::new();
+
+        for actor_id in &self.world.rules().party().members {
+            let actor = &self.world.rules().actors()[actor_id];
+            let owner = EntityId::new(actor.entity_id);
+            for definition_id in &actor.items {
+                let expected = item_definition_id(definition_id);
+                let item = available
+                    .get_mut(&expected)
+                    .and_then(|items| (!items.is_empty()).then(|| items.remove(0)))
+                    .ok_or_else(|| {
+                        error(
+                            "session_initial_loadout_item_missing",
+                            format!("party item {definition_id} is absent from the shared stash"),
+                        )
+                    })?;
+                let slot = self.world.rules().items()[definition_id]
+                    .slot
+                    .map(equipment_slot_id)
+                    .ok_or_else(|| {
+                        error(
+                            "session_initial_loadout_slot_missing",
+                            format!("party item {definition_id} has no equipment slot"),
+                        )
+                    })?;
+                assignments.push((item, owner, slot));
+            }
+        }
+
+        let catalog = self.world.rules().mechanics().clone();
+        for (index, (item, owner, slot)) in assignments.into_iter().enumerate() {
+            let transfer_operation = operation(&format!("initial-loadout-{index}-transfer"))?;
+            let transfer_source = request_source(&transfer_operation, "initial-loadout-transfer")?;
+            let expected_relationship_revision = self.world.entities().revision();
+            EquipmentService::transfer_unique_item(
+                self.world.entities_mut(),
+                &catalog,
+                ItemTransferRequest {
+                    operation: transfer_operation,
+                    source: transfer_source,
+                    item,
+                    from_owner: stash,
+                    to_owner: owner,
+                    expected_relationship_revision,
+                    expected_from_inventory_revision: None,
+                    expected_to_inventory_revision: None,
+                },
+            )
+            .map_err(mechanics_error)?;
+
+            let equip_operation = operation(&format!("initial-loadout-{index}-equip"))?;
+            let equip_source = request_source(&equip_operation, "initial-loadout-equip")?;
+            let expected_state_revision = self.world.entities().revision();
+            EquipmentService::equip(
+                self.world.entities_mut(),
+                &catalog,
+                EquipmentEquipRequest {
+                    operation: equip_operation,
+                    source: equip_source,
+                    owner,
+                    item,
+                    slots: vec![slot],
+                    expected_equipment_revision: None,
+                    expected_state_revision,
+                },
+            )
+            .map_err(mechanics_error)?;
+        }
+
+        if !self.loadout_ready()? {
+            return Err(error(
+                "session_initial_loadout_incomplete",
+                "canonical party equipment did not produce a ready preparation state",
+            ));
+        }
+        Ok(())
+    }
+
     pub(super) fn preparation_view(&self) -> Result<Option<PreparationView>, SessionError> {
         if self.phase != SessionPhase::Preparation {
             return Ok(None);

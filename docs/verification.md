@@ -39,4 +39,6 @@ NX_SKIP_NX_CACHE=true E2E_PORT=4429 ./scripts/verify.sh
 ```
 
 The browser report under `dist/.playwright/` contains the named preparation and
-expedition screenshots for both viewport projects.
+expedition screenshots for both viewport projects. Preparation begins with the
+canonical party loadout equipped and ready; the scenario unequips and restores
+Scale Mail through the click/drag alternatives before starting immediately.

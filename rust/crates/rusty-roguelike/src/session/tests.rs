@@ -32,15 +32,23 @@ fn view_projects_party_status_inventory_and_the_exact_current_decision() {
             .stash
             .capacity
             .used,
-        7
+        0
     );
+    assert!(preparation.preparation.as_ref().unwrap().ready);
     assert!(preparation.party.iter().all(|member| {
         member.level == 1
             && member.class_level == 1
             && !member.abilities.is_empty()
             && !member.defenses.is_empty()
             && !member.feats.is_empty()
-            && member.loadout.capacity.used == 0
+            && member.loadout.capacity.used > 0
+            && member
+                .loadout
+                .equipment_slots
+                .iter()
+                .filter(|slot| slot.equipped.is_some())
+                .count()
+                == usize::try_from(member.loadout.capacity.used).unwrap()
     }));
     let mut session = session;
     complete_preparation(&mut session);
@@ -298,12 +306,21 @@ fn complete_save_reopens_a_terminal_expedition() {
 
 #[test]
 fn preparation_loadout_is_engine_backed_typed_and_atomic() {
-    let mut session =
-        GameSession::new(WorldState::new(open_arena(), starter_ruleset().unwrap()).unwrap())
-            .unwrap();
+    let mut session = GameSession::new(
+        WorldState::new(
+            generate_authored_floor(SEED).unwrap(),
+            starter_ruleset().unwrap(),
+        )
+        .unwrap(),
+    )
+    .unwrap();
     let initial = session.view().unwrap();
     let stash = &initial.preparation.as_ref().unwrap().stash;
-    let armor = stash
+    assert_eq!(stash.capacity.used, 0);
+    assert!(initial.preparation.as_ref().unwrap().ready);
+    let owner = initial.party[0].entity_id;
+    let armor = initial.party[0]
+        .loadout
         .inventory_slots
         .iter()
         .flatten()
@@ -321,8 +338,8 @@ fn preparation_loadout_is_engine_backed_typed_and_atomic() {
         .command(SessionCommand::MoveLoadoutItem {
             expected_revision: initial.revision,
             item_entity_id: armor.entity_id,
-            from_owner_entity_id: stash.owner_entity_id,
-            to_owner_entity_id: 101,
+            from_owner_entity_id: owner,
+            to_owner_entity_id: owner,
             destination_slot_id: Some("focus".to_owned()),
         })
         .expect_err("armor cannot occupy a focus slot");
@@ -333,12 +350,13 @@ fn preparation_loadout_is_engine_backed_typed_and_atomic() {
         .command(SessionCommand::MoveLoadoutItem {
             expected_revision: initial.revision,
             item_entity_id: armor.entity_id,
-            from_owner_entity_id: stash.owner_entity_id,
-            to_owner_entity_id: 101,
-            destination_slot_id: armor.equipment_slot_id.clone(),
+            from_owner_entity_id: owner,
+            to_owner_entity_id: stash.owner_entity_id,
+            destination_slot_id: None,
         })
         .unwrap();
-    assert_eq!(moved.preparation.as_ref().unwrap().stash.capacity.used, 6);
+    assert_eq!(moved.preparation.as_ref().unwrap().stash.capacity.used, 1);
+    assert!(!moved.preparation.as_ref().unwrap().ready);
     assert_eq!(
         moved.party[0]
             .defenses
@@ -346,22 +364,27 @@ fn preparation_loadout_is_engine_backed_typed_and_atomic() {
             .find(|defense| defense.defense_id.as_str() == "armor")
             .unwrap()
             .value,
-        before_armor + 2
+        before_armor - 2
     );
     assert!(moved.party[0]
         .loadout
         .equipment_slots
         .iter()
-        .any(|slot| slot.slot_id == "body" && slot.equipped.is_some()));
+        .any(|slot| slot.slot_id == "body" && slot.equipped.is_none()));
+
+    let customized = session.encode_save().unwrap();
+    let reopened = GameSession::decode_save(&customized).unwrap();
+    assert_eq!(reopened.view().unwrap(), moved);
+    assert_eq!(reopened.encode_save().unwrap(), customized);
 
     let stable = session.view().unwrap();
     let stale = session
         .command(SessionCommand::MoveLoadoutItem {
             expected_revision: initial.revision,
             item_entity_id: armor.entity_id,
-            from_owner_entity_id: 101,
-            to_owner_entity_id: 101,
-            destination_slot_id: None,
+            from_owner_entity_id: stash.owner_entity_id,
+            to_owner_entity_id: owner,
+            destination_slot_id: armor.equipment_slot_id.clone(),
         })
         .expect_err("stale loadout commands reject before mutation");
     assert_eq!(stale.code(), "session_revision_stale");
@@ -374,6 +397,30 @@ fn preparation_loadout_is_engine_backed_typed_and_atomic() {
         .expect_err("the shared stash must be equipped first");
     assert_eq!(incomplete.code(), "session_preparation_incomplete");
     assert_eq!(session.view().unwrap(), stable);
+
+    let restored = session
+        .command(SessionCommand::MoveLoadoutItem {
+            expected_revision: stable.revision,
+            item_entity_id: armor.entity_id,
+            from_owner_entity_id: stash.owner_entity_id,
+            to_owner_entity_id: owner,
+            destination_slot_id: armor.equipment_slot_id,
+        })
+        .unwrap();
+    assert!(restored.preparation.as_ref().unwrap().ready);
+    assert_eq!(
+        restored.preparation.as_ref().unwrap().stash.capacity.used,
+        0
+    );
+    assert_eq!(
+        restored.party[0]
+            .defenses
+            .iter()
+            .find(|defense| defense.defense_id.as_str() == "armor")
+            .unwrap()
+            .value,
+        before_armor
+    );
 }
 
 #[test]
@@ -943,30 +990,6 @@ fn prepared_session(world: WorldState) -> GameSession {
 }
 
 fn complete_preparation(session: &mut GameSession) {
-    let initial = session.view().unwrap();
-    let stash = initial.preparation.unwrap().stash;
-    for item in stash.inventory_slots.into_iter().flatten() {
-        let owner = session
-            .world
-            .rules()
-            .party()
-            .members
-            .iter()
-            .map(|actor_id| &session.world.rules().actors()[actor_id])
-            .find(|actor| actor.items.contains(&item.item_id))
-            .unwrap()
-            .entity_id;
-        let view = session.view().unwrap();
-        session
-            .command(SessionCommand::MoveLoadoutItem {
-                expected_revision: view.revision,
-                item_entity_id: item.entity_id,
-                from_owner_entity_id: stash.owner_entity_id,
-                to_owner_entity_id: owner,
-                destination_slot_id: item.equipment_slot_id,
-            })
-            .unwrap();
-    }
     let view = session.view().unwrap();
     assert!(view.preparation.as_ref().unwrap().ready);
     session

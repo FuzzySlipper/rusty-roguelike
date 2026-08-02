@@ -54,6 +54,7 @@ impl GameSession {
             next_log_id: 1,
             target_cursors: BTreeMap::new(),
         };
+        session.initialize_canonical_loadout()?;
         session.rebuild_order()?;
         session.refresh_outcome()?;
         Ok(session)

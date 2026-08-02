@@ -70,14 +70,18 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await expect(
     page.getByRole('navigation', { name: 'Initiative order' }),
   ).toBeHidden();
-  await equipParty(page, stage, testInfo.project.name === 'desktop-chromium');
+  await verifyReadyParty(
+    page,
+    stage,
+    testInfo.project.name === 'desktop-chromium',
+  );
   await expect(
     page.getByRole('button', { name: 'Begin expedition' }),
   ).toBeEnabled();
   await saveAndWait(page);
   await issueAndWait(page, stage, 'Begin expedition');
   await reopenAndWait(page);
-  await expect(stage).toHaveAttribute('data-session-revision', '7');
+  await expect(stage).toHaveAttribute('data-session-revision', '2');
   await expect(
     page.getByRole('heading', { name: 'Prepare the expedition' }),
   ).toBeVisible();
@@ -86,7 +90,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     contentType: 'image/png',
   });
   await issueAndWait(page, stage, 'Begin expedition');
-  await expect(stage).toHaveAttribute('data-session-revision', '8');
+  await expect(stage).toHaveAttribute('data-session-revision', '3');
+  const expeditionRevision = Number(
+    await stage.getAttribute('data-session-revision'),
+  );
   await expect(
     page.getByRole('navigation', { name: 'Initiative order' }),
   ).toBeVisible();
@@ -134,7 +141,10 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
       ).length,
     ),
   );
-  await expect(minimap).toHaveAttribute('data-minimap-revision', '8');
+  await expect(minimap).toHaveAttribute(
+    'data-minimap-revision',
+    String(expeditionRevision),
+  );
   await expect(minimap).toHaveAttribute(
     'data-discovered-cells',
     String(initialDiscoveredCells),
@@ -183,18 +193,33 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     consoleErrors.findIndex((message) => message.includes('status of 409')),
     1,
   );
-  await expect(stage).toHaveAttribute('data-session-revision', '8');
-  await expect(minimap).toHaveAttribute('data-minimap-revision', '8');
+  await expect(stage).toHaveAttribute(
+    'data-session-revision',
+    String(expeditionRevision),
+  );
+  await expect(minimap).toHaveAttribute(
+    'data-minimap-revision',
+    String(expeditionRevision),
+  );
   await expect(minimap).toHaveAttribute(
     'data-discovered-cells',
     String(initialDiscoveredCells),
   );
   await saveAndWait(page);
   await issueAndWait(page, stage, 'Step right');
-  await expect(minimap).toHaveAttribute('data-minimap-revision', '9');
+  await expect(minimap).toHaveAttribute(
+    'data-minimap-revision',
+    String(expeditionRevision + 1),
+  );
   await reopenAndWait(page);
-  await expect(stage).toHaveAttribute('data-session-revision', '8');
-  await expect(minimap).toHaveAttribute('data-minimap-revision', '8');
+  await expect(stage).toHaveAttribute(
+    'data-session-revision',
+    String(expeditionRevision),
+  );
+  await expect(minimap).toHaveAttribute(
+    'data-minimap-revision',
+    String(expeditionRevision),
+  );
   await expect(minimap).toHaveAttribute(
     'data-discovered-cells',
     String(initialDiscoveredCells),
@@ -345,8 +370,14 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
       String(terminalRevision),
     );
   } else {
+    const beforeTurn = Number(
+      await stage.getAttribute('data-session-revision'),
+    );
     await page.keyboard.press('e');
-    await expect(stage).toHaveAttribute('data-session-revision', '9');
+    await expect(stage).toHaveAttribute(
+      'data-session-revision',
+      String(beforeTurn + 1),
+    );
     await expect(
       page.locator('[data-renderer-backend="rusty-engine-three"]'),
     ).toHaveAttribute('data-visible-torches', '1');
@@ -417,7 +448,7 @@ const LOADOUT = [
   { member: 'Mira', item: 'Traveling Robes', slot: 'Body' },
 ] as const;
 
-async function equipParty(
+async function verifyReadyParty(
   page: Page,
   stage: Locator,
   dragAndDrop: boolean,
@@ -432,30 +463,55 @@ async function equipParty(
     const member = page.getByRole('region', {
       name: `${assignment.member} loadout`,
     });
-    const item = stash.getByRole('button', {
-      name: new RegExp(`^${assignment.item}`, 'u'),
-    });
-    const destination = member.getByRole('button', {
-      name: `${assignment.slot}: empty`,
-    });
-    const revision = Number(await stage.getAttribute('data-session-revision'));
-    if (dragAndDrop) {
-      await item.dragTo(destination);
-    } else {
-      await item.click();
-      await expect(item).toHaveAttribute('aria-pressed', 'true');
-      await destination.click();
-    }
-    await expect(stage).toHaveAttribute(
-      'data-session-revision',
-      String(revision + 1),
-    );
     await expect(
       member.getByRole('button', {
         name: `${assignment.slot}: ${assignment.item}`,
       }),
     ).toBeVisible();
   }
+  await expect(stash).toContainText('0 / 32');
+  await expect(
+    page.getByRole('button', { name: 'Begin expedition' }),
+  ).toBeEnabled();
+
+  await page.getByRole('button', { name: new RegExp('^Brann ·', 'u') }).click();
+  const brann = page.getByRole('region', { name: 'Brann loadout' });
+  const armor = brann.getByRole('button', { name: /^Scale Mail/u });
+  await armor.click();
+  const moveToStash = stash.getByRole('button', {
+    name: 'Move selected to pack',
+  });
+  const unequipRevision = Number(
+    await stage.getAttribute('data-session-revision'),
+  );
+  await moveToStash.click();
+  await expect(stage).toHaveAttribute(
+    'data-session-revision',
+    String(unequipRevision + 1),
+  );
+  await expect(
+    page.getByRole('button', { name: 'Begin expedition' }),
+  ).toBeDisabled();
+
+  const stashedArmor = stash.getByRole('button', { name: /^Scale Mail/u });
+  const body = brann.getByRole('button', { name: 'Body: empty' });
+  const equipRevision = Number(
+    await stage.getAttribute('data-session-revision'),
+  );
+  if (dragAndDrop) {
+    await stashedArmor.dragTo(body);
+  } else {
+    await stashedArmor.click();
+    await expect(stashedArmor).toHaveAttribute('aria-pressed', 'true');
+    await body.click();
+  }
+  await expect(stage).toHaveAttribute(
+    'data-session-revision',
+    String(equipRevision + 1),
+  );
+  await expect(
+    brann.getByRole('button', { name: 'Body: Scale Mail' }),
+  ).toBeVisible();
   await expect(stash).toContainText('0 / 32');
 }
 

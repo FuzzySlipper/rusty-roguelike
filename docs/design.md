@@ -27,13 +27,16 @@ gameplay legality or maintain a second live session.
 ## Preparation and party inventory
 
 A session begins in an explicit preparation phase before initiative is live.
-Rust creates every authored item as a unique registered Engine entity in the
-shared expedition stash. Party members and the stash expose Engine inventory
-capacity; party members additionally expose the Roguelike-authored body,
-weapon, and focus slots through Engine equipment state. Revision-bound loadout
-commands use the named inventory and equipment services on a cloned world, so a
-stale owner, incompatible slot, full destination, or service failure cannot
-partially publish state.
+Rust creates every authored item as a unique registered Engine entity, then a
+fresh `GameSession` atomically transfers and equips the authored party loadout
+through the named inventory and equipment services. The first published view
+therefore has an empty shared expedition stash and is ready to begin without
+browser-issued setup commands. Party members and the stash expose Engine
+inventory capacity; party members additionally expose the Roguelike-authored
+body, weapon, and focus slots through Engine equipment state. Revision-bound
+loadout commands still use those named services on a cloned world, so players
+may customize before beginning and a stale owner, incompatible slot, full
+destination, or service failure cannot partially publish state.
 
 The expedition becomes ready only when the shared stash is empty and every
 party item is equipped. Beginning the expedition is a separate authoritative
