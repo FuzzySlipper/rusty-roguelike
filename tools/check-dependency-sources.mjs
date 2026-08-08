@@ -51,7 +51,9 @@ export function validateDependencySources({
     throw new Error('rustyEngine must follow rolling branch main');
   }
   if (sources.rustyEngineLegacyRenderer.removalTask !== 6700) {
-    throw new Error('legacy Engine renderer packages must remain bound to removal task 6700');
+    throw new Error(
+      'legacy Engine renderer packages must remain bound to removal task 6700',
+    );
   }
 
   const packageSections = splitPnpmLock(pnpmLock);
@@ -61,7 +63,9 @@ export function validateDependencySources({
     const expectedSpecifier = `github:FuzzySlipper/rusty-engine#${revision}&path:${packagePath}`;
     const lockedBase = `https://codeload.github.com/FuzzySlipper/rusty-engine/tar.gz/${revision}#path:${packagePath}`;
     if (packageJson.dependencies?.[dependency] !== expectedSpecifier) {
-      throw new Error(`${dependency} is not bound to the declared legacy renderer revision`);
+      throw new Error(
+        `${dependency} is not bound to the declared legacy renderer revision`,
+      );
     }
     requireCount(
       packageSections.importer,
@@ -106,7 +110,9 @@ export function validateDependencySources({
   );
   for (const crate of ENGINE_RUST_CRATES) {
     if (new RegExp(`^${crate}\\s*=`, 'mu').test(cargoManifest)) {
-      throw new Error(`${crate} must be reached through the rusty-engine facade`);
+      throw new Error(
+        `${crate} must be reached through the rusty-engine facade`,
+      );
     }
   }
   const engineSource = `git+${sources.rustyEngine.repository}?branch=main#${sources.rustyEngine.commit}`;
@@ -160,7 +166,9 @@ function splitPnpmLock(lock) {
     packages === undefined ||
     snapshots === undefined
   ) {
-    throw new Error('pnpm lock is missing importer, package, or snapshot sections');
+    throw new Error(
+      'pnpm lock is missing importer, package, or snapshot sections',
+    );
   }
   return { importer, packages, snapshots };
 }
