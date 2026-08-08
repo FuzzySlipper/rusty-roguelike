@@ -1,4 +1,4 @@
-use gameplay_rules::{
+use rusty_engine::gameplay_rules::{
     admit_rule_package, AdmittedRulePackage, RuleDomainId, RulePackageCandidate,
     RulePackageDependency, RulePackageError, RulePackageId, RuleProvenance, RuleSource,
     RuleVersion,

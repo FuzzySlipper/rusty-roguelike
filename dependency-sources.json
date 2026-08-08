@@ -2,7 +2,13 @@
   "schemaVersion": 1,
   "rustyEngine": {
     "repository": "https://github.com/FuzzySlipper/rusty-engine",
-    "commit": "04970a44ef2e87a3453f086469deff64f5ae56f4"
+    "branch": "main",
+    "commit": "d0b5e672b83d463bff71d8d35c877f770142ff3c"
+  },
+  "rustyEngineLegacyRenderer": {
+    "repository": "https://github.com/FuzzySlipper/rusty-engine",
+    "commit": "04970a44ef2e87a3453f086469deff64f5ae56f4",
+    "removalTask": 6700
   },
   "rustyProcgen": {
     "repository": "https://github.com/FuzzySlipper/rusty-procgen",

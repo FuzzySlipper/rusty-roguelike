@@ -16,16 +16,12 @@ test('accepts every canonical exact dependency identity', () => {
   assert.doesNotThrow(() => validateDependencySources(inputs));
 });
 
-test('rejects removal of one Engine package record', () => {
-  const dependency = '@rusty-engine/renderer-host';
-  const lockedBase = `https://codeload.github.com/FuzzySlipper/rusty-engine/tar.gz/${inputs.sources.rustyEngine.commit}#path:render/packages/renderer-host`;
-  const mutatedLock = removeYamlRecord(
-    inputs.pnpmLock,
-    `  '${dependency}@${lockedBase}':\n`,
-  );
+test('rejects removal of one declared legacy Engine renderer package', () => {
+  const packageJson = structuredClone(inputs.packageJson);
+  delete packageJson.dependencies['@rusty-engine/renderer-host'];
   assert.throws(
-    () => validateDependencySources({ ...inputs, pnpmLock: mutatedLock }),
-    /renderer-host locked package record expected 1, observed 0/,
+    () => validateDependencySources({ ...inputs, packageJson }),
+    /renderer-host is not bound to the declared legacy renderer revision/,
   );
 });
 
@@ -40,21 +36,20 @@ test('rejects removal of the Procgen package record', () => {
   );
 });
 
-test('rejects removal of one Engine Rust crate package record', () => {
-  const mutatedLock = inputs.cargoLock.replace(
-    /\[\[package\]\]\nname = "gameplay-rules"[\s\S]*?(?=\n\[\[package\]\])/,
-    '',
-  );
+test('rejects removal of the Engine facade package record', () => {
+  const facadeRecord =
+    /\[\[package\]\]\nname = "rusty-engine"[\s\S]*?(?=\n\[\[package\]\])/;
+  const mutatedLock = inputs.cargoLock.replace(facadeRecord, '');
   assert.throws(
     () => validateDependencySources({ ...inputs, cargoLock: mutatedLock }),
-    /gameplay-rules locked package record expected 1, observed 0/,
+    /rusty-engine locked package record expected 1, observed 0/,
   );
 });
 
-function removeYamlRecord(content, header) {
-  const start = content.indexOf(header);
-  assert.notEqual(start, -1, `missing fixture record ${header}`);
-  const next = content.indexOf("\n  '", start + header.length);
-  assert.notEqual(next, -1, `fixture record ${header} has no successor`);
-  return `${content.slice(0, start)}${content.slice(next + 1)}`;
-}
+test('rejects a selective direct Engine crate', () => {
+  const cargoManifest = `${inputs.cargoManifest}\ncore-ids = { git = "${inputs.sources.rustyEngine.repository}", branch = "main" }\n`;
+  assert.throws(
+    () => validateDependencySources({ ...inputs, cargoManifest }),
+    /core-ids must be reached through the rusty-engine facade/,
+  );
+});

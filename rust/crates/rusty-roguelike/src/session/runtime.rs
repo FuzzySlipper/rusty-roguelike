@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use core_ids::EntityId;
-use gameplay_mechanics::TracksComponent;
+use rusty_engine::core_ids::EntityId;
+use rusty_engine::gameplay_mechanics::TracksComponent;
 
 use crate::{vitality_track_id, ActorDefinition, ActorSideCandidate, RoguelikeId, WorldState};
 

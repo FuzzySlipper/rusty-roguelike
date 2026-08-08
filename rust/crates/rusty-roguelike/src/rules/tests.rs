@@ -1,9 +1,10 @@
-use core_ids::EntityId;
-use entity_state::{EntityAuthoringService, EntityDefinition, EntityState};
-use gameplay_mechanics::{
+use rusty_engine::core_ids::EntityId;
+use rusty_engine::entity_state::{self, EntityAuthoringService, EntityDefinition, EntityState};
+use rusty_engine::gameplay_mechanics::{
     CatalogVersion, IntrinsicSourceBinding, IntrinsicSourcesComponent, MechanicsScalar,
     OperationId, SourceInstanceId, StatService, StatValue, StatsComponent,
 };
+use rusty_engine::gameplay_rules;
 
 use super::*;
 

@@ -11,7 +11,7 @@ The durable direction is:
 authored game policy + explicit generation seed
   -> public Rusty Procgen in-memory generation
   -> Rust admission of generated floor and content
-  -> registered state plus named Rusty Engine services
+  -> registered state plus named services through the complete Rusty Engine facade
   -> Rust collapsed-party session and initiative runtime
   -> Rust-generated strict protocol
   -> browser store, renderer, features, and presentation
@@ -182,9 +182,11 @@ hidden-actor facts rather than becoming another visibility authority.
 
 ## Upstream ownership
 
-`dependency-sources.json` is the canonical source selection. Rusty Engine is
-pinned for the retained renderer process, registered entity state, rules-package
-admission, and named gameplay mechanics. Rusty
+`dependency-sources.json` is the canonical source selection. Rusty Engine's
+complete Rust facade follows rolling `main`; `Cargo.lock` records the exact
+resolved revision used for registered entity state, rules-package admission,
+named gameplay mechanics, renderer-neutral frames, and the Engine-owned Wry
+renderer adapter. Rusty
 Procgen is pinned for `rusty_procgen_preflight::core::ProcgenCore`; the consumer
 never shells out to its CLI or copies its algorithms. A missing reusable
 generation capability must be demonstrated by this consumer and fixed
@@ -222,7 +224,10 @@ The browser strictly decodes that view, keeps classified transport failures
 visible, and submits only projected choices; it does not recreate inventory,
 equipment, movement, targeting, initiative, or rules policy.
 
-One permanent public Engine `RendererSurface` owns the full window. World view
+During task 6700, the Rust-owned `create_dungeon_frame` projection is the
+successor to the legacy browser adapter. Until the native product composition
+is wired and proven, one permanent public Engine `RendererSurface` still owns
+the browser window through the explicitly recorded legacy package pin. World view
 schema 5 projects bounded local scene topology, explicit locked-door barriers,
 and all prefab placements on its floor cells independently from minimap
 shadowcasting. A pure adapter maps those scene placements, relative cells, and

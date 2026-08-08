@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use gameplay_mechanics::{
+use rusty_engine::gameplay_mechanics::{
     CapacityMetricDefinition, CapacityMetricId, CatalogError, CatalogVersion, DamageKindDefinition,
     DamageKindId, EquipmentSlotDefinition, EquipmentSlotId, ItemCapacityCost, ItemClassificationId,
     ItemDefinition as MechanicsItemDefinition, ItemDefinitionId, ItemEquipmentPolicy, ItemKind,

@@ -1,11 +1,11 @@
 use std::collections::BTreeSet;
 
-use core_ids::EntityId;
-use entity_state::{
+use rusty_engine::core_ids::EntityId;
+use rusty_engine::entity_state::{
     EntityAuthoringService, EntityComponent, EntityDefinition, EntityState, EntityStateSnapshot,
 };
-use gameplay_mechanics::{
-    validate_state_against_catalog, ActiveEffectsComponent, EquipmentComponent,
+use rusty_engine::gameplay_mechanics::{
+    self, validate_state_against_catalog, ActiveEffectsComponent, EquipmentComponent,
     IntrinsicSourceBinding, IntrinsicSourcesComponent, InventoryCapacityLimit, InventoryComponent,
     ItemComponent, MechanicsScalar, SourceInstanceId, StatValue, StatsComponent, TrackValue,
     TracksComponent,

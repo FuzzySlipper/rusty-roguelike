@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use gameplay_mechanics::CatalogError;
-use gameplay_rules::{
+use rusty_engine::gameplay_mechanics::CatalogError;
+use rusty_engine::gameplay_rules::{
     resolve_rule_packages, AdmittedRulePackage, RulePackageError, RulePackageSetError,
     RuleSubjectId, MAX_SAFE_JSON_INTEGER,
 };

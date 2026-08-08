@@ -3,16 +3,19 @@
 ## Runtime dependencies
 
 - Rusty Engine: `https://github.com/FuzzySlipper/rusty-engine` at
-  `04970a44ef2e87a3453f086469deff64f5ae56f4`. The product consumes its public
-  retained renderer packages plus exact `core-ids`, `entity-state`,
-  `gameplay-rules`, `gameplay-mechanics`, `core-space`, `core-voxel`,
-  `svc-volume`, `svc-spatial`, `svc-pathfinding`, `svc-collision`, and `svc-rng`
-  Rust crates directly. Those services own the floor's voxel, navigation,
-  movement, visibility, and deterministic random mechanisms; the game retains
-  Roguelike policy, action resolution, and state. The same exact Engine
-  revision supplies the renderer-neutral bounded view-composition contract;
-  the product uses it only to GPU-present another camera over the already
-  admitted retained local scene.
+  rolling `main`, resolved in `Cargo.lock` to
+  `d0b5e672b83d463bff71d8d35c877f770142ff3c`. The product declares only the
+  complete `rusty-engine` Rust facade and reaches every Engine owner through
+  its preserved `rusty_engine::<owner>` namespace. Those services own the
+  floor's voxel, navigation, movement, visibility, deterministic random, and
+  renderer-host mechanisms; the game retains Roguelike policy, action
+  resolution, state, frame projection, shell, and presentation meaning.
+- Active migration task 6700 still retains the old public renderer package
+  graph at Engine revision `04970a44ef2e87a3453f086469deff64f5ae56f4`
+  while the native Wry product composition replaces it. That legacy identity
+  is recorded separately as `rustyEngineLegacyRenderer` and is not the Rust
+  Engine dependency. It must be deleted, together with the browser renderer
+  adapter, before task 6700 can close.
 - Rusty Procgen: `https://github.com/FuzzySlipper/rusty-procgen` at
   `722e2c479bdf88ab39b66d2d33ab466b698ec7df`. Rust links the public
   filesystem-free `rusty_procgen_preflight::core::ProcgenCore` facade and
@@ -66,7 +69,7 @@ Donor evidence never overrides this repository's design.
 
 ## Presentation asset
 
-Engine revision `04970a44ef2e87a3453f086469deff64f5ae56f4` supplies the
+Legacy renderer revision `04970a44ef2e87a3453f086469deff64f5ae56f4` supplies the
 schema-1 renderer lighting policy used to disable neutral world illumination
 while retaining a neutral viewmodel rig, plus the schema-1 bounded
 multi-camera/offscreen-target contract used by the retained local-overview

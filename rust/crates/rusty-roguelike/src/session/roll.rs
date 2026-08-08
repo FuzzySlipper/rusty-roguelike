@@ -1,4 +1,4 @@
-use svc_rng::{RngSeed, ScopedRng};
+use rusty_engine::svc_rng::{RngSeed, ScopedRng};
 
 use crate::{RollPolicyCandidate, RollPolicyKindCandidate, StaticRollCandidate};
 

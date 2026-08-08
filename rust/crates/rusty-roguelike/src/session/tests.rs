@@ -1,8 +1,9 @@
-use core_ids::EntityId;
-use gameplay_mechanics::{
-    MechanicsScalar, OperationId, SourceInstanceId, SourceInstanceIdentity, TrackService,
+use rusty_engine::core_ids::EntityId;
+use rusty_engine::gameplay_mechanics::{
+    self, MechanicsScalar, OperationId, SourceInstanceId, SourceInstanceIdentity, TrackService,
     TrackSetPolicy, TrackSetRequest,
 };
+use rusty_engine::gameplay_rules;
 
 use crate::{
     admit_roguelike_candidate, generate_authored_floor, starter_candidate, starter_ruleset,

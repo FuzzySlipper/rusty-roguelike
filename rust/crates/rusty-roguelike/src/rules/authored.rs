@@ -1,5 +1,5 @@
-use gameplay_rules::{
-    RuleDomainId, RulePackageId, RuleProvenance, RuleSource, RuleSourceId, RuleSubjectId,
+use rusty_engine::gameplay_rules::{
+    self, RuleDomainId, RulePackageId, RuleProvenance, RuleSource, RuleSourceId, RuleSubjectId,
     RuleVersion,
 };
 

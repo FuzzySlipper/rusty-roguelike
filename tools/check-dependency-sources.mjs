@@ -31,6 +31,7 @@ export function validateDependencySources({
 }) {
   for (const [name, source] of Object.entries({
     rustyEngine: sources.rustyEngine,
+    rustyEngineLegacyRenderer: sources.rustyEngineLegacyRenderer,
     rustyProcgen: sources.rustyProcgen,
   })) {
     if (
@@ -46,16 +47,21 @@ export function validateDependencySources({
       throw new Error(`${name} commit is not an exact 40-character revision`);
     }
   }
+  if (sources.rustyEngine.branch !== 'main') {
+    throw new Error('rustyEngine must follow rolling branch main');
+  }
+  if (sources.rustyEngineLegacyRenderer.removalTask !== 6700) {
+    throw new Error('legacy Engine renderer packages must remain bound to removal task 6700');
+  }
 
   const packageSections = splitPnpmLock(pnpmLock);
   for (const dependency of ENGINE_PACKAGES) {
     const packagePath = `render/packages/${dependency.split('/')[1]}`;
-    const expectedSpecifier = `github:FuzzySlipper/rusty-engine#${sources.rustyEngine.commit}&path:${packagePath}`;
-    const lockedBase = `https://codeload.github.com/FuzzySlipper/rusty-engine/tar.gz/${sources.rustyEngine.commit}#path:${packagePath}`;
+    const revision = sources.rustyEngineLegacyRenderer.commit;
+    const expectedSpecifier = `github:FuzzySlipper/rusty-engine#${revision}&path:${packagePath}`;
+    const lockedBase = `https://codeload.github.com/FuzzySlipper/rusty-engine/tar.gz/${revision}#path:${packagePath}`;
     if (packageJson.dependencies?.[dependency] !== expectedSpecifier) {
-      throw new Error(
-        `${dependency} does not use the canonical Engine revision`,
-      );
+      throw new Error(`${dependency} is not bound to the declared legacy renderer revision`);
     }
     requireCount(
       packageSections.importer,
@@ -91,32 +97,33 @@ export function validateDependencySources({
     'canonical Procgen manifest entry',
   );
 
-  const engineSource = `git+${sources.rustyEngine.repository}?rev=${sources.rustyEngine.commit}#${sources.rustyEngine.commit}`;
+  const facadeManifestEntry = `rusty-engine = { git = "${sources.rustyEngine.repository}", branch = "main" }`;
+  requireCount(
+    cargoManifest,
+    facadeManifestEntry,
+    1,
+    'rolling rusty-engine facade manifest entry',
+  );
   for (const crate of ENGINE_RUST_CRATES) {
-    const manifestEntry = `${crate} = { git = "${sources.rustyEngine.repository}", rev = "${sources.rustyEngine.commit}" }`;
-    requireCount(
-      cargoManifest,
-      manifestEntry,
-      1,
-      `canonical ${crate} manifest entry`,
-    );
-    const records = cargoLock
-      .split('[[package]]')
-      .filter((block) =>
-        new RegExp(`\\nname = "${crate}"\\n`).test(`\n${block}`),
-      );
-    if (records.length !== 1) {
-      throw new Error(
-        `${crate} locked package record expected 1, observed ${records.length}`,
-      );
+    if (new RegExp(`^${crate}\\s*=`, 'mu').test(cargoManifest)) {
+      throw new Error(`${crate} must be reached through the rusty-engine facade`);
     }
-    requireCount(
-      records[0],
-      `source = "${engineSource}"`,
-      1,
-      `canonical ${crate} locked source`,
+  }
+  const engineSource = `git+${sources.rustyEngine.repository}?branch=main#${sources.rustyEngine.commit}`;
+  const facadeRecords = cargoLock
+    .split('[[package]]')
+    .filter((block) => /\nname = "rusty-engine"\n/.test(`\n${block}`));
+  if (facadeRecords.length !== 1) {
+    throw new Error(
+      `rusty-engine locked package record expected 1, observed ${facadeRecords.length}`,
     );
   }
+  requireCount(
+    facadeRecords[0],
+    `source = "${engineSource}"`,
+    1,
+    'rolling rusty-engine locked source',
+  );
   const procgenSource = `git+${sources.rustyProcgen.repository}?rev=${sources.rustyProcgen.commit}#${sources.rustyProcgen.commit}`;
   const procgenPackages = cargoLock
     .split('[[package]]')
@@ -153,9 +160,7 @@ function splitPnpmLock(lock) {
     packages === undefined ||
     snapshots === undefined
   ) {
-    throw new Error(
-      'pnpm lock is missing importer, package, or snapshot sections',
-    );
+    throw new Error('pnpm lock is missing importer, package, or snapshot sections');
   }
   return { importer, packages, snapshots };
 }

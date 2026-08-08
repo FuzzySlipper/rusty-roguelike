@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use core_ids::EntityId;
-use gameplay_mechanics::{
-    EquipmentComponent, EquipmentEquipRequest, EquipmentService, EquipmentSlotId,
+use rusty_engine::core_ids::EntityId;
+use rusty_engine::gameplay_mechanics::{
+    self, EquipmentComponent, EquipmentEquipRequest, EquipmentService, EquipmentSlotId,
     EquipmentUnequipRequest, InventoryService, ItemComponent, ItemTransferRequest, MechanicsError,
     OperationId, SourceInstanceId, SourceInstanceIdentity, StatService,
 };

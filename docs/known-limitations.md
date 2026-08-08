@@ -1,5 +1,27 @@
 # Known limitations
 
+## Active Rust-only renderer migration
+
+- **Status:** active
+- **Affected surface:** task 6700, `libs/renderer`, native product host
+- **Limitation:** Rust now owns the dungeon retained-frame and view projection,
+  but the shipped Angular product still mounts the older public Engine
+  TypeScript renderer packages until the Engine-owned Wry adapter is composed
+  into a downstream native shell.
+- **Impact:** the single-facade Rust dependency and freshness guard are active,
+  but the renderer implementation language is not yet fully isolated from this
+  downstream repository.
+- **Reason left in place:** the working browser renderer remains the regression
+  baseline while the native host is implemented; it is not a compatibility
+  promise.
+- **Detection:** `dependency-sources.json` contains
+  `rustyEngineLegacyRenderer`, and `package.json` still declares
+  `@rusty-engine/*` renderer packages.
+- **Follow-up:** Den task 6700 removes both after concrete host and product
+  acceptance are green.
+- **Introduced by:** task 6700 intermediate facade/projection milestone
+- **Last reviewed:** 2026-08-08 / codex
+
 The repository now proves its independent boundary, exact public dependencies,
 strict bootstrap protocol, real Rust host, retained renderer lifecycle, and
 deterministic Rust-owned admission of one bounded Procgen floor. It also owns a

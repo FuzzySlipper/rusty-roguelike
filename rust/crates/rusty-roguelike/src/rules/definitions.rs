@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use gameplay_mechanics::MechanicsCatalog;
-use gameplay_rules::RulePackageIdentity;
+use rusty_engine::gameplay_mechanics::MechanicsCatalog;
+use rusty_engine::gameplay_rules::RulePackageIdentity;
 
 use super::{
     ActionTargetCandidate, ActorSideCandidate, EquipmentSlotCandidate, RoguelikeId,

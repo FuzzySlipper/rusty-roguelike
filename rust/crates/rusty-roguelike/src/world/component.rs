@@ -1,4 +1,4 @@
-use entity_state::{
+use rusty_engine::entity_state::{
     ComponentCodec, ComponentRegistration, ComponentRegistrationError, ComponentRegistry,
     ComponentTypeId, EntityComponent,
 };

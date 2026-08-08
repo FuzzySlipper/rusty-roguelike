@@ -1,5 +1,5 @@
-use core_ids::EntityId;
-use gameplay_mechanics::{
+use rusty_engine::core_ids::EntityId;
+use rusty_engine::gameplay_mechanics::{
     DamageKindId, DamagePart, DamageRequest, DamageService, MechanicsScalar, OperationId,
     SourceInstanceId, SourceInstanceIdentity, StatService,
 };

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use core_ids::EntityId;
+use rusty_engine::core_ids::EntityId;
 
 use crate::{
     generate_authored_floor, starter_ruleset, CollapsedPartyComponent, FloorBounds, FloorCell,

@@ -1,6 +1,6 @@
-use core_ids::EntityId;
-use entity_state::{EntityComponent, EntityState};
-use gameplay_mechanics::TracksComponent;
+use rusty_engine::core_ids::EntityId;
+use rusty_engine::entity_state::{EntityComponent, EntityState};
+use rusty_engine::gameplay_mechanics::TracksComponent;
 
 use crate::{
     vitality_track_id, ActorSideCandidate, FloorFeatureKind, FloorSceneContent, FloorSceneFacing,
