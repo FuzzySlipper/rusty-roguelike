@@ -14,10 +14,16 @@ desktop and mobile sizes.
 
 `pnpm run verify:native` mounts the Engine-owned private artifact through the
 real Rust adapter and certifies frame submission, the bounded overview and
-first-person camera, resize, one content-hash-bound product resource, physical
-input readback, picking, state readback, explicit rendering, an authoritative
-command plus exact save/restore round trip, and acknowledged disposal. On
-Linux the proof uses Xvfb with WebKit compositing disabled for deterministic
+first-person camera, resize, a content-hash-bound packed mesh generated from the
+authored torch GLB and referenced by retained torch instances, physical input
+readback, picking, state readback, explicit rendering, an authoritative command
+plus exact save/restore round trip, and acknowledged disposal. The proof holds
+Escape and Enter through X11: the former must preserve the Rust revision and the
+latter must advance it. It then requires an Engine pick miss to preserve the
+revision and a hit on the expected source entity to advance it through normal
+Rust command admission. A second real-host launch corrupts the packed torch
+bytes and must fail transactionally before renderer readiness. On Linux the
+proof uses Xvfb, `xdotool`, and WebKit compositing disabled for deterministic
 software-rendered teardown.
 
 The desktop browser path starts from the complete canonical equipped loadout,

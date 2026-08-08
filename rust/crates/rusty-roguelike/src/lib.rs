@@ -15,7 +15,10 @@ pub use floor::{
     FloorRegionKind, FloorSceneContent, FloorSceneFacing, FloorScenePlacement, FloorState,
     GeneratedFloor,
 };
-pub use presentation::{create_dungeon_frame, create_dungeon_view_composition, DungeonFrame};
+pub use presentation::{
+    create_dungeon_frame, create_dungeon_view_composition, prepare_dungeon_presentation_assets,
+    DungeonFrame, DungeonPresentationAssets,
+};
 pub use rules::*;
 pub use session::*;
 pub use world::*;

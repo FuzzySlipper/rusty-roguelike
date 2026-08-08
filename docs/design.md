@@ -230,6 +230,12 @@ equipment, movement, targeting, initiative, or rules policy.
 native `rusty-roguelike-native` binary owns the outer `winit` product window,
 the bounded child region, admitted torch bytes, and semantic mapping from
 Engine physical-input/pick observations to revision-bound `SessionCommand`s.
+The product converts its authored torch GLB through Engine Rust import types,
+packs the resulting mesh into the Engine content-addressed mesh-resource
+format, and references that exact payload from `DefineStaticMesh` and
+`CreateStaticMeshInstance` operations. Facing offsets, authored scale, warm
+emissive material intent, and paired point lights remain game-owned
+presentation meaning.
 `rusty_engine::renderer_webview_host::RendererWebviewAdapter` exclusively owns
 the child webview, embedded private artifact, retained surface, frame loop,
 camera and view application, picking, resizing, and transactional disposal.

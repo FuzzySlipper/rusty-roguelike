@@ -1,3 +1,4 @@
+use anyhow::{bail, Context, Result};
 use rusty_engine::render_host_contracts::{
     RendererCameraPose, RendererCameraProjection, RendererCompositionCamera,
     RendererCompositionTarget, RendererCompositionView, RendererTargetColor, RendererTargetDepth,
@@ -5,26 +6,146 @@ use rusty_engine::render_host_contracts::{
     RENDERER_VIEW_COMPOSITION_SCHEMA_VERSION,
 };
 use rusty_engine::render_model::{
-    Geometry, LightDescriptor, LightShadowIntent, Material, RenderDiff, RenderFrameDiff,
-    RenderFrameError, RenderHandle, RenderLayer, RenderMetadata, RenderNode, Transform,
+    pack_mesh_resources, Geometry, LightDescriptor, LightShadowIntent, Material,
+    MaterialUvStrategy, MeshAttribute, MeshAttributeKind, MeshAttributeName, MeshBoundsDescriptor,
+    MeshBufferLayout, MeshCollisionPolicy, MeshGroupDescriptor, MeshIndexWidth, MeshMaterialSlot,
+    MeshPayloadDescriptor, MeshPayloadSource, MeshProvenance, PackedMeshResource, RenderDiff,
+    RenderFrameDiff, RenderFrameError, RenderHandle, RenderLayer, RenderMaterialDescriptor,
+    RenderMetadata, RenderNode, StaticMeshAsset, StaticMeshInstanceDescriptor, Transform,
+    MAX_MESH_RESOURCE_BYTES,
 };
 
-use crate::{RoguelikeId, SessionView, TurnReceipt, VisibleSceneContent, WorldViewCellKind};
+use crate::{
+    RelativeSceneFacing, RoguelikeId, SessionView, TurnReceipt, VisibleSceneContent,
+    WorldViewCellKind,
+};
 
 const CELL_SIZE: f32 = 2.4;
 const DUNGEON_VIEW_CAMERA_ID: &str = "camera.dungeon-local-overview";
 const DUNGEON_VIEW_TARGET_ID: &str = "target.dungeon-local-overview";
+const TORCH_MATERIAL_ID: &str = "material/rusty-roguelike-torch";
+const TORCH_MESH_ID: &str = "mesh/rusty-roguelike-torch";
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DungeonPresentationAssets {
+    pub torch_mesh: StaticMeshAsset,
+    pub torch_resource: PackedMeshResource,
+    pub torch_source_hash: String,
+}
+
+pub fn prepare_dungeon_presentation_assets(torch_glb: &[u8]) -> Result<DungeonPresentationAssets> {
+    let torch_source_hash = rusty_engine::voxel_convert::source_sha256(torch_glb);
+    let imported = rusty_engine::voxel_convert::import_static_glb(torch_glb)
+        .map_err(|error| anyhow::anyhow!("import authored torch GLB: {error:?}"))?;
+    if imported.positions.is_empty() || imported.triangles.is_empty() {
+        bail!("authored torch GLB contains no renderable triangles");
+    }
+
+    let positions = imported
+        .positions
+        .iter()
+        .flat_map(|position| position.iter().map(|value| *value as f32))
+        .collect::<Vec<_>>();
+    let indices = imported
+        .triangles
+        .iter()
+        .flat_map(|triangle| triangle.indices)
+        .collect::<Vec<_>>();
+    let normals = vertex_normals(&imported.positions, &indices);
+    let uvs = imported
+        .texture_coordinates
+        .iter()
+        .find(|coordinates| coordinates.source_set_index == 0)
+        .and_then(|coordinates| {
+            coordinates
+                .coordinates
+                .iter()
+                .map(|coordinate| coordinate.map(|value| [value[0] as f32, value[1] as f32]))
+                .collect::<Option<Vec<_>>>()
+        })
+        .map(|coordinates| coordinates.into_iter().flatten().collect::<Vec<_>>());
+    let payload = MeshPayloadDescriptor {
+        layout: MeshBufferLayout {
+            vertex_count: u32::try_from(imported.positions.len())
+                .context("torch vertex count exceeds u32")?,
+            index_count: u32::try_from(indices.len()).context("torch index count exceeds u32")?,
+            index_width: MeshIndexWidth::U32,
+            attributes: vec![
+                MeshAttribute {
+                    name: MeshAttributeName::Position,
+                    components: 3,
+                    kind: MeshAttributeKind::F32,
+                },
+                MeshAttribute {
+                    name: MeshAttributeName::Normal,
+                    components: 3,
+                    kind: MeshAttributeKind::F32,
+                },
+            ]
+            .into_iter()
+            .chain(uvs.as_ref().map(|_| MeshAttribute {
+                name: MeshAttributeName::Uv,
+                components: 2,
+                kind: MeshAttributeKind::F32,
+            }))
+            .collect(),
+        },
+        groups: vec![MeshGroupDescriptor {
+            material_slot: 0,
+            start: 0,
+            count: u32::try_from(indices.len()).context("torch group count exceeds u32")?,
+        }],
+        bounds: mesh_bounds(&imported.positions)?,
+        source: MeshPayloadSource::Inline {
+            positions,
+            normals,
+            uvs,
+            indices,
+        },
+        provenance: MeshProvenance::StaticAsset,
+    };
+    let packed = pack_mesh_resources(&[payload], MAX_MESH_RESOURCE_BYTES)
+        .map_err(|error| anyhow::anyhow!("pack authored torch mesh resource: {error:?}"))?;
+    let torch_resource = packed
+        .resources
+        .into_iter()
+        .next()
+        .context("torch mesh packing produced no resource")?;
+    let torch_mesh = StaticMeshAsset {
+        asset: TORCH_MESH_ID.to_owned(),
+        payload: packed
+            .payloads
+            .into_iter()
+            .next()
+            .context("torch mesh packing produced no payload")?,
+        material_slots: vec![MeshMaterialSlot {
+            slot: 0,
+            material: TORCH_MATERIAL_ID.to_owned(),
+        }],
+        collision: MeshCollisionPolicy::VisualOnly,
+    };
+    torch_mesh
+        .validate()
+        .map_err(|error| anyhow::anyhow!("validate authored torch render asset: {error:?}"))?;
+    Ok(DungeonPresentationAssets {
+        torch_mesh,
+        torch_resource,
+        torch_source_hash,
+    })
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DungeonFrame {
     pub frame: RenderFrameDiff,
     pub handles: Vec<RenderHandle>,
+    pub torch_instance_count: usize,
 }
 
 pub fn create_dungeon_frame(
     session: &SessionView,
     previous_handles: &[RenderHandle],
     selected_action_id: Option<&RoguelikeId>,
+    assets: &DungeonPresentationAssets,
 ) -> Result<DungeonFrame, RenderFrameError> {
     let mut ops = previous_handles
         .iter()
@@ -32,6 +153,24 @@ pub fn create_dungeon_frame(
         .map(|handle| RenderDiff::Destroy { handle })
         .collect::<Vec<_>>();
     let mut handles = Vec::new();
+    let mut torch_instance_count = 0;
+    ops.push(RenderDiff::DefineMaterial {
+        material: RenderMaterialDescriptor {
+            schema_version: 2,
+            id: TORCH_MATERIAL_ID.to_owned(),
+            color: [0.34, 0.16, 0.055, 1.0],
+            texture: None,
+            roughness: 0.72,
+            texture_tint: [1.0; 4],
+            emission_color: [1.0, 0.34, 0.08],
+            emission_intensity: 0.16,
+            uv_strategy: MaterialUvStrategy::Flat,
+            voxel_surface: None,
+        },
+    });
+    ops.push(RenderDiff::DefineStaticMesh {
+        asset: assets.torch_mesh.clone(),
+    });
 
     for cell in &session.world.cells {
         let x = f32::from(cell.lateral) * CELL_SIZE;
@@ -104,18 +243,33 @@ pub fn create_dungeon_frame(
     for (index, placement) in session.world.scene_placements.iter().enumerate() {
         let x = f32::from(placement.lateral) * CELL_SIZE;
         let z = -f32::from(placement.depth) * CELL_SIZE;
+        let transform = scene_transform(x, z, placement.facing);
         match &placement.content {
-            VisibleSceneContent::Prop { .. } => create_cuboid(
-                &mut ops,
-                &mut handles,
-                30_000 + index as u64,
-                placement.id.clone(),
-                [x, 1.05, z],
-                [0.18, 1.4, 0.18],
-                [0.34, 0.16, 0.055, 1.0],
-                None,
-                &["dungeon-prop", "rusty-roguelike", "torch"],
-            ),
+            VisibleSceneContent::Prop { .. } => {
+                torch_instance_count += 1;
+                let handle = RenderHandle::new(30_000 + index as u64);
+                handles.push(handle);
+                ops.push(RenderDiff::CreateStaticMeshInstance {
+                    handle,
+                    parent: None,
+                    instance: StaticMeshInstanceDescriptor {
+                        asset: assets.torch_mesh.asset.clone(),
+                        transform,
+                        visible: true,
+                        material_overrides: Vec::new(),
+                        metadata: RenderMetadata {
+                            source_entity: None,
+                            source_scene_node: None,
+                            tags: vec![
+                                "dungeon-prop".to_owned(),
+                                "rusty-roguelike".to_owned(),
+                                "torch".to_owned(),
+                            ],
+                            label: Some(placement.id.clone()),
+                        },
+                    },
+                });
+            }
             VisibleSceneContent::PointLight {
                 color_rgb,
                 intensity_milli,
@@ -130,7 +284,7 @@ pub fn create_dungeon_frame(
                         color: parse_rgb(color_rgb),
                         intensity: *intensity_milli as f32 / 1_000.0,
                         enabled: true,
-                        position: [x, 2.05, z],
+                        position: [transform.translation[0], 2.05, transform.translation[2]],
                         range: Some(*range_cells as f32 * CELL_SIZE),
                         decay: 2.0,
                         shadow_intent: LightShadowIntent::Requested,
@@ -205,6 +359,72 @@ pub fn create_dungeon_frame(
     Ok(DungeonFrame {
         frame: RenderFrameDiff::try_from_ops(ops)?,
         handles,
+        torch_instance_count,
+    })
+}
+
+fn scene_transform(x: f32, z: f32, facing: RelativeSceneFacing) -> Transform {
+    let (offset, yaw) = match facing {
+        RelativeSceneFacing::Forward => ([0.0, -0.92], 0.0),
+        RelativeSceneFacing::Right => ([0.92, 0.0], -std::f32::consts::FRAC_PI_2),
+        RelativeSceneFacing::Backward => ([0.0, 0.92], std::f32::consts::PI),
+        RelativeSceneFacing::Left => ([-0.92, 0.0], std::f32::consts::FRAC_PI_2),
+    };
+    let half_yaw = yaw / 2.0;
+    Transform {
+        translation: [x + offset[0], 1.48, z + offset[1]],
+        rotation: [0.0, half_yaw.sin(), 0.0, half_yaw.cos()],
+        scale: [0.72, 0.72, 0.72],
+    }
+}
+
+fn vertex_normals(positions: &[[f64; 3]], indices: &[u32]) -> Vec<f32> {
+    let mut accumulated = vec![[0.0_f64; 3]; positions.len()];
+    for triangle in indices.chunks_exact(3) {
+        let [a, b, c] = [
+            positions[triangle[0] as usize],
+            positions[triangle[1] as usize],
+            positions[triangle[2] as usize],
+        ];
+        let ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        let ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        let normal = [
+            ab[1] * ac[2] - ab[2] * ac[1],
+            ab[2] * ac[0] - ab[0] * ac[2],
+            ab[0] * ac[1] - ab[1] * ac[0],
+        ];
+        for index in triangle {
+            for axis in 0..3 {
+                accumulated[*index as usize][axis] += normal[axis];
+            }
+        }
+    }
+    accumulated
+        .into_iter()
+        .flat_map(|normal| {
+            let length = (normal[0].powi(2) + normal[1].powi(2) + normal[2].powi(2)).sqrt();
+            if length > f64::EPSILON {
+                normal.map(|value| (value / length) as f32)
+            } else {
+                [0.0, 1.0, 0.0]
+            }
+        })
+        .collect()
+}
+
+fn mesh_bounds(positions: &[[f64; 3]]) -> Result<MeshBoundsDescriptor> {
+    let first = positions.first().context("torch mesh has no positions")?;
+    let mut min = *first;
+    let mut max = *first;
+    for position in &positions[1..] {
+        for axis in 0..3 {
+            min[axis] = min[axis].min(position[axis]);
+            max[axis] = max[axis].max(position[axis]);
+        }
+    }
+    Ok(MeshBoundsDescriptor {
+        min: min.map(|value| value as f32),
+        max: max.map(|value| value as f32),
     })
 }
 
@@ -316,9 +536,12 @@ mod tests {
     use super::*;
     use crate::{generate_authored_floor, starter_ruleset, GameSession, WorldState};
 
+    const TORCH_BYTES: &[u8] =
+        include_bytes!("../../../../apps/app/public/assets/torch/medieval-torch.glb");
+
     #[test]
     fn rust_projection_builds_a_valid_renderer_frame_and_view() {
-        let session = GameSession::new(
+        let mut session = GameSession::new(
             WorldState::new(
                 generate_authored_floor(5_201).unwrap(),
                 starter_ruleset().unwrap(),
@@ -326,10 +549,25 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+        let preparation = session.view().unwrap();
+        session
+            .command(crate::SessionCommand::BeginExpedition {
+                expected_revision: preparation.revision,
+            })
+            .unwrap();
         let view = session.view().unwrap();
-        let projected = create_dungeon_frame(&view, &[], None).unwrap();
+        let assets = prepare_dungeon_presentation_assets(TORCH_BYTES).unwrap();
+        let projected = create_dungeon_frame(&view, &[], None, &assets).unwrap();
         assert!(!projected.handles.is_empty());
         projected.frame.validate().unwrap();
+        assert!(projected.frame.ops.iter().any(|operation| matches!(
+            operation,
+            RenderDiff::DefineStaticMesh { asset } if asset == &assets.torch_mesh
+        )));
+        assert!(matches!(
+            assets.torch_mesh.payload.source,
+            MeshPayloadSource::Resource { .. }
+        ));
 
         let composition = create_dungeon_view_composition(1, false);
         composition.validate().unwrap();
@@ -347,8 +585,9 @@ mod tests {
         )
         .unwrap();
         let view = session.view().unwrap();
-        let initial = create_dungeon_frame(&view, &[], None).unwrap();
-        let replacement = create_dungeon_frame(&view, &initial.handles, None).unwrap();
+        let assets = prepare_dungeon_presentation_assets(TORCH_BYTES).unwrap();
+        let initial = create_dungeon_frame(&view, &[], None, &assets).unwrap();
+        let replacement = create_dungeon_frame(&view, &initial.handles, None, &assets).unwrap();
         assert!(replacement
             .frame
             .ops

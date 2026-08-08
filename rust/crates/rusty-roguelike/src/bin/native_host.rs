@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeSet,
     env,
+    io::{self, Write},
     time::{Duration, Instant},
 };
 
@@ -18,8 +19,8 @@ use rusty_engine::{
 };
 use rusty_roguelike::{
     create_dungeon_frame, create_dungeon_view_composition, generate_authored_floor,
-    starter_ruleset, GameSession, RelativeStep, SessionCommand, SessionPhase, SessionView,
-    WorldState,
+    prepare_dungeon_presentation_assets, starter_ruleset, DungeonPresentationAssets, GameSession,
+    RelativeStep, SessionCommand, SessionPhase, SessionView, WorldState,
 };
 use winit::{
     application::ApplicationHandler,
@@ -30,7 +31,16 @@ use winit::{
 
 const EXPEDITION_SEED: u64 = 5_201;
 const CAMERA_POSITION: [f64; 3] = [0.0, 1.65, 0.0];
-const TORCH_RESOURCE_ID: &str = "product-resource/torch/medieval-torch.glb";
+const DUNGEON_CELL_SIZE: f64 = 2.4;
+const PROOF_ROUTE_TO_FIRST_ENCOUNTER: &str = "
+right right right right forward forward right right forward forward
+right right right right right right right right right backward
+right right right right right right right right right right
+right right right right right right right right right right
+right right right right right right backward
+right right right right right right right right right right
+right right forward
+";
 const TORCH_CONTENT_HASH: &str =
     "sha256:49d74d297a4b7b8a271ad1299ea3a16608cb4cc460e0ea1d5a2ede36a13b5a2e";
 const TORCH_BYTES: &[u8] =
@@ -39,17 +49,23 @@ const TORCH_BYTES: &[u8] =
 #[derive(Debug, Clone, Copy)]
 struct Options {
     proof: bool,
+    proof_corrupt_resource: bool,
     proof_hold: Duration,
 }
 
 impl Options {
     fn parse() -> Result<Self> {
         let mut proof = false;
+        let mut proof_corrupt_resource = false;
         let mut proof_hold = Duration::ZERO;
         let mut arguments = env::args().skip(1);
         while let Some(argument) = arguments.next() {
             match argument.as_str() {
                 "--proof" => proof = true,
+                "--proof-corrupt-resource" => {
+                    proof = true;
+                    proof_corrupt_resource = true;
+                }
                 "--proof-hold-ms" => {
                     let milliseconds = arguments
                         .next()
@@ -64,7 +80,11 @@ impl Options {
         if !proof && !proof_hold.is_zero() {
             bail!("--proof-hold-ms requires --proof");
         }
-        Ok(Self { proof, proof_hold })
+        Ok(Self {
+            proof,
+            proof_corrupt_resource,
+            proof_hold,
+        })
     }
 }
 
@@ -73,11 +93,13 @@ struct ProofEvidence {
     authority_round_trip: bool,
     camera: bool,
     frame: bool,
-    input: bool,
-    pick: bool,
+    input_authority: bool,
+    input_noop: bool,
+    pick_authority: bool,
+    pick_miss: bool,
     render: bool,
     resize: bool,
-    resource_count: usize,
+    resource_rendered: bool,
     state: bool,
     views: bool,
     ready_at: Option<Instant>,
@@ -88,26 +110,43 @@ impl ProofEvidence {
         self.authority_round_trip
             && self.camera
             && self.frame
-            && self.input
-            && self.pick
+            && self.input_authority
+            && self.input_noop
+            && self.pick_authority
+            && self.pick_miss
             && self.render
             && self.resize
-            && self.resource_count == 1
+            && self.resource_rendered
             && self.state
             && self.views
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ProofPickKind {
+    Miss,
+    Hit { expected_entity: u64 },
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PendingProofPick {
+    request_id: u64,
+    revision_before: u64,
+    kind: ProofPickKind,
 }
 
 struct NativeApplication {
     options: Options,
     window: Option<Window>,
     renderer: Option<RendererWebviewAdapter>,
+    presentation_assets: DungeonPresentationAssets,
     session: GameSession,
     save_slot: Option<String>,
     retained_handles: Vec<RenderHandle>,
     published_revision: Option<u64>,
-    pending_frame: Option<(u64, u64, Vec<RenderHandle>)>,
+    pending_frame: Option<(u64, u64, Vec<RenderHandle>, usize)>,
     pending_input: Option<u64>,
+    pending_proof_pick: Option<PendingProofPick>,
     previous_pressed_codes: BTreeSet<String>,
     previous_pointer_buttons: u16,
     next_input_poll: Instant,
@@ -120,16 +159,25 @@ struct NativeApplication {
 impl NativeApplication {
     fn new(options: Options) -> Result<Self> {
         let session = new_expedition()?;
+        let presentation_assets = prepare_dungeon_presentation_assets(TORCH_BYTES)?;
+        if presentation_assets.torch_source_hash != TORCH_CONTENT_HASH {
+            bail!(
+                "authored torch source hash drifted: expected {TORCH_CONTENT_HASH}, received {}",
+                presentation_assets.torch_source_hash
+            );
+        }
         Ok(Self {
             options,
             window: None,
             renderer: None,
+            presentation_assets,
             session,
             save_slot: None,
             retained_handles: Vec::new(),
             published_revision: None,
             pending_frame: None,
             pending_input: None,
+            pending_proof_pick: None,
             previous_pressed_codes: BTreeSet::new(),
             previous_pointer_buttons: 0,
             next_input_poll: Instant::now(),
@@ -149,11 +197,18 @@ impl NativeApplication {
             )
             .context("create Rusty Roguelike product window")?;
         let bounds = window_bounds(&window);
+        let mut resource_bytes = self.presentation_assets.torch_resource.bytes.clone();
+        if self.options.proof_corrupt_resource {
+            let last = resource_bytes
+                .last_mut()
+                .context("packed torch resource is unexpectedly empty")?;
+            *last ^= 0xff;
+        }
         let resources = vec![RendererResource {
-            identity: TORCH_RESOURCE_ID.to_owned(),
-            content_hash: TORCH_CONTENT_HASH.to_owned(),
-            media_type: "model/gltf-binary".to_owned(),
-            bytes: TORCH_BYTES.to_vec(),
+            identity: self.presentation_assets.torch_resource.resource.clone(),
+            content_hash: self.presentation_assets.torch_resource.content_hash.clone(),
+            media_type: "application/vnd.rusty-engine.mesh-resource".to_owned(),
+            bytes: resource_bytes,
         }];
         let renderer = RendererWebviewAdapter::mount(
             &window,
@@ -166,7 +221,6 @@ impl NativeApplication {
             },
         )
         .map_err(|error| anyhow::anyhow!("mount Engine-owned renderer child webview: {error:?}"))?;
-        self.proof.resource_count = 1;
         self.renderer = Some(renderer);
         self.window = Some(window);
         Ok(())
@@ -198,7 +252,19 @@ impl NativeApplication {
     ) {
         match observation {
             RendererWebviewObservation::Ready(_) => {
+                if self.options.proof_corrupt_resource {
+                    self.fail(
+                        event_loop,
+                        "corrupt packed torch resource unexpectedly reached renderer ready state"
+                            .to_owned(),
+                    );
+                    return;
+                }
                 self.proof.ready_at = Some(Instant::now());
+                if self.options.proof {
+                    println!("RUSTY_ROGUELIKE_NATIVE_READY_FOR_INPUT");
+                    let _ = io::stdout().flush();
+                }
                 if let Err(error) = self.initialize_renderer() {
                     self.fail(event_loop, error.to_string());
                 }
@@ -207,7 +273,9 @@ impl NativeApplication {
                 request_id,
                 receipt,
             } => {
-                if let Some((pending_id, revision, handles)) = self.pending_frame.take() {
+                if let Some((pending_id, revision, handles, torch_instances)) =
+                    self.pending_frame.take()
+                {
                     if pending_id != request_id {
                         self.fail(
                             event_loop,
@@ -227,6 +295,16 @@ impl NativeApplication {
                     self.retained_handles = handles;
                     self.published_revision = Some(revision);
                     self.proof.frame = true;
+                    self.proof.resource_rendered |= torch_instances > 0;
+                    if self.options.proof
+                        && self.proof.input_authority
+                        && !self.proof.pick_miss
+                        && self.pending_proof_pick.is_none()
+                    {
+                        if let Err(error) = self.request_proof_pick_miss() {
+                            self.fail(event_loop, error.to_string());
+                        }
+                    }
                 }
             }
             RendererWebviewObservation::ViewsConfigured { receipt, .. } => {
@@ -246,22 +324,17 @@ impl NativeApplication {
             } => {
                 if self.pending_input == Some(request_id) {
                     self.pending_input = None;
-                    self.proof.input = true;
                     if let Err(error) = self.apply_physical_input(&readout) {
                         self.fail(event_loop, error.to_string());
                     }
                 }
             }
-            RendererWebviewObservation::PickCompleted { receipt, .. } => {
-                self.proof.pick = true;
-                if let Some(entity) = receipt
-                    .hint
-                    .and_then(|hint| hint.source_trace)
-                    .map(|trace| trace.entity)
-                {
-                    if let Err(error) = self.use_first_legal_action(entity) {
-                        self.fail(event_loop, error.to_string());
-                    }
+            RendererWebviewObservation::PickCompleted {
+                request_id,
+                receipt,
+            } => {
+                if let Err(error) = self.handle_proof_pick(request_id, receipt) {
+                    self.fail(event_loop, error.to_string());
                 }
             }
             RendererWebviewObservation::StateRead { .. } => self.proof.state = true,
@@ -272,14 +345,16 @@ impl NativeApplication {
             {
                 if self.options.proof {
                     println!(
-                        "RUSTY_ROGUELIKE_NATIVE_PROOF_OK frame={} views={} camera={} resize={} resource_count={} input={} pick={} state={} render={} authority_round_trip=true lifecycle=disposed",
+                        "RUSTY_ROGUELIKE_NATIVE_PROOF_OK frame={} views={} camera={} resize={} resource_rendered={} input_authority={} input_noop={} pick_authority={} pick_miss={} state={} render={} authority_round_trip=true lifecycle=disposed",
                         self.proof.frame,
                         self.proof.views,
                         self.proof.camera,
                         self.proof.resize,
-                        self.proof.resource_count,
-                        self.proof.input,
-                        self.proof.pick,
+                        self.proof.resource_rendered,
+                        self.proof.input_authority,
+                        self.proof.input_noop,
+                        self.proof.pick_authority,
+                        self.proof.pick_miss,
                         self.proof.state,
                         self.proof.render,
                     );
@@ -288,10 +363,18 @@ impl NativeApplication {
             }
             RendererWebviewObservation::MountFailed { message } => {
                 self.renderer = None;
-                self.fail(
-                    event_loop,
-                    format!("renderer mount failed transactionally: {message}"),
-                );
+                if self.options.proof_corrupt_resource && message.contains("content hash mismatch")
+                {
+                    println!(
+                        "RUSTY_ROGUELIKE_RESOURCE_REJECTION_OK lifecycle=transactional message={message}"
+                    );
+                    event_loop.exit();
+                } else {
+                    self.fail(
+                        event_loop,
+                        format!("renderer mount failed transactionally: {message}"),
+                    );
+                }
             }
             RendererWebviewObservation::OperationFailed {
                 request_id,
@@ -323,18 +406,6 @@ impl NativeApplication {
             renderer.render_once(None)?;
         }
         self.request_input()?;
-        self.renderer
-            .as_mut()
-            .context("renderer is unavailable")?
-            .pick(&RendererPickRequest {
-                filter: Some(RendererPickFilter {
-                    layers: vec![RenderLayer::Scene],
-                    tags: vec!["enemy".to_owned()],
-                    ..RendererPickFilter::default()
-                }),
-                max_distance: Some(48.0),
-                ray: RendererPickRay::Viewport { point: [0.0, 0.0] },
-            })?;
         if self.options.proof {
             self.renderer
                 .as_mut()
@@ -350,7 +421,6 @@ impl NativeApplication {
                         .context("window is unavailable")?
                         .scale_factor(),
                 )?;
-            self.exercise_authority_round_trip()?;
         }
         self.update_window_title()?;
         Ok(())
@@ -364,14 +434,24 @@ impl NativeApplication {
         if self.published_revision == Some(view.revision) {
             return Ok(());
         }
-        let projected = create_dungeon_frame(&view, &self.retained_handles, None)
-            .map_err(|error| anyhow::anyhow!("Rust dungeon frame is invalid: {error:?}"))?;
+        let projected = create_dungeon_frame(
+            &view,
+            &self.retained_handles,
+            None,
+            &self.presentation_assets,
+        )
+        .map_err(|error| anyhow::anyhow!("Rust dungeon frame is invalid: {error:?}"))?;
         let request_id = self
             .renderer
             .as_mut()
             .context("renderer is unavailable")?
             .submit_frame(&projected.frame)?;
-        self.pending_frame = Some((request_id, view.revision, projected.handles));
+        self.pending_frame = Some((
+            request_id,
+            view.revision,
+            projected.handles,
+            projected.torch_instance_count,
+        ));
         Ok(())
     }
 
@@ -394,7 +474,18 @@ impl NativeApplication {
             .next()
             .cloned()
         {
+            let revision_before = self.session.view()?.revision;
             self.apply_key(&code)?;
+            let revision_after = self.session.view()?.revision;
+            if self.options.proof {
+                if code == "Escape" && revision_after == revision_before {
+                    self.proof.input_noop = true;
+                }
+                if code == "Enter" && revision_after > revision_before {
+                    self.proof.input_authority = true;
+                    self.prepare_proof_scene()?;
+                }
+            }
         }
         let left_pressed = input.pointer.buttons & 1 != 0;
         let left_was_pressed = self.previous_pointer_buttons & 1 != 0;
@@ -422,6 +513,74 @@ impl NativeApplication {
         Ok(())
     }
 
+    fn prepare_proof_scene(&mut self) -> Result<()> {
+        for step in PROOF_ROUTE_TO_FIRST_ENCOUNTER.split_whitespace() {
+            let view = self.session.view()?;
+            if !view.world.visible_actors.is_empty() {
+                break;
+            }
+            let decision = view
+                .decision
+                .as_ref()
+                .context("proof route requires a Rust decision")?;
+            let desired = match step {
+                "forward" => RelativeStep::Forward,
+                "backward" => RelativeStep::Backward,
+                "left" => RelativeStep::Left,
+                "right" => RelativeStep::Right,
+                _ => bail!("invalid proof route step {step}"),
+            };
+            if decision.legal_steps.contains(&desired) {
+                self.session.command(SessionCommand::Step {
+                    actor_entity_id: decision.actor_entity_id,
+                    expected_revision: decision.expected_revision,
+                    step: desired,
+                })?;
+                continue;
+            }
+            let rotations = match desired {
+                RelativeStep::Forward => 0,
+                RelativeStep::Right => 1,
+                RelativeStep::Backward => 2,
+                RelativeStep::Left => 3,
+            };
+            for _ in 0..rotations {
+                let view = self.session.view()?;
+                let decision = view
+                    .decision
+                    .as_ref()
+                    .context("proof rotation requires a Rust decision")?;
+                self.session.command(SessionCommand::TurnRight {
+                    actor_entity_id: decision.actor_entity_id,
+                    expected_revision: decision.expected_revision,
+                })?;
+            }
+        }
+        for _ in 0..4 {
+            let view = self.session.view()?;
+            if !view.world.visible_actors.is_empty()
+                && !view.world.scene_placements.is_empty()
+                && view.decision.as_ref().is_some_and(|decision| {
+                    decision
+                        .actions
+                        .iter()
+                        .any(|action| !action.legal_target_entity_ids.is_empty())
+                })
+            {
+                return Ok(());
+            }
+            let decision = view
+                .decision
+                .as_ref()
+                .context("proof encounter rotation requires a Rust decision")?;
+            self.session.command(SessionCommand::TurnRight {
+                actor_entity_id: decision.actor_entity_id,
+                expected_revision: decision.expected_revision,
+            })?;
+        }
+        bail!("proof route did not expose an authored torch and legal renderer pick target")
+    }
+
     fn apply_key(&mut self, code: &str) -> Result<()> {
         match code {
             "F5" => self.save_slot = Some(self.session.encode_save()?),
@@ -442,17 +601,17 @@ impl NativeApplication {
         Ok(())
     }
 
-    fn use_first_legal_action(&mut self, target_entity_id: u64) -> Result<()> {
+    fn use_first_legal_action(&mut self, target_entity_id: u64) -> Result<bool> {
         let view = self.session.view()?;
         let Some(decision) = view.decision else {
-            return Ok(());
+            return Ok(false);
         };
         let Some(action) = decision
             .actions
             .iter()
             .find(|action| action.legal_target_entity_ids.contains(&target_entity_id))
         else {
-            return Ok(());
+            return Ok(false);
         };
         self.session.command(SessionCommand::UseAction {
             actor_entity_id: decision.actor_entity_id,
@@ -461,17 +620,140 @@ impl NativeApplication {
             target_entity_id,
         })?;
         self.update_window_title()?;
+        Ok(true)
+    }
+
+    fn request_proof_pick_miss(&mut self) -> Result<()> {
+        let revision_before = self.session.view()?.revision;
+        let request_id = self
+            .renderer
+            .as_mut()
+            .context("renderer is unavailable")?
+            .pick(&RendererPickRequest {
+                filter: Some(RendererPickFilter {
+                    layers: vec![RenderLayer::Scene],
+                    tags: vec!["enemy".to_owned()],
+                    ..RendererPickFilter::default()
+                }),
+                max_distance: Some(24.0),
+                ray: RendererPickRay::WorldRay {
+                    origin: [1_000.0, 10.0, 1_000.0],
+                    direction: [0.0, -1.0, 0.0],
+                },
+            })?;
+        self.pending_proof_pick = Some(PendingProofPick {
+            request_id,
+            revision_before,
+            kind: ProofPickKind::Miss,
+        });
+        Ok(())
+    }
+
+    fn request_proof_pick_hit(&mut self) -> Result<()> {
+        let view = self.session.view()?;
+        let decision = view
+            .decision
+            .as_ref()
+            .context("proof pick requires an active Rust decision")?;
+        let expected_entity = decision
+            .actions
+            .iter()
+            .flat_map(|action| action.legal_target_entity_ids.iter().copied())
+            .next()
+            .context("proof pick requires a legal target")?;
+        let target = view
+            .world
+            .visible_actors
+            .iter()
+            .find(|actor| actor.entity_id == expected_entity)
+            .context("legal proof target is not visible")?;
+        let request_id = self
+            .renderer
+            .as_mut()
+            .context("renderer is unavailable")?
+            .pick(&RendererPickRequest {
+                filter: Some(RendererPickFilter {
+                    layers: vec![RenderLayer::Scene],
+                    tags: vec!["enemy".to_owned()],
+                    ..RendererPickFilter::default()
+                }),
+                max_distance: Some(24.0),
+                ray: RendererPickRay::WorldRay {
+                    origin: [
+                        f64::from(target.lateral) * DUNGEON_CELL_SIZE,
+                        10.0,
+                        -f64::from(target.depth) * DUNGEON_CELL_SIZE,
+                    ],
+                    direction: [0.0, -1.0, 0.0],
+                },
+            })?;
+        self.pending_proof_pick = Some(PendingProofPick {
+            request_id,
+            revision_before: view.revision,
+            kind: ProofPickKind::Hit { expected_entity },
+        });
+        Ok(())
+    }
+
+    fn handle_proof_pick(
+        &mut self,
+        request_id: u64,
+        receipt: rusty_engine::render_host_contracts::RendererPickReceipt,
+    ) -> Result<()> {
+        if !self.options.proof {
+            if let Some(entity) = receipt
+                .hint
+                .and_then(|hint| hint.source_trace)
+                .map(|trace| trace.entity)
+            {
+                self.use_first_legal_action(entity)?;
+            }
+            return Ok(());
+        }
+        let pending = self
+            .pending_proof_pick
+            .take()
+            .context("renderer returned an unrequested proof pick")?;
+        if pending.request_id != request_id {
+            bail!(
+                "renderer acknowledged proof pick request {request_id}, expected {}",
+                pending.request_id
+            );
+        }
+        match pending.kind {
+            ProofPickKind::Miss => {
+                if receipt.hint.is_some()
+                    || self.session.view()?.revision != pending.revision_before
+                {
+                    bail!("proof miss pick unexpectedly hit or changed Rust authority");
+                }
+                self.proof.pick_miss = true;
+                self.request_proof_pick_hit()?;
+            }
+            ProofPickKind::Hit { expected_entity } => {
+                let actual_entity = receipt
+                    .hint
+                    .and_then(|hint| hint.source_trace)
+                    .map(|trace| trace.entity)
+                    .context("proof hit pick returned no entity source trace")?;
+                if actual_entity != expected_entity {
+                    bail!(
+                        "proof hit pick resolved entity {actual_entity}, expected {expected_entity}"
+                    );
+                }
+                if !self.use_first_legal_action(actual_entity)?
+                    || self.session.view()?.revision <= pending.revision_before
+                {
+                    bail!("proof hit pick did not advance Rust gameplay authority");
+                }
+                self.proof.pick_authority = true;
+                self.exercise_authority_round_trip()?;
+            }
+        }
         Ok(())
     }
 
     fn exercise_authority_round_trip(&mut self) -> Result<()> {
-        let preparation = self.session.view()?;
-        if preparation.phase != SessionPhase::Preparation {
-            bail!("native proof did not start in preparation");
-        }
-        self.session.command(SessionCommand::BeginExpedition {
-            expected_revision: preparation.revision,
-        })?;
         let saved_view = self.session.view()?;
         let encoded = self.session.encode_save()?;
         let command = saved_view
@@ -560,7 +842,17 @@ impl ApplicationHandler for NativeApplication {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_none() {
             if let Err(error) = self.mount(event_loop) {
-                self.fail(event_loop, error.to_string());
+                let message = error.to_string();
+                if self.options.proof_corrupt_resource
+                    && message.contains("resource bytes do not match the declared SHA-256 identity")
+                {
+                    println!(
+                        "RUSTY_ROGUELIKE_RESOURCE_REJECTION_OK lifecycle=transactional message={message}"
+                    );
+                    event_loop.exit();
+                } else {
+                    self.fail(event_loop, message);
+                }
             }
         }
     }

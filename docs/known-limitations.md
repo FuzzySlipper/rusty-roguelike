@@ -86,7 +86,10 @@ Prefab scene sockets currently place a single optimized medieval-torch prop and
 paired warm point light in selected room shapes. The world-neutral Engine rig is
 disabled, so these Rust-projected lights are the only dungeon illumination and
 their native retained-frame admission is covered by the real product-host
-proof. Lighting remains a fixed authored first pass: there is no generated
+proof. The GLB is converted by Engine Rust import code into a content-addressed
+static mesh while preserving the authored placement transform; the proof also
+requires corrupt packed bytes to prevent renderer readiness. Lighting remains
+a fixed authored first pass: there is no generated
 light-density analysis, adaptive
 fill-light placement, emissive flame animation, or prop collision.
 The torch donor is CC BY-NC-SA 4.0, so the bundled derivative is non-commercial
