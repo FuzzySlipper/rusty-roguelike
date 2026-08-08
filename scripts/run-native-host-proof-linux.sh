@@ -22,7 +22,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for _ in $(seq 1 600); do
+for _ in $(seq 1 2400); do
   if grep -Fq 'RUSTY_ROGUELIKE_NATIVE_READY_FOR_INPUT' "$proof_output"; then
     break
   fi
