@@ -5,14 +5,14 @@ Its party occupies one square behind the camera, visible participants resolve
 single-action activations in initiative order, and combat stays in the
 exploration renderer rather than switching to a tactical screen.
 
-The current foundation combines an intentionally blank, real Rust-served
-renderer shell with deterministic Rust-owned admission of a compact floor from
-the public Rusty Procgen core. Later milestones connect that admitted floor to
-the collapsed-party session and playable browser projection.
+The native product renders Rust-owned retained frames through Rusty Engine's
+fixed Rust Wry adapter. The Angular application is an observational gameplay
+and accessibility shell; it contains no Engine renderer packages or bootstrap.
 
 ```bash
 pnpm install --frozen-lockfile
 ./scripts/verify.sh
+pnpm run native
 pnpm run serve:local
 ```
 

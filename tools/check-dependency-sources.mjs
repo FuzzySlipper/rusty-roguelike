@@ -1,13 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
-const ENGINE_PACKAGES = [
-  '@rusty-engine/render-contracts',
-  '@rusty-engine/render-projection',
-  '@rusty-engine/renderer-host',
-  '@rusty-engine/renderer-three',
-];
-
 const ENGINE_RUST_CRATES = [
   'core-ids',
   'core-space',
@@ -28,10 +21,10 @@ export function validateDependencySources({
   cargoManifest,
   cargoLock,
   pnpmLock,
+  pnpmWorkspace,
 }) {
   for (const [name, source] of Object.entries({
     rustyEngine: sources.rustyEngine,
-    rustyEngineLegacyRenderer: sources.rustyEngineLegacyRenderer,
     rustyProcgen: sources.rustyProcgen,
   })) {
     if (
@@ -50,47 +43,14 @@ export function validateDependencySources({
   if (sources.rustyEngine.branch !== 'main') {
     throw new Error('rustyEngine must follow rolling branch main');
   }
-  if (sources.rustyEngineLegacyRenderer.removalTask !== 6700) {
-    throw new Error(
-      'legacy Engine renderer packages must remain bound to removal task 6700',
-    );
-  }
-
-  const packageSections = splitPnpmLock(pnpmLock);
-  for (const dependency of ENGINE_PACKAGES) {
-    const packagePath = `render/packages/${dependency.split('/')[1]}`;
-    const revision = sources.rustyEngineLegacyRenderer.commit;
-    const expectedSpecifier = `github:FuzzySlipper/rusty-engine#${revision}&path:${packagePath}`;
-    const lockedBase = `https://codeload.github.com/FuzzySlipper/rusty-engine/tar.gz/${revision}#path:${packagePath}`;
-    if (packageJson.dependencies?.[dependency] !== expectedSpecifier) {
-      throw new Error(
-        `${dependency} is not bound to the declared legacy renderer revision`,
-      );
+  for (const [name, content] of [
+    ['package.json', JSON.stringify(packageJson)],
+    ['pnpm-lock.yaml', pnpmLock],
+    ['pnpm-workspace.yaml', pnpmWorkspace],
+  ]) {
+    if (content.includes('@rusty-engine/')) {
+      throw new Error(`${name} contains a forbidden Engine TypeScript package`);
     }
-    requireCount(
-      packageSections.importer,
-      `specifier: ${expectedSpecifier}`,
-      1,
-      `${dependency} importer specifier`,
-    );
-    requireLinePrefixCount(
-      packageSections.importer,
-      `version: ${lockedBase}`,
-      1,
-      `${dependency} importer resolution`,
-    );
-    requireLinePrefixCount(
-      packageSections.packages,
-      `'${dependency}@${lockedBase}`,
-      1,
-      `${dependency} locked package record`,
-    );
-    requireLinePrefixCount(
-      packageSections.snapshots,
-      `'${dependency}@${lockedBase}`,
-      1,
-      `${dependency} locked snapshot record`,
-    );
   }
 
   const expectedManifestEntry = `rusty-procgen-preflight = { git = "${sources.rustyProcgen.repository}", rev = "${sources.rustyProcgen.commit}", package = "rusty-procgen-preflight" }`;
@@ -158,32 +118,8 @@ export function validateDependencySources({
   }
 }
 
-function splitPnpmLock(lock) {
-  const [beforeSnapshots, snapshots] = lock.split('\nsnapshots:\n');
-  const [importer, packages] = beforeSnapshots?.split('\npackages:\n') ?? [];
-  if (
-    importer === undefined ||
-    packages === undefined ||
-    snapshots === undefined
-  ) {
-    throw new Error(
-      'pnpm lock is missing importer, package, or snapshot sections',
-    );
-  }
-  return { importer, packages, snapshots };
-}
-
 function requireCount(content, needle, expected, label) {
   const observed = content.split(needle).length - 1;
-  if (observed !== expected) {
-    throw new Error(`${label} expected ${expected}, observed ${observed}`);
-  }
-}
-
-function requireLinePrefixCount(content, prefix, expected, label) {
-  const observed = content
-    .split('\n')
-    .filter((line) => line.trimStart().startsWith(prefix)).length;
   if (observed !== expected) {
     throw new Error(`${label} expected ${expected}, observed ${observed}`);
   }
@@ -196,6 +132,7 @@ async function loadInputs() {
     cargoManifest: await readFile('rust/Cargo.toml', 'utf8'),
     cargoLock: await readFile('rust/Cargo.lock', 'utf8'),
     pnpmLock: await readFile('pnpm-lock.yaml', 'utf8'),
+    pnpmWorkspace: await readFile('pnpm-workspace.yaml', 'utf8'),
   };
 }
 

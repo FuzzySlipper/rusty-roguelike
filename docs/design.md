@@ -14,15 +14,17 @@ authored game policy + explicit generation seed
   -> registered state plus named services through the complete Rusty Engine facade
   -> Rust collapsed-party session and initiative runtime
   -> Rust-generated strict protocol
-  -> browser store, renderer, features, and presentation
+  -> Rust-owned retained-frame projection
+  -> Engine-owned native webview renderer plus observational browser shell
 ```
 
 Rust owns generated-floor admission, discovery and visibility, participation
 and dormancy, the collapsed party square, initiative, the one-action economy,
 movement, actions, target/member selection, inventory, progression, objectives,
-saves, and projection. TypeScript may translate typed observations into a
-frame and keep transient focus, animation, and input state. It does not decide
-gameplay legality or maintain a second live session.
+saves, and retained-frame projection. TypeScript presents the observational
+browser shell and transient control state. It does not translate renderer
+contracts, mount a renderer, decide gameplay legality, or maintain a second
+live session.
 
 ## Preparation and party inventory
 
@@ -224,41 +226,29 @@ The browser strictly decodes that view, keeps classified transport failures
 visible, and submits only projected choices; it does not recreate inventory,
 equipment, movement, targeting, initiative, or rules policy.
 
-During task 6700, the Rust-owned `create_dungeon_frame` projection is the
-successor to the legacy browser adapter. Until the native product composition
-is wired and proven, one permanent public Engine `RendererSurface` still owns
-the browser window through the explicitly recorded legacy package pin. World view
-schema 5 projects bounded local scene topology, explicit locked-door barriers,
-and all prefab placements on its floor cells independently from minimap
-shadowcasting. A pure adapter maps those scene placements, relative cells, and
-shadowcast-visible actors into stable retained handles, one shared public static
-mesh with defined standard materials,
-public animated-mesh/light operations, and public picking metadata. The public
-Engine lighting policy disables the neutral world rig while retaining neutral
-viewmodel illumination. World lighting therefore comes only from the paired
-warm point lights in Rust-projected prefab scene facts; neither the browser nor
-the adapter invents a second level-lighting policy. Opposition receipts do
-not synthesize camera-relative actor geometry; damage remains visible through
-party vitality and the rules log.
-The same surface configures one bounded Engine-owned offscreen target and an
-orthographic local-overview camera over that exact retained scene. The target
-is kept offscreen for renderer lookup and future native presentation work; it
-is not composited into the primary canvas. This view receives no minimap,
-discovery, visibility, actor, navigation, or legality facts: it can only
-observe what Rust already admitted into the retained local scene, while the
-accessible detailed minimap remains the sole visible map presentation of the
-Rust minimap projection.
-Brief camera offsets are derived
-from accepted movement/turn receipts and discarded after presentation; reduced
-motion snaps immediately. The preparation workbench, initiative, movement,
-action selection, tabbed party sheet, field packs, and detailed rules log are
-overlays around that same canvas. Preparation offers native drag/drop plus a
-click-select destination alternative and busy-gates every mutation surface. A
-single Menu control above the minimap (and in preparation) owns Save, Load,
-New / Restart, and the native-only Exit action; it is a modal presentation
-adapter over Rust lifecycle operations, not a second persistence owner. The
-expedition Party/Packs disclosures are truthful nonmodal, keyboard-operable,
-read-only regions. Selecting an action highlights only its Rust-projected legal
-targets; resolved attacks drive bounded retained impact presentation. Enemy
-selection is an Engine metadata pick with explicit button and keyboard
-alternatives, and all resulting legality remains admitted by Rust.
+`create_dungeon_frame` is the only game-owned retained-scene projection. The
+native `rusty-roguelike-native` binary owns the outer `winit` product window,
+the bounded child region, admitted torch bytes, and semantic mapping from
+Engine physical-input/pick observations to revision-bound `SessionCommand`s.
+`rusty_engine::renderer_webview_host::RendererWebviewAdapter` exclusively owns
+the child webview, embedded private artifact, retained surface, frame loop,
+camera and view application, picking, resizing, and transactional disposal.
+There is no downstream JavaScript renderer package, bridge, callback registry,
+or generic command tunnel.
+
+World schema 5 projects bounded local topology, locked-door barriers, prefab
+placements, and shadowcast-visible actors. Rust maps those facts into stable
+retained handles, point lights, and source-entity metadata. The native host
+submits one bounded offscreen local-overview composition and the first-person
+camera through named adapter operations. Renderer input is observational:
+Rust converts key edges to explicit movement/turn/wait commands and converts
+an enemy pick only to the first already-projected legal action. Save, restore,
+restart, game state, target admission, and consequences remain inside
+`GameSession`.
+
+The Angular application remains an accessible gameplay/control shell for the
+same Rust contracts, but its viewport is only a marker for the native mount
+boundary. It does not fetch renderer resources or render a scene. Preparation,
+initiative, action alternatives, the detailed minimap, party sheets, and rules
+log therefore remain useful observational presentations without acquiring
+renderer authority.

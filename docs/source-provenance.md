@@ -10,12 +10,12 @@
   floor's voxel, navigation, movement, visibility, deterministic random, and
   renderer-host mechanisms; the game retains Roguelike policy, action
   resolution, state, frame projection, shell, and presentation meaning.
-- Active migration task 6700 still retains the old public renderer package
-  graph at Engine revision `04970a44ef2e87a3453f086469deff64f5ae56f4`
-  while the native Wry product composition replaces it. That legacy identity
-  is recorded separately as `rustyEngineLegacyRenderer` and is not the Rust
-  Engine dependency. It must be deleted, together with the browser renderer
-  adapter, before task 6700 can close.
+- Renderer-boundary migration: the previous browser renderer packages came
+  from Engine revision `04970a44ef2e87a3453f086469deff64f5ae56f4`.
+  Task 6700 removed that complete JavaScript dependency graph and its lockfile
+  records. The replacement uses only the rolling Rust facade resolved at
+  `d0b5e672b83d463bff71d8d35c877f770142ff3c`; its Engine-owned Wry adapter
+  embeds the private renderer artifact upstream.
 - Rusty Procgen: `https://github.com/FuzzySlipper/rusty-procgen` at
   `722e2c479bdf88ab39b66d2d33ab466b698ec7df`. Rust links the public
   filesystem-free `rusty_procgen_preflight::core::ProcgenCore` facade and
@@ -69,11 +69,9 @@ Donor evidence never overrides this repository's design.
 
 ## Presentation asset
 
-Legacy renderer revision `04970a44ef2e87a3453f086469deff64f5ae56f4` supplies the
-schema-1 renderer lighting policy used to disable neutral world illumination
-while retaining a neutral viewmodel rig, plus the schema-1 bounded
-multi-camera/offscreen-target contract used by the retained local-overview
-lookup target.
+Rusty Engine revision `d0b5e672b83d463bff71d8d35c877f770142ff3c`
+supplies the renderer-neutral retained model, bounded view-composition
+contracts, packaged private renderer artifact, and fixed Rust Wry adapter.
 The bundled torch is an optimized derivative of
 [Medieval Torch - Free](https://sketchfab.com/3d-models/medieval-torch-free-065861234a824cb982764f04627331c9)
 by [Typhen](https://sketchfab.com/typhen). It is licensed CC BY-NC-SA 4.0;

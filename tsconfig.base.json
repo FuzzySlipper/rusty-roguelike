@@ -25,7 +25,6 @@
       "@rusty-roguelike/feature-game": ["libs/feature-game/src/index.ts"],
       "@rusty-roguelike/platform": ["libs/platform/src/index.ts"],
       "@rusty-roguelike/protocol": ["libs/protocol/src/index.ts"],
-      "@rusty-roguelike/renderer": ["libs/renderer/src/index.ts"],
       "@rusty-roguelike/store": ["libs/store/src/index.ts"],
       "@rusty-roguelike/theme": ["libs/theme/src/index.ts"],
       "@rusty-roguelike/transport": ["libs/transport/src/index.ts"]

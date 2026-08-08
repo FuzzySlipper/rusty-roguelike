@@ -23,7 +23,6 @@ import type {
   SessionCommandDto,
   TurnReceipt,
 } from '@rusty-roguelike/protocol';
-import { GameViewportComponent } from '@rusty-roguelike/renderer';
 import {
   BootstrapStore,
   SessionStore,
@@ -32,6 +31,7 @@ import {
 
 import { PartySheetComponent } from './party-sheet';
 import { MinimapComponent } from './minimap';
+import { NativeViewportBoundaryComponent } from './native-viewport';
 import { PreparationComponent } from './preparation';
 
 type Drawer = 'party' | 'inventory' | null;
@@ -39,7 +39,7 @@ type Drawer = 'party' | 'inventory' | null;
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    GameViewportComponent,
+    NativeViewportBoundaryComponent,
     MinimapComponent,
     PartySheetComponent,
     PreparationComponent,
@@ -607,11 +607,7 @@ type Drawer = 'party' | 'inventory' | null;
                   state.value.world.visibleActors.length
                 "
               >
-                <rr-game-viewport
-                  [session]="state.value"
-                  [selectedActionId]="selectedActionId()"
-                  (actorPicked)="pickTarget($event)"
-                />
+                <rr-native-viewport-boundary [session]="state.value" />
                 @if (state.value.phase === 'preparation') {
                   <div class="persistence-tools">
                     @if (session.persistenceNotice(); as notice) {

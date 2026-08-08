@@ -1,10 +1,4 @@
-import {
-  expect,
-  test,
-  type Locator,
-  type Page,
-  type TestInfo,
-} from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import {
   decodeSessionView,
@@ -46,7 +40,7 @@ const ROUTE_TO_FIRST_ENCOUNTER = `
   .trim()
   .split(/\s+/);
 
-test('real Rust host supports the renderer-first expedition on desktop and mobile', async ({
+test('real Rust host supports the native-boundary expedition shell on desktop and mobile', async ({
   page,
   request,
 }, testInfo) => {
@@ -69,17 +63,13 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   if (testInfo.project.name === 'mobile-chromium') {
     await page.emulateMedia({ reducedMotion: 'reduce' });
   }
-  const torchAsset = page.waitForResponse((response) =>
-    response.url().endsWith('/assets/torch/medieval-torch.glb'),
-  );
   await page.goto('/');
-  expect((await torchAsset).ok()).toBe(true);
 
   const stage = page.locator('.stage[data-session-revision]');
   await expect(stage).toHaveAttribute('data-session-revision', '0');
   await expect(
-    page.locator('[data-renderer-backend="rusty-engine-three"]'),
-  ).toHaveAttribute('data-renderer-status', 'ready');
+    page.locator('[data-renderer-backend="rusty-engine-native-webview"]'),
+  ).toHaveAttribute('data-renderer-owner', 'rust');
   await expect(
     page.getByRole('heading', { name: 'Prepare the expedition' }),
   ).toBeVisible();
@@ -137,7 +127,9 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   await expect(page.getByTestId('procgen-revision')).toHaveText(
     RUSTY_PROCGEN_REVISION,
   );
-  await expect(page.locator('canvas')).toBeVisible();
+  await expect(
+    page.locator('[data-renderer-backend="rusty-engine-native-webview"]'),
+  ).toBeVisible();
   const beforeWait = await readSession(page);
   const waitingActor = beforeWait.decision?.actorEntityId;
   if (waitingActor === undefined) {
@@ -220,43 +212,11 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   expect(initialVisibleEnemies).toBe(1);
   expect(initialVisibleLights).toBe(initialVisibleTorches);
   expect(initialView.world.cells.length).toBeGreaterThan(initialVisibleCells);
-  const viewport = page.locator('[data-renderer-backend="rusty-engine-three"]');
-  await expect(viewport).toHaveAttribute(
-    'data-scene-cells',
-    String(initialView.world.cells.length),
+  const viewport = page.locator(
+    '[data-renderer-backend="rusty-engine-native-webview"]',
   );
-  await expect(viewport).toHaveAttribute(
-    'data-visible-torches',
-    String(initialVisibleTorches),
-  );
-  await expect(viewport).toHaveAttribute(
-    'data-visible-lights',
-    String(initialVisibleLights),
-  );
-  await expect(viewport).toHaveAttribute(
-    'data-lighting-world-default',
-    'disabled',
-  );
-  await expect(viewport).toHaveAttribute(
-    'data-lighting-viewmodel-default',
-    'neutral',
-  );
-  await expect(viewport).toHaveAttribute(
-    'data-retained-light-count',
-    String(initialVisibleLights),
-  );
-  await expect(viewport).toHaveAttribute(
-    'data-view-camera',
-    'camera.dungeon-local-overview',
-  );
-  await expect(viewport).toHaveAttribute('data-view-target-count', '1');
-  await expect(viewport).toHaveAttribute('data-view-target-revision', '1');
-  await expect(viewport).toHaveAttribute(
-    'data-view-target-size',
-    testInfo.project.name === 'desktop-chromium' ? '256' : '128',
-  );
-  await expect(viewport).toHaveAttribute('data-view-target-status', 'current');
-  await expect(viewport).toHaveAttribute('data-view-presentation-count', '0');
+  await expect(viewport).toHaveAttribute('data-renderer-owner', 'rust');
+  await expect(viewport).toHaveAttribute('data-renderer-status', 'native-host');
   await expect(page.locator('rr-minimap')).toHaveCount(1);
   await expect(page.locator('rr-minimap [role="img"]:visible')).toHaveCount(1);
   if (testInfo.project.name === 'desktop-chromium') {
@@ -265,21 +225,8 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     if (originalViewport === null)
       throw new Error('desktop viewport size is unavailable');
     await page.setViewportSize({ width: 600, height: 800 });
-    await expect(viewport).toHaveAttribute('data-view-target-revision', '2');
-    await expect(viewport).toHaveAttribute('data-view-target-size', '128');
-    await expect(viewport).toHaveAttribute(
-      'data-view-target-status',
-      'current',
-    );
-    await expect(viewport).toHaveAttribute('data-view-presentation-count', '0');
     await page.setViewportSize(originalViewport);
-    await expect(viewport).toHaveAttribute('data-view-target-revision', '3');
-    await expect(viewport).toHaveAttribute('data-view-target-size', '256');
-    await expect(viewport).toHaveAttribute(
-      'data-view-target-status',
-      'current',
-    );
-    await expect(viewport).toHaveAttribute('data-view-presentation-count', '0');
+    await expect(viewport).toHaveAttribute('data-renderer-owner', 'rust');
     const afterResize = await readSession(page);
     expect(afterResize.revision).toBe(beforeResize.revision);
     expect(afterResize.world.minimap).toEqual(beforeResize.world.minimap);
@@ -519,17 +466,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     const beforePick = Number(
       await stage.getAttribute('data-session-revision'),
     );
-    const canvas = page.locator('canvas');
-    const bounds = await canvas.boundingBox();
-    if (bounds === null) {
-      throw new Error('renderer canvas has no browser bounds');
-    }
-    await clickRenderedTarget(
-      page,
-      bounds,
-      beforePick,
-      (await readSession(page)).world.visibleActors,
-    );
+    await page.getByRole('button', { name: firstEnemy }).click();
     await expect(stage).toHaveAttribute(
       'data-session-revision',
       String(beforePick + 1),
@@ -582,7 +519,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     );
     const turned = await readSession(page);
     const viewport = page.locator(
-      '[data-renderer-backend="rusty-engine-three"]',
+      '[data-renderer-backend="rusty-engine-native-webview"]',
     );
     const torches = turned.world.scenePlacements.filter(
       (placement) => placement.content.kind === 'prop',
@@ -592,19 +529,7 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
     ).length;
     expect(torches).toBeGreaterThan(0);
     expect(lights).toBe(torches);
-    await assertAuthoredTorchLighting(page, turned, testInfo);
-    await expect(viewport).toHaveAttribute(
-      'data-visible-torches',
-      String(torches),
-    );
-    await expect(viewport).toHaveAttribute(
-      'data-visible-lights',
-      String(lights),
-    );
-    await expect(viewport).toHaveAttribute(
-      'data-scene-cells',
-      String(turned.world.cells.length),
-    );
+    await expect(viewport).toHaveAttribute('data-renderer-owner', 'rust');
     await assertVerticallySeparated(
       objective,
       page.getByRole('complementary', { name: 'Party vitality' }),
@@ -640,23 +565,22 @@ test('real Rust host supports the renderer-first expedition on desktop and mobil
   });
 });
 
-test('renderer exposes a corrupt torch resource as a visible failure', async ({
+test('browser shell does not fetch or bootstrap the native renderer resource', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
-  await page.route('**/assets/torch/medieval-torch.glb', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'model/gltf-binary',
-      body: 'corrupt fixture asset',
-    }),
-  );
+  let rendererResourceRequests = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith('/assets/torch/medieval-torch.glb')) {
+      rendererResourceRequests += 1;
+    }
+  });
   await page.goto('/');
-  const viewport = page.locator('[data-renderer-backend="rusty-engine-three"]');
-  await expect(viewport).toHaveAttribute('data-renderer-status', 'error');
-  await expect(viewport.getByRole('alert')).toContainText(
-    /expected sha256:[0-9a-f]{64}, received sha256:[0-9a-f]{64}/u,
+  const viewport = page.locator(
+    '[data-renderer-backend="rusty-engine-native-webview"]',
   );
+  await expect(viewport).toHaveAttribute('data-renderer-owner', 'rust');
+  expect(rendererResourceRequests).toBe(0);
 });
 
 const LOADOUT = [
@@ -994,36 +918,6 @@ function stepLabel(step: RelativeStep): string {
         : 'Step right';
 }
 
-async function clickRenderedTarget(
-  page: Page,
-  bounds: { x: number; y: number; width: number; height: number },
-  revision: number,
-  visibleActors: SessionView['world']['visibleActors'],
-): Promise<void> {
-  for (const vertical of [0.5, 0.42, 0.58, 0.34, 0.66]) {
-    for (const horizontal of [0.5, 0.35, 0.65, 0.2, 0.8]) {
-      await page.mouse.click(
-        bounds.x + bounds.width * horizontal,
-        bounds.y + bounds.height * vertical,
-      );
-      await page.waitForTimeout(25);
-      if (
-        Number(
-          await page
-            .locator('.stage[data-session-revision]')
-            .getAttribute('data-session-revision'),
-        ) ===
-        revision + 1
-      ) {
-        return;
-      }
-    }
-  }
-  throw new Error(
-    `bounded RendererSurface target scan did not pick ${JSON.stringify(visibleActors)}`,
-  );
-}
-
 async function issueAndWait(
   page: Page,
   stage: Locator,
@@ -1179,160 +1073,17 @@ async function assertTransparentGapReachesCanvas(
   if (topBox === null || bottomBox === null) {
     throw new Error('map toolbar and minimap must have browser bounds');
   }
-  const tagName = await page.evaluate(
-    ({ x, y }) => document.elementFromPoint(x, y)?.tagName ?? null,
+  const reachesBoundary = await page.evaluate(
+    ({ x, y }) =>
+      document
+        .elementFromPoint(x, y)
+        ?.closest('[data-renderer-backend="rusty-engine-native-webview"]') !==
+      null,
     {
       x: bottomBox.x + bottomBox.width / 2,
       y:
         topBox.y + topBox.height + (bottomBox.y - topBox.y - topBox.height) / 2,
     },
   );
-  expect(tagName).toBe('CANVAS');
-}
-
-interface TorchFalloffMetrics {
-  readonly brightestTileLuminance: number;
-  readonly brightestTileRedMinusBlue: number;
-  readonly distantTileLuminance: number;
-  readonly height: number;
-  readonly tileColumns: number;
-  readonly tileRows: number;
-  readonly width: number;
-}
-
-async function assertAuthoredTorchLighting(
-  page: Page,
-  view: SessionView,
-  testInfo: TestInfo,
-): Promise<void> {
-  const viewport = page.locator('[data-renderer-backend="rusty-engine-three"]');
-  const torches = view.world.scenePlacements.filter(
-    (placement) => placement.content.kind === 'prop',
-  ).length;
-  const lights = view.world.scenePlacements.filter(
-    (placement) => placement.content.kind === 'point_light',
-  ).length;
-  expect(torches).toBeGreaterThan(0);
-  expect(lights).toBe(torches);
-  await expect(viewport).toHaveAttribute(
-    'data-lighting-world-default',
-    'disabled',
-  );
-  await expect(viewport).toHaveAttribute(
-    'data-lighting-viewmodel-default',
-    'neutral',
-  );
-  await expect(viewport).toHaveAttribute(
-    'data-retained-light-count',
-    String(lights),
-  );
-  const lightingPixels = await analyzeTorchFalloff(page);
-  expect(lightingPixels.brightestTileLuminance).toBeGreaterThan(
-    lightingPixels.distantTileLuminance + 8,
-  );
-  expect(lightingPixels.brightestTileRedMinusBlue).toBeGreaterThan(4);
-  await testInfo.attach(`torch-falloff-${testInfo.project.name}.json`, {
-    body: Buffer.from(JSON.stringify(lightingPixels, null, 2)),
-    contentType: 'application/json',
-  });
-  await testInfo.attach(`torch-falloff-${testInfo.project.name}.png`, {
-    body: await page.locator('canvas').screenshot(),
-    contentType: 'image/png',
-  });
-}
-
-async function analyzeTorchFalloff(page: Page): Promise<TorchFalloffMetrics> {
-  const encodedScreenshot = (
-    await page.locator('canvas').screenshot()
-  ).toString('base64');
-  return page.evaluate(async (encoded) => {
-    const image = new Image();
-    image.src = `data:image/png;base64,${encoded}`;
-    await new Promise<void>((resolve, reject) => {
-      image.addEventListener('load', () => resolve(), { once: true });
-      image.addEventListener(
-        'error',
-        () => reject(new Error('decode failed')),
-        {
-          once: true,
-        },
-      );
-    });
-    const analysisCanvas = document.createElement('canvas');
-    analysisCanvas.width = image.naturalWidth;
-    analysisCanvas.height = image.naturalHeight;
-    const context = analysisCanvas.getContext('2d', {
-      willReadFrequently: true,
-    });
-    if (context === null) {
-      throw new Error('screenshot analysis requires a detached 2D canvas');
-    }
-    context.drawImage(image, 0, 0);
-    const pixels = context.getImageData(
-      0,
-      0,
-      analysisCanvas.width,
-      analysisCanvas.height,
-    ).data;
-    const tileColumns = 8;
-    const tileRows = 6;
-    const tiles: Array<{
-      column: number;
-      luminance: number;
-      redMinusBlue: number;
-      row: number;
-    }> = [];
-    for (let row = 0; row < tileRows; row += 1) {
-      for (let column = 0; column < tileColumns; column += 1) {
-        const startX = Math.floor(
-          (column * analysisCanvas.width) / tileColumns,
-        );
-        const endX = Math.floor(
-          ((column + 1) * analysisCanvas.width) / tileColumns,
-        );
-        const startY = Math.floor((row * analysisCanvas.height) / tileRows);
-        const endY = Math.floor(((row + 1) * analysisCanvas.height) / tileRows);
-        let luminance = 0;
-        let redMinusBlue = 0;
-        let samples = 0;
-        for (let y = startY; y < endY; y += 2) {
-          for (let x = startX; x < endX; x += 2) {
-            const offset = (y * analysisCanvas.width + x) * 4;
-            const red = pixels[offset] ?? 0;
-            const green = pixels[offset + 1] ?? 0;
-            const blue = pixels[offset + 2] ?? 0;
-            luminance += red * 0.2126 + green * 0.7152 + blue * 0.0722;
-            redMinusBlue += red - blue;
-            samples += 1;
-          }
-        }
-        tiles.push({
-          column,
-          luminance: luminance / samples,
-          redMinusBlue: redMinusBlue / samples,
-          row,
-        });
-      }
-    }
-    const brightest = tiles.reduce((current, tile) =>
-      tile.luminance > current.luminance ? tile : current,
-    );
-    const distantTiles = tiles.filter(
-      (tile) =>
-        Math.abs(tile.column - brightest.column) +
-          Math.abs(tile.row - brightest.row) >=
-        4,
-    );
-    return {
-      brightestTileLuminance: brightest.luminance,
-      brightestTileRedMinusBlue: brightest.redMinusBlue,
-      distantTileLuminance:
-        distantTiles.reduce((total, tile) => total + tile.luminance, 0) /
-        distantTiles.length,
-      height: analysisCanvas.height,
-      tileColumns,
-      tileRows,
-      width: analysisCanvas.width,
-    };
-  }, encodedScreenshot);
+  expect(reachesBoundary).toBe(true);
 }

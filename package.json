@@ -14,6 +14,7 @@
     "e2e": "pnpm run build && nx e2e app-e2e",
     "format:check": "prettier --check .",
     "lint": "nx run-many -t lint --all",
+    "native": "cargo run --manifest-path rust/Cargo.toml -p rusty-roguelike --bin rusty-roguelike-native --",
     "protocol:check": "cargo run --manifest-path rust/Cargo.toml -p rusty-roguelike --bin rusty-roguelike-protocol -- --check libs/protocol/src/generated/api-types.ts",
     "protocol:generate": "cargo run --manifest-path rust/Cargo.toml -p rusty-roguelike --bin rusty-roguelike-protocol -- libs/protocol/src/generated/api-types.ts",
     "serve:local": "node tools/serve-local.mjs",
@@ -23,6 +24,7 @@
     "verify:boundaries": "pnpm run check:dependencies && pnpm run check:engine-freshness && pnpm run check:dependency-adversaries && pnpm run check:boundaries && pnpm run protocol:check",
     "verify:browser": "pnpm run e2e",
     "verify:build": "pnpm run build",
+    "verify:native": "./scripts/verify-native-host.sh",
     "verify:rust": "cargo fmt --manifest-path rust/Cargo.toml --check && cargo test --manifest-path rust/Cargo.toml --workspace --locked && cargo clippy --manifest-path rust/Cargo.toml --workspace --all-targets --locked -- -D warnings",
     "verify:ui": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test"
   },
@@ -31,10 +33,6 @@
     "@angular/compiler": "~21.2.0",
     "@angular/core": "~21.2.0",
     "@angular/platform-browser": "~21.2.0",
-    "@rusty-engine/render-contracts": "github:FuzzySlipper/rusty-engine#04970a44ef2e87a3453f086469deff64f5ae56f4&path:render/packages/render-contracts",
-    "@rusty-engine/render-projection": "github:FuzzySlipper/rusty-engine#04970a44ef2e87a3453f086469deff64f5ae56f4&path:render/packages/render-projection",
-    "@rusty-engine/renderer-host": "github:FuzzySlipper/rusty-engine#04970a44ef2e87a3453f086469deff64f5ae56f4&path:render/packages/renderer-host",
-    "@rusty-engine/renderer-three": "github:FuzzySlipper/rusty-engine#04970a44ef2e87a3453f086469deff64f5ae56f4&path:render/packages/renderer-three",
     "rxjs": "~7.8.0",
     "tslib": "^2.8.1"
   },

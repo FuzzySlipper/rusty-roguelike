@@ -9,7 +9,16 @@ pnpm install --frozen-lockfile
 
 The gate proves exact dependency carriers, Rust formatting/tests/clippy, strict
 protocol generation, browser boundaries, lint/typecheck/unit tests, production
-build, and real Rust-served Chromium at desktop and mobile sizes.
+build, a real X11/WebKit native renderer host, and Rust-served Chromium at
+desktop and mobile sizes.
+
+`pnpm run verify:native` mounts the Engine-owned private artifact through the
+real Rust adapter and certifies frame submission, the bounded overview and
+first-person camera, resize, one content-hash-bound product resource, physical
+input readback, picking, state readback, explicit rendering, an authoritative
+command plus exact save/restore round trip, and acknowledged disposal. On
+Linux the proof uses Xvfb with WebKit compositing disabled for deterministic
+software-rendered teardown.
 
 The desktop browser path starts from the complete canonical equipped loadout,
 then proves optional preparation by unequipping and restoring Scale Mail before
@@ -24,15 +33,9 @@ uses the game menu to save/load and restart, saves/reopens active combat,
 reaches victory, and reopens the terminal save. It
 also proves that exactly one polished detailed minimap follows Rust discovery,
 remembered versus current visibility, enemy appearance, revision replacement,
-and classified failure nonmutation while the retained Engine local-overview
-target stays offscreen with zero primary presentations. The retained Engine
-surface loads the exact-hash torch GLB,
-disables neutral world lighting through the public schema-1 policy, renders only
-Rust-projected prefab torch/light pairs, and exposes corrupt asset bytes as a
-visible classified renderer failure. Desktop and mobile Chromium assert the
-public lighting readout and retained-light count; a canvas-only asymmetric tile
-analysis proves a localized warm region falls off into materially darker remote
-geometry without reading private Three or WebGL state. The mobile path repeats
+and classified failure nonmutation. The browser also proves it neither fetches
+the torch GLB nor bootstraps an Engine renderer; those responsibilities are
+covered by the native proof. The mobile path repeats
 preparation and lifecycle controls, keyboard input, a visible torch/light pair,
 responsive panel separation, the upper-right map/menu cluster, 44-pixel
 controls, and viewport containment.

@@ -10,18 +10,27 @@ const inputs = {
   cargoManifest: await readFile('rust/Cargo.toml', 'utf8'),
   cargoLock: await readFile('rust/Cargo.lock', 'utf8'),
   pnpmLock: await readFile('pnpm-lock.yaml', 'utf8'),
+  pnpmWorkspace: await readFile('pnpm-workspace.yaml', 'utf8'),
 };
 
 test('accepts every canonical exact dependency identity', () => {
   assert.doesNotThrow(() => validateDependencySources(inputs));
 });
 
-test('rejects removal of one declared legacy Engine renderer package', () => {
+test('rejects reintroduction of an Engine renderer package', () => {
   const packageJson = structuredClone(inputs.packageJson);
-  delete packageJson.dependencies['@rusty-engine/renderer-host'];
+  packageJson.dependencies['@rusty-engine/renderer-host'] = 'forbidden';
   assert.throws(
     () => validateDependencySources({ ...inputs, packageJson }),
-    /renderer-host is not bound to the declared legacy renderer revision/,
+    /package.json contains a forbidden Engine TypeScript package/,
+  );
+});
+
+test('rejects a stale Engine renderer workspace allowlist entry', () => {
+  const pnpmWorkspace = `${inputs.pnpmWorkspace}\n  '@rusty-engine/renderer-three': true\n`;
+  assert.throws(
+    () => validateDependencySources({ ...inputs, pnpmWorkspace }),
+    /pnpm-workspace.yaml contains a forbidden Engine TypeScript package/,
   );
 });
 

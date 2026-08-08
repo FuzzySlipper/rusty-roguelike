@@ -38,6 +38,18 @@ for (const root of roots) {
   }
 }
 
+for (const root of ['apps', 'libs']) {
+  for (const file of await filesUnder(root)) {
+    if (!new Set(['.ts', '.mts', '.js', '.mjs']).has(extname(file))) continue;
+    const content = await readFile(file, 'utf8');
+    if (content.includes('@rusty-engine/')) {
+      throw new Error(
+        `${file} imports a forbidden downstream Engine TypeScript package`,
+      );
+    }
+  }
+}
+
 console.log('Rusty Roguelike repository boundaries passed');
 
 async function filesUnder(root) {

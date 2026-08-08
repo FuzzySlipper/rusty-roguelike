@@ -6,6 +6,7 @@ cd "$repo_root"
 
 pnpm run verify:boundaries
 pnpm run verify:rust
+pnpm run verify:native
 pnpm run verify:ui
 pnpm run verify:build
 pnpm run verify:browser
