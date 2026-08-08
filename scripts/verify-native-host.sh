@@ -21,11 +21,12 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ "$(uname -s)" == "Linux" ]]; then
+  cargo build --manifest-path rust/Cargo.toml -p rusty-roguelike \
+    --bin rusty-roguelike-native --locked
   xvfb-run -a ./scripts/run-native-host-proof-linux.sh "$proof_output"
   xvfb-run -a env -u WAYLAND_DISPLAY -u WAYLAND_SOCKET \
     GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
-    cargo run --manifest-path rust/Cargo.toml -p rusty-roguelike \
-      --bin rusty-roguelike-native --locked -- \
+    ./rust/target/debug/rusty-roguelike-native \
       --proof-corrupt-resource >"$rejection_output" 2>&1
 else
   echo 'verify-native-host requires Linux/X11 input automation' >&2

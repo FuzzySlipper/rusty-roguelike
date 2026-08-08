@@ -10,8 +10,7 @@ export LIBGL_ALWAYS_SOFTWARE=1
 export WEBKIT_DISABLE_COMPOSITING_MODE=1
 unset WAYLAND_DISPLAY WAYLAND_SOCKET
 
-cargo run --manifest-path rust/Cargo.toml -p rusty-roguelike \
-  --bin rusty-roguelike-native --locked -- --proof >"$proof_output" 2>&1 &
+./rust/target/debug/rusty-roguelike-native --proof >"$proof_output" 2>&1 &
 application_pid=$!
 
 cleanup() {
@@ -22,7 +21,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for _ in $(seq 1 2400); do
+for _ in $(seq 1 600); do
   if grep -Fq 'RUSTY_ROGUELIKE_NATIVE_READY_FOR_INPUT' "$proof_output"; then
     break
   fi
