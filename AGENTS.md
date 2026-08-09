@@ -47,3 +47,13 @@ User-visible work requires a real Rust-served browser scenario and inspected
 desktop/mobile artifacts. Update [docs/source-provenance.md](docs/source-provenance.md)
 when donor or dependency pins change, and [docs/known-limitations.md](docs/known-limitations.md)
 when an intentional phase boundary remains.
+
+## Den Guidance Bootstrap
+
+- Project ID: `rusty-roguelike`
+- Resolve live guidance with the Den MCP `get_agent_guidance` tool before
+  substantial work.
+- Treat the resolved Den guidance packet and its referenced Den documents as
+  the source of truth.
+- If Den is unreachable, stop and tell the user which Den tool or command
+  failed and what you were about to do. Do not reconstruct Den state from local files.
