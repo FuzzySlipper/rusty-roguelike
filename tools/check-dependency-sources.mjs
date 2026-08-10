@@ -130,39 +130,49 @@ function validateDependencyDocumentation(documents) {
   ];
 
   for (const [name, content] of Object.entries(documents)) {
-    const statements = content
+    const clauses = content
       .split(/\n\s*\n/u)
       .flatMap((paragraph) =>
-        paragraph.replace(/\n+/gu, ' ').split(/(?<=[.!?])(?:\s+|$)/u),
+        paragraph.replace(/\n+/gu, ' ').split(/(?<=[.!?;])(?:\s+|$)/u),
       )
-      .map((statement) => statement.trim())
+      .map((clause) => clause.trim())
       .filter(Boolean);
-    for (const statement of statements) {
-      const mentionsEngine = /\bEngine\b/iu.test(statement);
+    for (const clause of clauses) {
+      const mentionsEngine = /\bEngine\b/iu.test(clause);
       const pinsEngine =
-        mentionsEngine && /\bpin(?:ned|ning|s)?\b/iu.test(statement);
+        mentionsEngine && /\bpin(?:ned|ning|s)?\b/iu.test(clause);
       const namesEngineRevision =
-        /\bEngine revision\b|\brevision (?:of|for) (?:the )?Engine\b|\bEngine(?:'s)? (?:source|identity)\b[^.!?]*\brevision\b|\brevision\b[^.!?]*\bEngine(?:'s)? (?:source|identity)\b/iu.test(
-          statement,
+        /\bEngine revision\b|\brevision (?:of|for) (?:the )?Engine\b|\bEngine(?:'s)? (?:source|identity)\b[^.!?;]*\brevision\b|\brevision\b[^.!?;]*\bEngine(?:'s)? (?:source|identity)\b|\bEngine\b[^.!?;]*\b(?:resolves?|resolved|resolution)\b[^.!?;]*\brevision\b/iu.test(
+          clause,
         );
       const carriesEngineRevision =
         namesEngineRevision &&
-        /\b(?:current|exact|identity|reviewed|source)\b|[0-9a-f]{7,40}/iu.test(
-          statement,
+        /\b(?:build|current|exact|identity|reviewed|source)\b|[0-9a-f]{7,40}/iu.test(
+          clause,
         );
       const stale =
         pinsEngine ||
         carriesEngineRevision ||
-        staleEngineClaims.some((pattern) => pattern.test(statement));
+        staleEngineClaims.some((pattern) => pattern.test(clause));
       const explicitHistory =
         name === 'docs/source-provenance.md' &&
-        /\b(?:historical|history)\b/iu.test(statement);
-      const explicitNegation = /\bEngine revision identity is not\b/iu.test(
-        statement,
-      );
-      if (stale && !explicitHistory && !explicitNegation) {
+        /\b(?:historical|history)\b/iu.test(clause) &&
+        !/\bcurrent Engine\b|\bEngine currently\b|\bpin(?:ned|ning|s)?\b/iu.test(
+          clause,
+        );
+      const engineRevisionMentions =
+        clause.match(/\bEngine revision\b/giu)?.length ?? 0;
+      const adjacentFacadeNegative =
+        /\bEngine revision identity is not a game runtime or persistence fact\b/iu.test(
+          clause,
+        ) &&
+        engineRevisionMentions === 1 &&
+        !/\b(?:current|pin(?:ned|ning|s)?|resolve[ds]?|source|use[ds]?)\b|[0-9a-f]{7,40}/iu.test(
+          clause,
+        );
+      if (stale && !explicitHistory && !adjacentFacadeNegative) {
         throw new Error(
-          `${name} contains stale Engine pin or revision-carrier guidance: ${statement}`,
+          `${name} contains stale Engine pin or revision-carrier guidance: ${clause}`,
         );
       }
     }

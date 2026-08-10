@@ -95,6 +95,32 @@ test('does not let a historical sentence exempt a current pin assertion', () => 
   );
 });
 
+test('does not let a historical clause exempt a current pin assertion', () => {
+  for (const separator of [';', ', but']) {
+    const sourceProvenance = `${inputs.sourceProvenance}\n\nHistorical migration provenance used Engine revision abcdef1${separator} the current Engine RNG service is pinned to revision 1111111111111111111111111111111111111111.\n`;
+    assert.throws(
+      () => validateDependencySources({ ...inputs, sourceProvenance }),
+      /docs\/source-provenance\.md contains stale Engine pin or revision-carrier guidance/,
+    );
+  }
+});
+
+test('rejects current Engine resolution wording', () => {
+  const design = `${inputs.design}\n\nEngine currently resolves to revision 1111111111111111111111111111111111111111 for every build.\n`;
+  assert.throws(
+    () => validateDependencySources({ ...inputs, design }),
+    /docs\/design\.md contains stale Engine pin or revision-carrier guidance/,
+  );
+});
+
+test('does not let unrelated negation exempt a current carrier clause', () => {
+  const design = `${inputs.design}\n\nEngine revision identity is not absent; use Engine revision 1111111111111111111111111111111111111111 as the current source.\n`;
+  assert.throws(
+    () => validateDependencySources({ ...inputs, design }),
+    /docs\/design\.md contains stale Engine pin or revision-carrier guidance/,
+  );
+});
+
 test('allows explicitly historical Engine revision provenance', () => {
   const sourceProvenance = `${inputs.sourceProvenance}\n\nHistorical migration note: exact reviewed Engine revision 0123456789012345678901234567890123456789.\n`;
   assert.doesNotThrow(() =>
@@ -104,5 +130,10 @@ test('allows explicitly historical Engine revision provenance', () => {
 
 test('allows exact Procgen pin language', () => {
   const design = `${inputs.design}\n\nRusty Procgen is pinned to exact revision 722e2c479bdf88ab39b66d2d33ab466b698ec7df.\n`;
+  assert.doesNotThrow(() => validateDependencySources({ ...inputs, design }));
+});
+
+test('allows the exact adjacent-facade negative assertion', () => {
+  const design = `${inputs.design}\n\nEngine revision identity is not a game runtime or persistence fact.\n`;
   assert.doesNotThrow(() => validateDependencySources({ ...inputs, design }));
 });
