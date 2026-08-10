@@ -142,14 +142,19 @@ function validateDependencyDocumentation(documents) {
       const pinsEngine =
         mentionsEngine && /\bpin(?:ned|ning|s)?\b/iu.test(clause);
       const namesEngineRevision =
-        /\bEngine revision\b|\brevision (?:of|for) (?:the )?Engine\b|\bEngine(?:'s)? (?:source|identity)\b[^.!?;]*\brevision\b|\brevision\b[^.!?;]*\bEngine(?:'s)? (?:source|identity)\b|\bEngine\b[^.!?;]*\b(?:resolves?|resolved|resolution)\b[^.!?;]*\brevision\b|\b(?:resolves?|resolved|resolution)\b[^.!?;]*\bEngine\b[^.!?;]*\brevision\b/iu.test(
+        /\bEngine revision\b|\brevision (?:of|for) (?:the )?Engine\b|\bEngine(?:'s)? (?:source|identity)\b[^.!?;]*\brevision\b|\brevision\b[^.!?;]*\bEngine(?:'s)? (?:source|identity)\b/iu.test(
+          clause,
+        );
+      const currentRevisionAuthority =
+        mentionsEngine &&
+        /\brevision\b/iu.test(clause) &&
+        /\b(?:build|current|identity|resolve[ds]?|resolution|source)\b/iu.test(
           clause,
         );
       const carriesEngineRevision =
-        namesEngineRevision &&
-        /\b(?:build|current|exact|identity|reviewed|source)\b|[0-9a-f]{7,40}/iu.test(
-          clause,
-        );
+        currentRevisionAuthority ||
+        (namesEngineRevision &&
+          /\b(?:exact|reviewed)\b|[0-9a-f]{7,40}/iu.test(clause));
       const stale =
         pinsEngine ||
         carriesEngineRevision ||
@@ -157,7 +162,7 @@ function validateDependencyDocumentation(documents) {
       const explicitHistory =
         name === 'docs/source-provenance.md' &&
         /\b(?:historical|history)\b/iu.test(clause) &&
-        !/\bcurrent Engine\b|\bEngine currently\b|\bpin(?:ned|ning|s)?\b/iu.test(
+        !/\b(?:build|current|identity|pin(?:ned|ning|s)?|resolve[ds]?|resolution)\b/iu.test(
           clause,
         );
       const engineRevisionMentions =
