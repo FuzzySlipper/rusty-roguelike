@@ -2,19 +2,20 @@
 
 ## Runtime dependencies
 
-- Rusty Engine: `https://github.com/FuzzySlipper/rusty-engine` at
-  rolling `main`, resolved in `Cargo.lock` to
-  `d0b5e672b83d463bff71d8d35c877f770142ff3c`. The product declares only the
-  complete `rusty-engine` Rust facade and reaches every Engine owner through
-  its preserved `rusty_engine::<owner>` namespace. Those services own the
-  floor's voxel, navigation, movement, visibility, deterministic random, and
-  renderer-host mechanisms; the game retains Roguelike policy, action
-  resolution, state, frame projection, shell, and presentation meaning.
+- Rusty Engine: one unconditional adjacent path dependency on
+  `../../rusty-engine/rust/crates/rusty-engine`. The product consumes the local
+  checkout exactly as it stands, declares only the complete `rusty-engine` Rust
+  facade, and reaches every Engine owner through its preserved
+  `rusty_engine::<owner>` namespace. Roguelike scripts never pull, synchronize,
+  or mutate that checkout. Engine services own the floor's voxel, navigation,
+  movement, visibility, deterministic random, and renderer-host mechanisms;
+  the game retains Roguelike policy, action resolution, state, frame
+  projection, shell, and presentation meaning.
 - Renderer-boundary migration: the previous browser renderer packages came
   from Engine revision `04970a44ef2e87a3453f086469deff64f5ae56f4`.
   Task 6700 removed that complete JavaScript dependency graph and its lockfile
-  records. The replacement uses only the rolling Rust facade resolved at
-  `d0b5e672b83d463bff71d8d35c877f770142ff3c`; its Engine-owned Wry adapter
+  records. That SHA remains historical migration provenance. The current
+  replacement uses only the adjacent Rust facade; its Engine-owned Wry adapter
   embeds the private renderer artifact upstream.
 - Rusty Procgen: `https://github.com/FuzzySlipper/rusty-procgen` at
   `722e2c479bdf88ab39b66d2d33ab466b698ec7df`. Rust links the public
@@ -22,8 +23,9 @@
   consumes its validated prefab scene-socket placements as inert generation
   facts. Torch content and rendering remain owned by this game.
 
-`dependency-sources.json` and both lockfiles are the executable identity proof.
-There are no sibling path fallbacks.
+`rust/Cargo.toml`, `Cargo.lock`, and the dependency boundary check prove the
+adjacent Engine facade carrier. `dependency-sources.json` and `Cargo.lock`
+remain the executable exact-identity proof for Procgen.
 
 ## Procgen authoring inputs
 
@@ -70,8 +72,10 @@ Donor evidence never overrides this repository's design.
 ## Presentation asset
 
 Rusty Engine revision `d0b5e672b83d463bff71d8d35c877f770142ff3c`
-supplies the renderer-neutral retained model, bounded view-composition
-contracts, packaged private renderer artifact, and fixed Rust Wry adapter.
+is the historical revision at which the current native presentation boundary
+entered this product. The adjacent Engine facade now supplies the
+renderer-neutral retained model, bounded view-composition contracts, packaged
+private renderer artifact, and fixed Rust Wry adapter.
 The bundled torch is an optimized derivative of
 [Medieval Torch - Free](https://sketchfab.com/3d-models/medieval-torch-free-065861234a824cb982764f04627331c9)
 by [Typhen](https://sketchfab.com/typhen). It is licensed CC BY-NC-SA 4.0;

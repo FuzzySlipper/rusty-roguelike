@@ -126,8 +126,8 @@ does not wrap those mechanisms in a shared RPG facade.
 
 ## Complete session persistence
 
-Save schema 4 is a closed Rust-owned contract. It records the exact public
-Engine and Procgen revisions, compiled starter-rules fingerprint, admitted floor
+Save schema 5 is a closed Rust-owned contract. It records the exact public
+Procgen revision, compiled starter-rules fingerprint, admitted floor
 and complete Procgen provenance, Engine's registered durable entity snapshot,
 session revision/round/phase/outcome, derived initiative order and cursor,
 action-roll index, per-enemy target cursors, latest receipts, and the complete
@@ -184,15 +184,17 @@ hidden-actor facts rather than becoming another visibility authority.
 
 ## Upstream ownership
 
-`dependency-sources.json` is the canonical source selection. Rusty Engine's
-complete Rust facade follows rolling `main`; `Cargo.lock` records the exact
-resolved revision used for registered entity state, rules-package admission,
-named gameplay mechanics, renderer-neutral frames, and the Engine-owned Wry
-renderer adapter. Rusty
-Procgen is pinned for `rusty_procgen_preflight::core::ProcgenCore`; the consumer
-never shells out to its CLI or copies its algorithms. A missing reusable
-generation capability must be demonstrated by this consumer and fixed
-upstream.
+Rusty Engine is one unconditional adjacent path dependency on
+`../../rusty-engine/rust/crates/rusty-engine`. The game consumes that checkout
+exactly as it stands through the complete facade for registered entity state,
+rules-package admission, named gameplay mechanics, renderer-neutral frames,
+and the Engine-owned Wry renderer adapter. No Roguelike command pulls,
+synchronizes, or mutates the Engine checkout, and Engine revision identity is
+not a game runtime or persistence fact. `dependency-sources.json` remains the
+canonical exact source selection for Rusty Procgen, which is pinned for
+`rusty_procgen_preflight::core::ProcgenCore`; the consumer never shells out to
+its CLI or copies its algorithms. A missing reusable generation capability
+must be demonstrated by this consumer and fixed upstream.
 
 ## Generated-floor admission
 

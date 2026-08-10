@@ -8,9 +8,12 @@ protocol, controls, and presentation. It is not a reusable RPG framework and
 must never depend on Rusty D20.
 
 Rusty Engine owns reusable host-neutral mechanisms. Rusty Procgen owns
-deterministic dungeon generation and validation. Pin reviewed public revisions,
-call their public surfaces directly, and do not add sibling path fallbacks or
-copy their implementations into this repository.
+deterministic dungeon generation and validation. Consume Rusty Engine through
+the one unconditional adjacent facade path in `rust/Cargo.toml`; use that
+checkout exactly as it stands and never mutate, pull, or synchronize it from
+this repository. Keep Rusty Procgen at its reviewed exact public revision. Call
+both providers through their public surfaces and do not copy their
+implementations into this repository.
 
 ## Architecture
 
