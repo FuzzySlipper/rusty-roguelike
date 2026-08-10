@@ -106,11 +106,16 @@ test('does not let a historical clause exempt a current pin assertion', () => {
 });
 
 test('rejects current Engine resolution wording', () => {
-  const design = `${inputs.design}\n\nEngine currently resolves to revision 1111111111111111111111111111111111111111 for every build.\n`;
-  assert.throws(
-    () => validateDependencySources({ ...inputs, design }),
-    /docs\/design\.md contains stale Engine pin or revision-carrier guidance/,
-  );
+  for (const claim of [
+    'Engine currently resolves to revision 1111111111111111111111111111111111111111 for every build.',
+    'The current runtime resolves Engine to revision 1111111111111111111111111111111111111111 for every build.',
+  ]) {
+    const design = `${inputs.design}\n\n${claim}\n`;
+    assert.throws(
+      () => validateDependencySources({ ...inputs, design }),
+      /docs\/design\.md contains stale Engine pin or revision-carrier guidance/,
+    );
+  }
 });
 
 test('does not let unrelated negation exempt a current carrier clause', () => {

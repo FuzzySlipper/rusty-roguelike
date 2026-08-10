@@ -142,7 +142,7 @@ function validateDependencyDocumentation(documents) {
       const pinsEngine =
         mentionsEngine && /\bpin(?:ned|ning|s)?\b/iu.test(clause);
       const namesEngineRevision =
-        /\bEngine revision\b|\brevision (?:of|for) (?:the )?Engine\b|\bEngine(?:'s)? (?:source|identity)\b[^.!?;]*\brevision\b|\brevision\b[^.!?;]*\bEngine(?:'s)? (?:source|identity)\b|\bEngine\b[^.!?;]*\b(?:resolves?|resolved|resolution)\b[^.!?;]*\brevision\b/iu.test(
+        /\bEngine revision\b|\brevision (?:of|for) (?:the )?Engine\b|\bEngine(?:'s)? (?:source|identity)\b[^.!?;]*\brevision\b|\brevision\b[^.!?;]*\bEngine(?:'s)? (?:source|identity)\b|\bEngine\b[^.!?;]*\b(?:resolves?|resolved|resolution)\b[^.!?;]*\brevision\b|\b(?:resolves?|resolved|resolution)\b[^.!?;]*\bEngine\b[^.!?;]*\brevision\b/iu.test(
           clause,
         );
       const carriesEngineRevision =
