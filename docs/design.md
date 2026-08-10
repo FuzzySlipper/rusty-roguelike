@@ -103,7 +103,7 @@ Opposition activations settle automatically through Engine-routed movement to
 the next party decision. An actor with no currently legal action explicitly
 passes, defeated actors are removed, newly revealed actors join on the next
 round rebuild, and automatic settlement has a fixed bound. Seeded action rolls
-come from the pinned Engine RNG service under one stable scope per action index;
+come from the named Engine RNG service under one stable scope per action index;
 authored static rolls are consumed in order and must match the selected action's
 dice. The durable action index is cross-validated against the complete Rust
 rules log. The current catalog authors no

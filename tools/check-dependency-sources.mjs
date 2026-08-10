@@ -22,7 +22,16 @@ export function validateDependencySources({
   cargoLock,
   pnpmLock,
   pnpmWorkspace,
+  agentGuidance,
+  design,
+  sourceProvenance,
 }) {
+  validateDependencyDocumentation({
+    'AGENTS.md': agentGuidance,
+    'docs/design.md': design,
+    'docs/source-provenance.md': sourceProvenance,
+  });
+
   for (const [name, source] of Object.entries({
     rustyProcgen: sources.rustyProcgen,
   })) {
@@ -111,6 +120,34 @@ export function validateDependencySources({
   }
 }
 
+function validateDependencyDocumentation(documents) {
+  const staleEngineClaims = [
+    /\bpinned Engine\b/iu,
+    /\bexact (?:public |reviewed )?Engine revision\b/iu,
+    /\bengine-source\.json\b/iu,
+    /\bscripts\/engine-revision\b/iu,
+    /\bCargo\.lock records the exact (?:Engine|resolved) revision\b/iu,
+    /\bEngine's complete Rust facade follows rolling\b/iu,
+    /\bno sibling path fallback/iu,
+  ];
+
+  for (const [name, content] of Object.entries(documents)) {
+    for (const paragraph of content.split(/\n\s*\n/u)) {
+      const stale = staleEngineClaims.some((pattern) =>
+        pattern.test(paragraph),
+      );
+      const explicitHistory =
+        name === 'docs/source-provenance.md' &&
+        /\bhistorical\b/iu.test(paragraph);
+      if (stale && !explicitHistory) {
+        throw new Error(
+          `${name} contains stale Engine pin or revision-carrier guidance`,
+        );
+      }
+    }
+  }
+}
+
 function requireCount(content, needle, expected, label) {
   const observed = content.split(needle).length - 1;
   if (observed !== expected) {
@@ -126,6 +163,9 @@ async function loadInputs() {
     cargoLock: await readFile('rust/Cargo.lock', 'utf8'),
     pnpmLock: await readFile('pnpm-lock.yaml', 'utf8'),
     pnpmWorkspace: await readFile('pnpm-workspace.yaml', 'utf8'),
+    agentGuidance: await readFile('AGENTS.md', 'utf8'),
+    design: await readFile('docs/design.md', 'utf8'),
+    sourceProvenance: await readFile('docs/source-provenance.md', 'utf8'),
   };
 }
 

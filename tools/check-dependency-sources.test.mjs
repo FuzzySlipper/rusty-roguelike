@@ -11,6 +11,9 @@ const inputs = {
   cargoLock: await readFile('rust/Cargo.lock', 'utf8'),
   pnpmLock: await readFile('pnpm-lock.yaml', 'utf8'),
   pnpmWorkspace: await readFile('pnpm-workspace.yaml', 'utf8'),
+  agentGuidance: await readFile('AGENTS.md', 'utf8'),
+  design: await readFile('docs/design.md', 'utf8'),
+  sourceProvenance: await readFile('docs/source-provenance.md', 'utf8'),
 };
 
 test('accepts the adjacent Engine facade and exact Procgen identity', () => {
@@ -60,5 +63,20 @@ test('rejects a selective direct Engine crate', () => {
   assert.throws(
     () => validateDependencySources({ ...inputs, cargoManifest }),
     /core-ids must be reached through the rusty-engine facade/,
+  );
+});
+
+test('rejects stale Engine pin language in current architecture docs', () => {
+  const design = `${inputs.design}\n\nSeeded rolls use the pinned Engine RNG service.\n`;
+  assert.throws(
+    () => validateDependencySources({ ...inputs, design }),
+    /docs\/design\.md contains stale Engine pin or revision-carrier guidance/,
+  );
+});
+
+test('allows explicitly historical Engine revision provenance', () => {
+  const sourceProvenance = `${inputs.sourceProvenance}\n\nHistorical migration note: exact reviewed Engine revision 0123456789012345678901234567890123456789.\n`;
+  assert.doesNotThrow(() =>
+    validateDependencySources({ ...inputs, sourceProvenance }),
   );
 });
