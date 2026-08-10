@@ -122,8 +122,6 @@ export function validateDependencySources({
 
 function validateDependencyDocumentation(documents) {
   const staleEngineClaims = [
-    /\bpinned Engine\b/iu,
-    /\bexact (?:public |reviewed )?Engine revision\b/iu,
     /\bengine-source\.json\b/iu,
     /\bscripts\/engine-revision\b/iu,
     /\bCargo\.lock records the exact (?:Engine|resolved) revision\b/iu,
@@ -132,16 +130,39 @@ function validateDependencyDocumentation(documents) {
   ];
 
   for (const [name, content] of Object.entries(documents)) {
-    for (const paragraph of content.split(/\n\s*\n/u)) {
-      const stale = staleEngineClaims.some((pattern) =>
-        pattern.test(paragraph),
-      );
+    const statements = content
+      .split(/\n\s*\n/u)
+      .flatMap((paragraph) =>
+        paragraph.replace(/\n+/gu, ' ').split(/(?<=[.!?])(?:\s+|$)/u),
+      )
+      .map((statement) => statement.trim())
+      .filter(Boolean);
+    for (const statement of statements) {
+      const mentionsEngine = /\bEngine\b/iu.test(statement);
+      const pinsEngine =
+        mentionsEngine && /\bpin(?:ned|ning|s)?\b/iu.test(statement);
+      const namesEngineRevision =
+        /\bEngine revision\b|\brevision (?:of|for) (?:the )?Engine\b|\bEngine(?:'s)? (?:source|identity)\b[^.!?]*\brevision\b|\brevision\b[^.!?]*\bEngine(?:'s)? (?:source|identity)\b/iu.test(
+          statement,
+        );
+      const carriesEngineRevision =
+        namesEngineRevision &&
+        /\b(?:current|exact|identity|reviewed|source)\b|[0-9a-f]{7,40}/iu.test(
+          statement,
+        );
+      const stale =
+        pinsEngine ||
+        carriesEngineRevision ||
+        staleEngineClaims.some((pattern) => pattern.test(statement));
       const explicitHistory =
         name === 'docs/source-provenance.md' &&
-        /\bhistorical\b/iu.test(paragraph);
-      if (stale && !explicitHistory) {
+        /\b(?:historical|history)\b/iu.test(statement);
+      const explicitNegation = /\bEngine revision identity is not\b/iu.test(
+        statement,
+      );
+      if (stale && !explicitHistory && !explicitNegation) {
         throw new Error(
-          `${name} contains stale Engine pin or revision-carrier guidance`,
+          `${name} contains stale Engine pin or revision-carrier guidance: ${statement}`,
         );
       }
     }

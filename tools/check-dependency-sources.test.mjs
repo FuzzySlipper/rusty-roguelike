@@ -74,9 +74,35 @@ test('rejects stale Engine pin language in current architecture docs', () => {
   );
 });
 
+test('rejects Engine-first pin and revision carrier claims', () => {
+  for (const claim of [
+    'The Engine RNG service is pinned to revision 0123456789012345678901234567890123456789.',
+    'Use Engine revision 0123456789012345678901234567890123456789 as the current source identity.',
+  ]) {
+    const design = `${inputs.design}\n\n${claim}\n`;
+    assert.throws(
+      () => validateDependencySources({ ...inputs, design }),
+      /docs\/design\.md contains stale Engine pin or revision-carrier guidance/,
+    );
+  }
+});
+
+test('does not let a historical sentence exempt a current pin assertion', () => {
+  const sourceProvenance = `${inputs.sourceProvenance}\n\nHistorical migration provenance used Engine revision 0123456789012345678901234567890123456789. The current Engine RNG service is pinned to revision 1111111111111111111111111111111111111111.\n`;
+  assert.throws(
+    () => validateDependencySources({ ...inputs, sourceProvenance }),
+    /docs\/source-provenance\.md contains stale Engine pin or revision-carrier guidance/,
+  );
+});
+
 test('allows explicitly historical Engine revision provenance', () => {
   const sourceProvenance = `${inputs.sourceProvenance}\n\nHistorical migration note: exact reviewed Engine revision 0123456789012345678901234567890123456789.\n`;
   assert.doesNotThrow(() =>
     validateDependencySources({ ...inputs, sourceProvenance }),
   );
+});
+
+test('allows exact Procgen pin language', () => {
+  const design = `${inputs.design}\n\nRusty Procgen is pinned to exact revision 722e2c479bdf88ab39b66d2d33ab466b698ec7df.\n`;
+  assert.doesNotThrow(() => validateDependencySources({ ...inputs, design }));
 });

@@ -11,7 +11,7 @@
   movement, visibility, deterministic random, and renderer-host mechanisms;
   the game retains Roguelike policy, action resolution, state, frame
   projection, shell, and presentation meaning.
-- Renderer-boundary migration: the previous browser renderer packages came
+- Historical renderer-boundary migration provenance: the previous browser renderer packages came
   from Engine revision `04970a44ef2e87a3453f086469deff64f5ae56f4`.
   Task 6700 removed that complete JavaScript dependency graph and its lockfile
   records. That SHA remains historical migration provenance. The current
@@ -71,8 +71,8 @@ Donor evidence never overrides this repository's design.
 
 ## Presentation asset
 
-Rusty Engine revision `d0b5e672b83d463bff71d8d35c877f770142ff3c`
-is the historical revision at which the current native presentation boundary
+Historical presentation provenance: Rusty Engine revision
+`d0b5e672b83d463bff71d8d35c877f770142ff3c` is the revision at which the current native presentation boundary
 entered this product. The adjacent Engine facade now supplies the
 renderer-neutral retained model, bounded view-composition contracts, packaged
 private renderer artifact, and fixed Rust Wry adapter.
