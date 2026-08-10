@@ -112,6 +112,8 @@ test('rejects current Engine resolution wording', () => {
     'The current runtime resolves revision 1111111111111111111111111111111111111111 for Engine on every build.',
     'Revision 1111111111111111111111111111111111111111 is the current Engine source for every build.',
     'Production ships revision 1111111111111111111111111111111111111111 for Engine.',
+    'Production ships commit 1111111111111111111111111111111111111111 for Engine.',
+    'Production ships Engine from SHA 1111111111111111111111111111111111111111.',
   ]) {
     const design = `${inputs.design}\n\n${claim}\n`;
     assert.throws(

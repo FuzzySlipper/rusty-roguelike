@@ -151,12 +151,10 @@ function validateDependencyDocumentation(documents) {
         /\b(?:build|current|identity|resolve[ds]?|resolution|source)\b/iu.test(
           clause,
         );
-      const exactEngineRevision =
-        mentionsEngine &&
-        /\brevision\b/iu.test(clause) &&
-        /\b[0-9a-f]{7,40}\b/iu.test(clause);
+      const exactEngineGitIdentity =
+        mentionsEngine && /\b[0-9a-f]{7,40}\b/iu.test(clause);
       const carriesEngineRevision =
-        exactEngineRevision ||
+        exactEngineGitIdentity ||
         currentRevisionAuthority ||
         (namesEngineRevision &&
           /\b(?:exact|reviewed)\b|[0-9a-f]{7,40}/iu.test(clause));
