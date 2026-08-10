@@ -216,16 +216,6 @@ fn complete_save_rejects_unknown_incompatible_stale_and_impossible_facts() {
         "session_save_noncanonical"
     );
 
-    let mut incompatible = value.clone();
-    incompatible["rustyEngineRevision"] = serde_json::json!("forged");
-    assert_eq!(
-        GameSession::decode_save(&serde_json::to_string(&incompatible).unwrap())
-            .err()
-            .unwrap()
-            .code(),
-        "session_save_engine_mismatch"
-    );
-
     let mut disconnected = value.clone();
     disconnected["floor"]["walkableCells"]
         .as_array_mut()

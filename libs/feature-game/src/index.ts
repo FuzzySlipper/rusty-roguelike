@@ -935,9 +935,6 @@ type Drawer = 'party' | 'inventory' | null;
                     @if (bootstrap.state(); as bootstrapState) {
                       @if (bootstrapState.status === 'ready') {
                         <span class="system-readout" aria-hidden="true">
-                          <span data-testid="engine-revision">{{
-                            bootstrapState.value.rustyEngineRevision
-                          }}</span>
                           <span data-testid="procgen-revision">{{
                             bootstrapState.value.rustyProcgenRevision
                           }}</span>

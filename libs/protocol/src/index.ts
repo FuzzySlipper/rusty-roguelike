@@ -4,7 +4,6 @@ import {
   BOOTSTRAP_SCHEMA_VERSION,
   ROGUELIKE_ID_PATTERN,
   ROGUELIKE_LIMITS,
-  RUSTY_ENGINE_REVISION,
   RUSTY_PROCGEN_REVISION,
   SESSION_VIEW_LIMITS,
   SESSION_VIEW_SCHEMA_VERSION,
@@ -33,7 +32,6 @@ const BOOTSTRAP_KEYS = [
   'phase',
   'procgenLinkHash',
   'product',
-  'rustyEngineRevision',
   'rustyProcgenRevision',
   'schemaVersion',
 ] as const;
@@ -57,9 +55,6 @@ export function decodeBootstrapReadout(value: unknown): BootstrapReadoutDto {
     value['phase'] !== 'bootstrap'
   ) {
     throw new Error('bootstrap response has the wrong product identity');
-  }
-  if (value['rustyEngineRevision'] !== RUSTY_ENGINE_REVISION) {
-    throw new Error('bootstrap response has the wrong Rusty Engine revision');
   }
   if (value['rustyProcgenRevision'] !== RUSTY_PROCGEN_REVISION) {
     throw new Error('bootstrap response has the wrong Rusty Procgen revision');

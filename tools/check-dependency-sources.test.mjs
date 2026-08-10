@@ -13,7 +13,7 @@ const inputs = {
   pnpmWorkspace: await readFile('pnpm-workspace.yaml', 'utf8'),
 };
 
-test('accepts every canonical exact dependency identity', () => {
+test('accepts the adjacent Engine facade and exact Procgen identity', () => {
   assert.doesNotThrow(() => validateDependencySources(inputs));
 });
 
@@ -56,7 +56,7 @@ test('rejects removal of the Engine facade package record', () => {
 });
 
 test('rejects a selective direct Engine crate', () => {
-  const cargoManifest = `${inputs.cargoManifest}\ncore-ids = { git = "${inputs.sources.rustyEngine.repository}", branch = "main" }\n`;
+  const cargoManifest = `${inputs.cargoManifest}\ncore-ids = { path = "../../rusty-engine/rust/crates/core-ids" }\n`;
   assert.throws(
     () => validateDependencySources({ ...inputs, cargoManifest }),
     /core-ids must be reached through the rusty-engine facade/,

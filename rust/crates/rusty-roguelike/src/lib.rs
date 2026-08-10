@@ -5,7 +5,6 @@ mod rules;
 mod session;
 mod world;
 
-pub const RUSTY_ENGINE_REVISION: &str = "d0b5e672b83d463bff71d8d35c877f770142ff3c";
 pub const RUSTY_PROCGEN_REVISION: &str = "722e2c479bdf88ab39b66d2d33ab466b698ec7df";
 
 pub use bootstrap::{bootstrap_readout, generated_typescript, BootstrapReadout};

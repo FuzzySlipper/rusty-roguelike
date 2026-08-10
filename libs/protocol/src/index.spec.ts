@@ -4,7 +4,6 @@ import {
   decodeBootstrapReadout,
   decodeSessionView,
   decodeWorldView,
-  RUSTY_ENGINE_REVISION,
   RUSTY_PROCGEN_REVISION,
 } from './index';
 
@@ -12,7 +11,6 @@ const VALID = {
   schemaVersion: 1,
   product: 'rusty-roguelike',
   phase: 'bootstrap',
-  rustyEngineRevision: RUSTY_ENGINE_REVISION,
   rustyProcgenRevision: RUSTY_PROCGEN_REVISION,
   procgenLinkHash: `fnv1a64:${'a'.repeat(16)}`,
 };

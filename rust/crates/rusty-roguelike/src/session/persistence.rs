@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     generate_authored_floor, starter_ruleset, vitality_track_id, ActionEffectDefinition,
     ActorBuildComponent, ActorSideCandidate, GeneratedFloor, RoguelikeId, WorldState,
-    RUSTY_ENGINE_REVISION, RUSTY_PROCGEN_REVISION,
+    RUSTY_PROCGEN_REVISION,
 };
 
 use super::roll::RollSource;
@@ -19,14 +19,13 @@ use super::{
     MAX_SESSION_RECEIPTS,
 };
 
-pub const GAME_SAVE_SCHEMA_VERSION: u32 = 4;
+pub const GAME_SAVE_SCHEMA_VERSION: u32 = 5;
 const MAX_GAME_SAVE_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct SaveEnvelope {
     schema_version: u32,
-    rusty_engine_revision: String,
     rusty_procgen_revision: String,
     ruleset_fingerprint: String,
     floor: GeneratedFloor,
@@ -38,7 +37,6 @@ struct SaveEnvelope {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct SaveEnvelopeRef<'a> {
     schema_version: u32,
-    rusty_engine_revision: &'a str,
     rusty_procgen_revision: &'a str,
     ruleset_fingerprint: &'a str,
     floor: &'a GeneratedFloor,
@@ -75,7 +73,6 @@ impl GameSession {
     pub fn encode_save(&self) -> Result<String, SessionError> {
         let save = SaveEnvelopeRef {
             schema_version: GAME_SAVE_SCHEMA_VERSION,
-            rusty_engine_revision: RUSTY_ENGINE_REVISION,
             rusty_procgen_revision: RUSTY_PROCGEN_REVISION,
             ruleset_fingerprint: self.world.rules().fingerprint(),
             floor: self.world.floor(),
@@ -101,12 +98,6 @@ impl GameSession {
             return Err(error(
                 "session_save_schema_unsupported",
                 format!("unsupported save schema {}", save.schema_version),
-            ));
-        }
-        if save.rusty_engine_revision != RUSTY_ENGINE_REVISION {
-            return Err(error(
-                "session_save_engine_mismatch",
-                "save uses a different Rusty Engine revision",
             ));
         }
         if save.rusty_procgen_revision != RUSTY_PROCGEN_REVISION {
@@ -135,7 +126,6 @@ impl GameSession {
         // round-trip also closes nested donor DTOs which predate deny_unknown_fields.
         let canonical = serde_json::to_value(SaveEnvelopeRef {
             schema_version: save.schema_version,
-            rusty_engine_revision: &save.rusty_engine_revision,
             rusty_procgen_revision: &save.rusty_procgen_revision,
             ruleset_fingerprint: &save.ruleset_fingerprint,
             floor: &save.floor,

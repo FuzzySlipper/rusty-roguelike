@@ -2,7 +2,6 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import {
   decodeSessionView,
-  RUSTY_ENGINE_REVISION,
   RUSTY_PROCGEN_REVISION,
   type RelativeStep,
   type SessionCommandDto,
@@ -121,9 +120,6 @@ test('real Rust host supports the native-boundary expedition shell on desktop an
     page.getByRole('navigation', { name: 'Movement and facing' }),
   ).toBeVisible();
   await expect(page.getByRole('region', { name: 'Rules log' })).toBeVisible();
-  await expect(page.getByTestId('engine-revision')).toHaveText(
-    RUSTY_ENGINE_REVISION,
-  );
   await expect(page.getByTestId('procgen-revision')).toHaveText(
     RUSTY_PROCGEN_REVISION,
   );

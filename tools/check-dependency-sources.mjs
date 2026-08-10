@@ -24,7 +24,6 @@ export function validateDependencySources({
   pnpmWorkspace,
 }) {
   for (const [name, source] of Object.entries({
-    rustyEngine: sources.rustyEngine,
     rustyProcgen: sources.rustyProcgen,
   })) {
     if (
@@ -39,9 +38,6 @@ export function validateDependencySources({
     if (!/^[0-9a-f]{40}$/.test(source.commit)) {
       throw new Error(`${name} commit is not an exact 40-character revision`);
     }
-  }
-  if (sources.rustyEngine.branch !== 'main') {
-    throw new Error('rustyEngine must follow rolling branch main');
   }
   for (const [name, content] of [
     ['package.json', JSON.stringify(packageJson)],
@@ -61,12 +57,13 @@ export function validateDependencySources({
     'canonical Procgen manifest entry',
   );
 
-  const facadeManifestEntry = `rusty-engine = { git = "${sources.rustyEngine.repository}", branch = "main" }`;
+  const facadeManifestEntry =
+    'rusty-engine = { path = "../../rusty-engine/rust/crates/rusty-engine" }';
   requireCount(
     cargoManifest,
     facadeManifestEntry,
     1,
-    'rolling rusty-engine facade manifest entry',
+    'adjacent rusty-engine facade manifest entry',
   );
   for (const crate of ENGINE_RUST_CRATES) {
     if (new RegExp(`^${crate}\\s*=`, 'mu').test(cargoManifest)) {
@@ -75,7 +72,6 @@ export function validateDependencySources({
       );
     }
   }
-  const engineSource = `git+${sources.rustyEngine.repository}?branch=main#${sources.rustyEngine.commit}`;
   const facadeRecords = cargoLock
     .split('[[package]]')
     .filter((block) => /\nname = "rusty-engine"\n/.test(`\n${block}`));
@@ -84,12 +80,9 @@ export function validateDependencySources({
       `rusty-engine locked package record expected 1, observed ${facadeRecords.length}`,
     );
   }
-  requireCount(
-    facadeRecords[0],
-    `source = "${engineSource}"`,
-    1,
-    'rolling rusty-engine locked source',
-  );
+  if (/\nsource = /.test(facadeRecords[0])) {
+    throw new Error('rusty-engine facade must resolve from the adjacent path');
+  }
   const procgenSource = `git+${sources.rustyProcgen.repository}?rev=${sources.rustyProcgen.commit}#${sources.rustyProcgen.commit}`;
   const procgenPackages = cargoLock
     .split('[[package]]')
@@ -143,6 +136,6 @@ if (
   const inputs = await loadInputs();
   validateDependencySources(inputs);
   console.log(
-    `Dependency sources passed: Engine ${inputs.sources.rustyEngine.commit}, Procgen ${inputs.sources.rustyProcgen.commit}`,
+    `Dependency sources passed: adjacent Engine facade, Procgen ${inputs.sources.rustyProcgen.commit}`,
   );
 }
