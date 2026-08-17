@@ -121,6 +121,21 @@ defense, and requested versus applied damage; the browser displays those facts
 and never chooses the recipient. The starter catalog has no area or multi-member
 effect, so no area targeting policy is implied.
 
+Attack attempts resolve through `rusty_engine::gameplay_resolution`. A
+downstream `RoguelikeResolutionPolicy` admits the intent (ownership,
+equipment-availability, activation cost, target mode, attack effect), gathers
+immutable facts (ability score, Engine-evaluated defense, visibility,
+participation, distance), checks legality, plans a single attack operation, and
+stages a typed damage effect with an `AttackResolved` event carrying the exact
+receipt facts. A downstream `RoguelikeTransaction` applies staged damage through
+`DamageService` on commit and is fail-atomic because the session command already
+operates on a fork. Party `UseAction` and opposition attack selection build the
+same intent shape and traverse the same policy; only attacks migrate. Movement,
+turns, Wait, opposition move/pass, and Rust-owned party-member round-robin
+selection remain ordinary runtime scheduling, and the resolver never touches
+the roll source — rolls are drawn after preflight legality checks and supplied
+as bounded evidence.
+
 Durable actor abilities, builds, and collapsed-party membership use registered
 `entity-state` components. Defense modifiers, vitality bounds, damage kinds,
 items, and equipment use an admitted `gameplay-mechanics` catalog and named

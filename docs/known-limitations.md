@@ -42,12 +42,32 @@ collapsed-party movement, visibility, discovery, dormancy, restore validation,
 and a split local-scene/minimap protocol that never leaks occluded actors.
 It also owns a live Rust-hosted initiative session with exactly one movement,
 action, turn, or explicit Wait per activation, authoritative seeded/static rolls,
-direct Engine stat/damage
-resolution, automatic opposition movement, and bounded no-legal progression.
+attack attempts resolved through `rusty_engine::gameplay_resolution`,
+automatic opposition movement, and bounded no-legal progression.
 Opposition attacks now target the collapsed party square, select a living member
 with Rust-owned per-enemy round-robin fairness, and publish a complete strictly
 decoded resolution receipt. The current catalog does not author area or
 multi-member effects.
+
+## Attack resolution scope is deliberately bounded
+
+- **Status:** active (intentional architecture boundary)
+- **Affected surface:** `session/resolution/`, `session/runtime.rs`
+- **Limitation:** only attack attempts (party `UseAction` and opposition
+  attacks) resolve through `rusty_engine::gameplay_resolution`. Movement,
+  turns, Wait, opposition move/pass, and party-member round-robin selection
+  remain ordinary runtime scheduling, per the Engine downstream-adoption guide
+  (do not route every service call through gameplay-resolution).
+- **Impact:** agents should not route non-attack commands through the
+  resolution policy; the policy's plan grammar has no conditional nodes today.
+- **Reason left in place:** the campaign migrated only retained attack
+  behavior; a new game operation would extend the TypeScript authoring grammar
+  and the Rust compiler/policy together.
+- **Detection:** `session/resolution/mod.rs` entry and `session/runtime.rs`
+  settlement dispatch.
+- **Follow-up:** none within this campaign; extend per new game operations.
+- **Introduced by:** task 7063 (Den campaign 7060)
+- **Last reviewed:** 2026-08-17 / engineer
 
 - The browser control interface includes authoritative preparation, shared-stash
   drag/drop plus click-select equipment assignment, complete tabbed party
