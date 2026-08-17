@@ -1,0 +1,1551 @@
+{
+  "kind": "rusty.gameplay-rules.package",
+  "schemaVersion": 1,
+  "domain": "rusty-roguelike",
+  "package": "starter",
+  "version": 1,
+  "dependencies": [],
+  "sources": [
+    {
+      "id": "abilities",
+      "path": "gameplay/src/catalogs/abilities.ts"
+    },
+    {
+      "id": "defenses",
+      "path": "gameplay/src/catalogs/defenses.ts"
+    },
+    {
+      "id": "damageTypes",
+      "path": "gameplay/src/catalogs/damageTypes.ts"
+    },
+    {
+      "id": "actions",
+      "path": "gameplay/src/catalogs/actions.ts"
+    },
+    {
+      "id": "feats",
+      "path": "gameplay/src/catalogs/feats.ts"
+    },
+    {
+      "id": "classes",
+      "path": "gameplay/src/catalogs/classes.ts"
+    },
+    {
+      "id": "items",
+      "path": "gameplay/src/catalogs/items.ts"
+    },
+    {
+      "id": "actors",
+      "path": "gameplay/src/catalogs/actors.ts"
+    },
+    {
+      "id": "party",
+      "path": "gameplay/src/catalogs/party.ts"
+    }
+  ],
+  "provenance": [
+    {
+      "subject": "ability:might",
+      "source": "abilities"
+    },
+    {
+      "subject": "ability:finesse",
+      "source": "abilities"
+    },
+    {
+      "subject": "ability:intellect",
+      "source": "abilities"
+    },
+    {
+      "subject": "ability:spirit",
+      "source": "abilities"
+    },
+    {
+      "subject": "defense:armor",
+      "source": "defenses"
+    },
+    {
+      "subject": "defense:grit",
+      "source": "defenses"
+    },
+    {
+      "subject": "defense:wits",
+      "source": "defenses"
+    },
+    {
+      "subject": "defense:nerve",
+      "source": "defenses"
+    },
+    {
+      "subject": "damage-type:physical",
+      "source": "damageTypes"
+    },
+    {
+      "subject": "damage-type:fire",
+      "source": "damageTypes"
+    },
+    {
+      "subject": "damage-type:psychic",
+      "source": "damageTypes"
+    },
+    {
+      "subject": "action:move",
+      "source": "actions"
+    },
+    {
+      "subject": "action:guardian-strike",
+      "source": "actions"
+    },
+    {
+      "subject": "action:sweeping-strike",
+      "source": "actions"
+    },
+    {
+      "subject": "action:aimed-shot",
+      "source": "actions"
+    },
+    {
+      "subject": "action:quick-shot",
+      "source": "actions"
+    },
+    {
+      "subject": "action:arcane-bolt",
+      "source": "actions"
+    },
+    {
+      "subject": "action:flame-burst",
+      "source": "actions"
+    },
+    {
+      "subject": "action:mind-spike",
+      "source": "actions"
+    },
+    {
+      "subject": "action:rusty-blade",
+      "source": "actions"
+    },
+    {
+      "subject": "action:ember-shot",
+      "source": "actions"
+    },
+    {
+      "subject": "feat:hold-the-line",
+      "source": "feats"
+    },
+    {
+      "subject": "feat:defensive-mobility",
+      "source": "feats"
+    },
+    {
+      "subject": "feat:arcane-focus",
+      "source": "feats"
+    },
+    {
+      "subject": "feat:goblin-cunning",
+      "source": "feats"
+    },
+    {
+      "subject": "feat:burning-gaze",
+      "source": "feats"
+    },
+    {
+      "subject": "class:guardian",
+      "source": "classes"
+    },
+    {
+      "subject": "class:scout",
+      "source": "classes"
+    },
+    {
+      "subject": "class:arcanist",
+      "source": "classes"
+    },
+    {
+      "subject": "class:goblin-raider",
+      "source": "classes"
+    },
+    {
+      "subject": "class:ember-eye",
+      "source": "classes"
+    },
+    {
+      "subject": "item:longsword",
+      "source": "items"
+    },
+    {
+      "subject": "item:scale-mail",
+      "source": "items"
+    },
+    {
+      "subject": "item:shortbow",
+      "source": "items"
+    },
+    {
+      "subject": "item:leather-armor",
+      "source": "items"
+    },
+    {
+      "subject": "item:ash-staff",
+      "source": "items"
+    },
+    {
+      "subject": "item:focus-orb",
+      "source": "items"
+    },
+    {
+      "subject": "item:traveling-robes",
+      "source": "items"
+    },
+    {
+      "subject": "item:rusty-knife",
+      "source": "items"
+    },
+    {
+      "subject": "item:ember-focus",
+      "source": "items"
+    },
+    {
+      "subject": "actor:brann",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:kestrel",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:mira",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:goblin-scrapper",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:ember-watcher",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:tunnel-runner",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:cinder-eye",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:slag-cutpurse",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:ash-skirmisher",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:furnace-lookout",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:soot-stalker",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:coal-sentry",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:clinker-knife",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:flare-watcher",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:ruin-scuttler",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:ember-seer",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:slag-runner",
+      "source": "actors"
+    },
+    {
+      "subject": "actor:cinder-stalker",
+      "source": "actors"
+    },
+    {
+      "subject": "party:lantern-company",
+      "source": "party"
+    }
+  ],
+  "payload": {
+    "schemaVersion": 1,
+    "rollPolicy": {
+      "kind": "seeded",
+      "seed": 424242,
+      "rolls": []
+    },
+    "abilities": [
+      {
+        "id": "might",
+        "minimum": 1,
+        "maximum": 30
+      },
+      {
+        "id": "finesse",
+        "minimum": 1,
+        "maximum": 30
+      },
+      {
+        "id": "intellect",
+        "minimum": 1,
+        "maximum": 30
+      },
+      {
+        "id": "spirit",
+        "minimum": 1,
+        "maximum": 30
+      }
+    ],
+    "defenses": [
+      {
+        "id": "armor",
+        "base": 8,
+        "abilities": [
+          "finesse"
+        ]
+      },
+      {
+        "id": "grit",
+        "base": 8,
+        "abilities": [
+          "might"
+        ]
+      },
+      {
+        "id": "wits",
+        "base": 8,
+        "abilities": [
+          "intellect"
+        ]
+      },
+      {
+        "id": "nerve",
+        "base": 8,
+        "abilities": [
+          "spirit"
+        ]
+      }
+    ],
+    "damageTypes": [
+      {
+        "id": "physical"
+      },
+      {
+        "id": "fire"
+      },
+      {
+        "id": "psychic"
+      }
+    ],
+    "actions": [
+      {
+        "id": "move",
+        "name": "Move",
+        "tags": [
+          "movement"
+        ],
+        "target": "self-only",
+        "movement": {
+          "steps": 1
+        },
+        "attack": null
+      },
+      {
+        "id": "guardian-strike",
+        "name": "Guardian Strike",
+        "tags": [
+          "martial",
+          "melee"
+        ],
+        "target": "hostile-cell",
+        "movement": null,
+        "attack": {
+          "ability": "might",
+          "defense": "armor",
+          "damage": {
+            "kind": "physical",
+            "dice": 1,
+            "sides": 8,
+            "bonus": 2
+          },
+          "range": 1
+        }
+      },
+      {
+        "id": "sweeping-strike",
+        "name": "Sweeping Strike",
+        "tags": [
+          "martial",
+          "melee"
+        ],
+        "target": "hostile-cell",
+        "movement": null,
+        "attack": {
+          "ability": "might",
+          "defense": "grit",
+          "damage": {
+            "kind": "physical",
+            "dice": 1,
+            "sides": 10,
+            "bonus": 0
+          },
+          "range": 1
+        }
+      },
+      {
+        "id": "aimed-shot",
+        "name": "Aimed Shot",
+        "tags": [
+          "martial",
+          "ranged"
+        ],
+        "target": "hostile-cell",
+        "movement": null,
+        "attack": {
+          "ability": "finesse",
+          "defense": "armor",
+          "damage": {
+            "kind": "physical",
+            "dice": 1,
+            "sides": 8,
+            "bonus": 1
+          },
+          "range": 6
+        }
+      },
+      {
+        "id": "quick-shot",
+        "name": "Quick Shot",
+        "tags": [
+          "martial",
+          "ranged"
+        ],
+        "target": "hostile-cell",
+        "movement": null,
+        "attack": {
+          "ability": "finesse",
+          "defense": "wits",
+          "damage": {
+            "kind": "physical",
+            "dice": 1,
+            "sides": 6,
+            "bonus": 0
+          },
+          "range": 4
+        }
+      },
+      {
+        "id": "arcane-bolt",
+        "name": "Arcane Bolt",
+        "tags": [
+          "arcane",
+          "ranged"
+        ],
+        "target": "hostile-cell",
+        "movement": null,
+        "attack": {
+          "ability": "intellect",
+          "defense": "wits",
+          "damage": {
+            "kind": "psychic",
+            "dice": 1,
+            "sides": 8,
+            "bonus": 1
+          },
+          "range": 5
+        }
+      },
+      {
+        "id": "flame-burst",
+        "name": "Flame Burst",
+        "tags": [
+          "arcane",
+          "fire"
+        ],
+        "target": "hostile-cell",
+        "movement": null,
+        "attack": {
+          "ability": "intellect",
+          "defense": "grit",
+          "damage": {
+            "kind": "fire",
+            "dice": 2,
+            "sides": 6,
+            "bonus": 0
+          },
+          "range": 4
+        }
+      },
+      {
+        "id": "mind-spike",
+        "name": "Mind Spike",
+        "tags": [
+          "arcane",
+          "psychic"
+        ],
+        "target": "hostile-cell",
+        "movement": null,
+        "attack": {
+          "ability": "spirit",
+          "defense": "nerve",
+          "damage": {
+            "kind": "psychic",
+            "dice": 1,
+            "sides": 10,
+            "bonus": 0
+          },
+          "range": 3
+        }
+      },
+      {
+        "id": "rusty-blade",
+        "name": "Rusty Blade",
+        "tags": [
+          "monster",
+          "melee"
+        ],
+        "target": "hostile-party-square",
+        "movement": null,
+        "attack": {
+          "ability": "finesse",
+          "defense": "armor",
+          "damage": {
+            "kind": "physical",
+            "dice": 1,
+            "sides": 6,
+            "bonus": 0
+          },
+          "range": 1
+        }
+      },
+      {
+        "id": "ember-shot",
+        "name": "Ember Shot",
+        "tags": [
+          "monster",
+          "fire",
+          "ranged"
+        ],
+        "target": "hostile-party-square",
+        "movement": null,
+        "attack": {
+          "ability": "spirit",
+          "defense": "nerve",
+          "damage": {
+            "kind": "fire",
+            "dice": 1,
+            "sides": 6,
+            "bonus": 1
+          },
+          "range": 4
+        }
+      }
+    ],
+    "feats": [
+      {
+        "id": "hold-the-line",
+        "name": "Hold the Line",
+        "description": "A disciplined stance that hardens the front rank.",
+        "modifiers": [
+          {
+            "defense": "armor",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "id": "defensive-mobility",
+        "name": "Defensive Mobility",
+        "description": "Footwork makes the scout harder to pin down.",
+        "modifiers": [
+          {
+            "defense": "armor",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "id": "arcane-focus",
+        "name": "Arcane Focus",
+        "description": "Practice reinforces concentration under pressure.",
+        "modifiers": [
+          {
+            "defense": "wits",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "id": "goblin-cunning",
+        "name": "Goblin Cunning",
+        "description": "Instinct favors a quick retreat from danger.",
+        "modifiers": [
+          {
+            "defense": "wits",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "id": "burning-gaze",
+        "name": "Burning Gaze",
+        "description": "A supernatural glare steadies the ember eye.",
+        "modifiers": [
+          {
+            "defense": "nerve",
+            "amount": 1
+          }
+        ]
+      }
+    ],
+    "classes": [
+      {
+        "id": "guardian",
+        "name": "Guardian",
+        "levels": [
+          {
+            "level": 1,
+            "actions": [
+              "move",
+              "guardian-strike"
+            ],
+            "feats": [
+              "hold-the-line"
+            ],
+            "actionSlotIncrease": 3,
+            "featSlotIncrease": 1
+          }
+        ]
+      },
+      {
+        "id": "scout",
+        "name": "Scout",
+        "levels": [
+          {
+            "level": 1,
+            "actions": [
+              "move",
+              "aimed-shot"
+            ],
+            "feats": [
+              "defensive-mobility"
+            ],
+            "actionSlotIncrease": 3,
+            "featSlotIncrease": 1
+          }
+        ]
+      },
+      {
+        "id": "arcanist",
+        "name": "Arcanist",
+        "levels": [
+          {
+            "level": 1,
+            "actions": [
+              "move",
+              "arcane-bolt",
+              "flame-burst"
+            ],
+            "feats": [
+              "arcane-focus"
+            ],
+            "actionSlotIncrease": 4,
+            "featSlotIncrease": 1
+          }
+        ]
+      },
+      {
+        "id": "goblin-raider",
+        "name": "Goblin Raider",
+        "levels": [
+          {
+            "level": 1,
+            "actions": [
+              "move",
+              "rusty-blade"
+            ],
+            "feats": [
+              "goblin-cunning"
+            ],
+            "actionSlotIncrease": 2,
+            "featSlotIncrease": 1
+          }
+        ]
+      },
+      {
+        "id": "ember-eye",
+        "name": "Ember Eye",
+        "levels": [
+          {
+            "level": 1,
+            "actions": [
+              "move",
+              "ember-shot"
+            ],
+            "feats": [
+              "burning-gaze"
+            ],
+            "actionSlotIncrease": 2,
+            "featSlotIncrease": 1
+          }
+        ]
+      }
+    ],
+    "items": [
+      {
+        "id": "longsword",
+        "name": "Longsword",
+        "slot": "weapon",
+        "grantsAction": "sweeping-strike",
+        "modifiers": []
+      },
+      {
+        "id": "scale-mail",
+        "name": "Scale Mail",
+        "slot": "body",
+        "grantsAction": null,
+        "modifiers": [
+          {
+            "defense": "armor",
+            "amount": 2
+          }
+        ]
+      },
+      {
+        "id": "shortbow",
+        "name": "Shortbow",
+        "slot": "weapon",
+        "grantsAction": "quick-shot",
+        "modifiers": []
+      },
+      {
+        "id": "leather-armor",
+        "name": "Leather Armor",
+        "slot": "body",
+        "grantsAction": null,
+        "modifiers": [
+          {
+            "defense": "armor",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "id": "ash-staff",
+        "name": "Ash Staff",
+        "slot": "weapon",
+        "grantsAction": null,
+        "modifiers": []
+      },
+      {
+        "id": "focus-orb",
+        "name": "Focus Orb",
+        "slot": "focus",
+        "grantsAction": "mind-spike",
+        "modifiers": [
+          {
+            "defense": "wits",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "id": "traveling-robes",
+        "name": "Traveling Robes",
+        "slot": "body",
+        "grantsAction": null,
+        "modifiers": []
+      },
+      {
+        "id": "rusty-knife",
+        "name": "Rusty Knife",
+        "slot": "weapon",
+        "grantsAction": null,
+        "modifiers": []
+      },
+      {
+        "id": "ember-focus",
+        "name": "Ember Focus",
+        "slot": "focus",
+        "grantsAction": null,
+        "modifiers": [
+          {
+            "defense": "nerve",
+            "amount": 1
+          }
+        ]
+      }
+    ],
+    "actors": [
+      {
+        "id": "brann",
+        "entityId": 101,
+        "name": "Brann",
+        "title": "Shield of the Road",
+        "side": "party",
+        "level": 1,
+        "experience": 0,
+        "vitality": 28,
+        "inventoryCapacity": 8,
+        "class": "guardian",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 16
+          },
+          {
+            "ability": "finesse",
+            "score": 11
+          },
+          {
+            "ability": "intellect",
+            "score": 9
+          },
+          {
+            "ability": "spirit",
+            "score": 12
+          }
+        ],
+        "actions": [
+          "move",
+          "guardian-strike",
+          "sweeping-strike"
+        ],
+        "feats": [
+          "hold-the-line"
+        ],
+        "items": [
+          "longsword",
+          "scale-mail"
+        ]
+      },
+      {
+        "id": "kestrel",
+        "entityId": 102,
+        "name": "Kestrel",
+        "title": "Pathfinder",
+        "side": "party",
+        "level": 1,
+        "experience": 0,
+        "vitality": 21,
+        "inventoryCapacity": 8,
+        "class": "scout",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 10
+          },
+          {
+            "ability": "finesse",
+            "score": 17
+          },
+          {
+            "ability": "intellect",
+            "score": 12
+          },
+          {
+            "ability": "spirit",
+            "score": 11
+          }
+        ],
+        "actions": [
+          "move",
+          "aimed-shot",
+          "quick-shot"
+        ],
+        "feats": [
+          "defensive-mobility"
+        ],
+        "items": [
+          "shortbow",
+          "leather-armor"
+        ]
+      },
+      {
+        "id": "mira",
+        "entityId": 103,
+        "name": "Mira",
+        "title": "Lantern Adept",
+        "side": "party",
+        "level": 1,
+        "experience": 0,
+        "vitality": 18,
+        "inventoryCapacity": 8,
+        "class": "arcanist",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 8
+          },
+          {
+            "ability": "finesse",
+            "score": 12
+          },
+          {
+            "ability": "intellect",
+            "score": 17
+          },
+          {
+            "ability": "spirit",
+            "score": 15
+          }
+        ],
+        "actions": [
+          "move",
+          "arcane-bolt",
+          "flame-burst",
+          "mind-spike"
+        ],
+        "feats": [
+          "arcane-focus"
+        ],
+        "items": [
+          "ash-staff",
+          "focus-orb",
+          "traveling-robes"
+        ]
+      },
+      {
+        "id": "goblin-scrapper",
+        "entityId": 201,
+        "name": "Goblin Scrapper",
+        "title": "Dormant Raider",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 12,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 11
+          },
+          {
+            "ability": "finesse",
+            "score": 14
+          },
+          {
+            "ability": "intellect",
+            "score": 8
+          },
+          {
+            "ability": "spirit",
+            "score": 9
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      },
+      {
+        "id": "ember-watcher",
+        "entityId": 202,
+        "name": "Ember Watcher",
+        "title": "Dormant Sentinel",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 14,
+        "inventoryCapacity": 4,
+        "class": "ember-eye",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 8
+          },
+          {
+            "ability": "finesse",
+            "score": 12
+          },
+          {
+            "ability": "intellect",
+            "score": 11
+          },
+          {
+            "ability": "spirit",
+            "score": 15
+          }
+        ],
+        "actions": [
+          "move",
+          "ember-shot"
+        ],
+        "feats": [
+          "burning-gaze"
+        ],
+        "items": [
+          "ember-focus"
+        ]
+      },
+      {
+        "id": "tunnel-runner",
+        "entityId": 104,
+        "name": "Tunnel Runner",
+        "title": "Knife in the Dark",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 9,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 9
+          },
+          {
+            "ability": "finesse",
+            "score": 15
+          },
+          {
+            "ability": "intellect",
+            "score": 8
+          },
+          {
+            "ability": "spirit",
+            "score": 9
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      },
+      {
+        "id": "cinder-eye",
+        "entityId": 105,
+        "name": "Cinder Eye",
+        "title": "Ashen Lookout",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 10,
+        "inventoryCapacity": 4,
+        "class": "ember-eye",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 7
+          },
+          {
+            "ability": "finesse",
+            "score": 13
+          },
+          {
+            "ability": "intellect",
+            "score": 10
+          },
+          {
+            "ability": "spirit",
+            "score": 14
+          }
+        ],
+        "actions": [
+          "move",
+          "ember-shot"
+        ],
+        "feats": [
+          "burning-gaze"
+        ],
+        "items": [
+          "ember-focus"
+        ]
+      },
+      {
+        "id": "slag-cutpurse",
+        "entityId": 106,
+        "name": "Slag Cutpurse",
+        "title": "Ruin Lurker",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 9,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 10
+          },
+          {
+            "ability": "finesse",
+            "score": 14
+          },
+          {
+            "ability": "intellect",
+            "score": 9
+          },
+          {
+            "ability": "spirit",
+            "score": 8
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      },
+      {
+        "id": "ash-skirmisher",
+        "entityId": 107,
+        "name": "Ash Skirmisher",
+        "title": "Cinder Vanguard",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 11,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 12
+          },
+          {
+            "ability": "finesse",
+            "score": 13
+          },
+          {
+            "ability": "intellect",
+            "score": 8
+          },
+          {
+            "ability": "spirit",
+            "score": 9
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      },
+      {
+        "id": "furnace-lookout",
+        "entityId": 108,
+        "name": "Furnace Lookout",
+        "title": "Coal-Eyed Sentry",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 12,
+        "inventoryCapacity": 4,
+        "class": "ember-eye",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 8
+          },
+          {
+            "ability": "finesse",
+            "score": 12
+          },
+          {
+            "ability": "intellect",
+            "score": 12
+          },
+          {
+            "ability": "spirit",
+            "score": 14
+          }
+        ],
+        "actions": [
+          "move",
+          "ember-shot"
+        ],
+        "feats": [
+          "burning-gaze"
+        ],
+        "items": [
+          "ember-focus"
+        ]
+      },
+      {
+        "id": "soot-stalker",
+        "entityId": 109,
+        "name": "Soot Stalker",
+        "title": "Smoke-Shrouded Knife",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 9,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 9
+          },
+          {
+            "ability": "finesse",
+            "score": 15
+          },
+          {
+            "ability": "intellect",
+            "score": 9
+          },
+          {
+            "ability": "spirit",
+            "score": 8
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      },
+      {
+        "id": "coal-sentry",
+        "entityId": 110,
+        "name": "Coal Sentry",
+        "title": "Banked-Flame Guard",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 13,
+        "inventoryCapacity": 4,
+        "class": "ember-eye",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 9
+          },
+          {
+            "ability": "finesse",
+            "score": 11
+          },
+          {
+            "ability": "intellect",
+            "score": 11
+          },
+          {
+            "ability": "spirit",
+            "score": 15
+          }
+        ],
+        "actions": [
+          "move",
+          "ember-shot"
+        ],
+        "feats": [
+          "burning-gaze"
+        ],
+        "items": [
+          "ember-focus"
+        ]
+      },
+      {
+        "id": "clinker-knife",
+        "entityId": 111,
+        "name": "Clinker Knife",
+        "title": "Rubble Ambusher",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 10,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 10
+          },
+          {
+            "ability": "finesse",
+            "score": 14
+          },
+          {
+            "ability": "intellect",
+            "score": 8
+          },
+          {
+            "ability": "spirit",
+            "score": 10
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      },
+      {
+        "id": "flare-watcher",
+        "entityId": 112,
+        "name": "Flare Watcher",
+        "title": "Bright-Eyed Hunter",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 11,
+        "inventoryCapacity": 4,
+        "class": "ember-eye",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 7
+          },
+          {
+            "ability": "finesse",
+            "score": 13
+          },
+          {
+            "ability": "intellect",
+            "score": 12
+          },
+          {
+            "ability": "spirit",
+            "score": 14
+          }
+        ],
+        "actions": [
+          "move",
+          "ember-shot"
+        ],
+        "feats": [
+          "burning-gaze"
+        ],
+        "items": [
+          "ember-focus"
+        ]
+      },
+      {
+        "id": "ruin-scuttler",
+        "entityId": 113,
+        "name": "Ruin Scuttler",
+        "title": "Broken-Stone Prowler",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 9,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 9
+          },
+          {
+            "ability": "finesse",
+            "score": 15
+          },
+          {
+            "ability": "intellect",
+            "score": 8
+          },
+          {
+            "ability": "spirit",
+            "score": 9
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      },
+      {
+        "id": "ember-seer",
+        "entityId": 114,
+        "name": "Ember Seer",
+        "title": "Furnace Oracle",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 14,
+        "inventoryCapacity": 4,
+        "class": "ember-eye",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 8
+          },
+          {
+            "ability": "finesse",
+            "score": 12
+          },
+          {
+            "ability": "intellect",
+            "score": 13
+          },
+          {
+            "ability": "spirit",
+            "score": 15
+          }
+        ],
+        "actions": [
+          "move",
+          "ember-shot"
+        ],
+        "feats": [
+          "burning-gaze"
+        ],
+        "items": [
+          "ember-focus"
+        ]
+      },
+      {
+        "id": "slag-runner",
+        "entityId": 115,
+        "name": "Slag Runner",
+        "title": "Molten-Track Raider",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 10,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 11
+          },
+          {
+            "ability": "finesse",
+            "score": 14
+          },
+          {
+            "ability": "intellect",
+            "score": 8
+          },
+          {
+            "ability": "spirit",
+            "score": 9
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      },
+      {
+        "id": "cinder-stalker",
+        "entityId": 116,
+        "name": "Cinder Stalker",
+        "title": "Last-Light Pursuer",
+        "side": "opposition",
+        "level": 1,
+        "experience": 0,
+        "vitality": 11,
+        "inventoryCapacity": 4,
+        "class": "goblin-raider",
+        "classLevel": 1,
+        "abilities": [
+          {
+            "ability": "might",
+            "score": 10
+          },
+          {
+            "ability": "finesse",
+            "score": 15
+          },
+          {
+            "ability": "intellect",
+            "score": 9
+          },
+          {
+            "ability": "spirit",
+            "score": 8
+          }
+        ],
+        "actions": [
+          "move",
+          "rusty-blade"
+        ],
+        "feats": [
+          "goblin-cunning"
+        ],
+        "items": [
+          "rusty-knife"
+        ]
+      }
+    ],
+    "party": {
+      "id": "lantern-company",
+      "entityId": 100,
+      "members": [
+        "brann",
+        "kestrel",
+        "mira"
+      ]
+    }
+  }
+}
