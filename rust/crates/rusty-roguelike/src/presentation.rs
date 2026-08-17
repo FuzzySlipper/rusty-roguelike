@@ -7,12 +7,12 @@ use rusty_engine::render_host_contracts::{
 };
 use rusty_engine::render_model::{
     pack_mesh_resources, Geometry, LightDescriptor, LightShadowIntent, Material,
-    MaterialUvStrategy, MeshAttribute, MeshAttributeKind, MeshAttributeName, MeshBoundsDescriptor,
-    MeshBufferLayout, MeshCollisionPolicy, MeshGroupDescriptor, MeshIndexWidth, MeshMaterialSlot,
-    MeshPayloadDescriptor, MeshPayloadSource, MeshProvenance, PackedMeshResource, RenderDiff,
-    RenderFrameDiff, RenderFrameError, RenderHandle, RenderLayer, RenderMaterialDescriptor,
-    RenderMetadata, RenderNode, StaticMeshAsset, StaticMeshInstanceDescriptor, Transform,
-    MAX_MESH_RESOURCE_BYTES,
+    MaterialAlphaModeDescriptor, MaterialUvStrategy, MeshAttribute, MeshAttributeKind,
+    MeshAttributeName, MeshBoundsDescriptor, MeshBufferLayout, MeshCollisionPolicy,
+    MeshGroupDescriptor, MeshIndexWidth, MeshMaterialSlot, MeshPayloadDescriptor,
+    MeshPayloadSource, MeshProvenance, PackedMeshResource, RenderDiff, RenderFrameDiff,
+    RenderFrameError, RenderHandle, RenderLayer, RenderMaterialDescriptor, RenderMetadata,
+    RenderNode, StaticMeshAsset, StaticMeshInstanceDescriptor, Transform, MAX_MESH_RESOURCE_BYTES,
 };
 
 use crate::{
@@ -100,6 +100,7 @@ pub fn prepare_dungeon_presentation_assets(torch_glb: &[u8]) -> Result<DungeonPr
             positions,
             normals,
             uvs,
+            colors: None,
             indices,
         },
         provenance: MeshProvenance::StaticAsset,
@@ -165,6 +166,8 @@ pub fn create_dungeon_frame(
             emission_color: [1.0, 0.34, 0.08],
             emission_intensity: 0.16,
             uv_strategy: MaterialUvStrategy::Flat,
+            alpha_mode: MaterialAlphaModeDescriptor::Opaque,
+            double_sided: false,
             voxel_surface: None,
         },
     });
