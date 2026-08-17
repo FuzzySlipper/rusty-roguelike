@@ -1,6 +1,6 @@
 /**
  * Class definitions with their level-1 action/feat grants and slot
- * increases. Values mirror `rust/content/rules/starter.json` exactly.
+ * increases. Values match the committed `data/gameplay/rusty-roguelike-starter.package.json` artifact exactly.
  */
 
 import {

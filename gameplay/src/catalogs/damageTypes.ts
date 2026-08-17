@@ -1,5 +1,5 @@
 /**
- * Damage type definitions. Values mirror `rust/content/rules/starter.json`
+ * Damage type definitions. Values match the committed `data/gameplay/rusty-roguelike-starter.package.json` artifact
  * exactly.
  */
 

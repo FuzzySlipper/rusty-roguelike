@@ -1,6 +1,6 @@
 /**
  * Item definitions: equipment slots, granted actions, and defense
- * modifiers. Values mirror `rust/content/rules/starter.json` exactly.
+ * modifiers. Values match the committed `data/gameplay/rusty-roguelike-starter.package.json` artifact exactly.
  */
 
 import { item, statModifier, type ItemDefinition } from '../authoring/mod.js';

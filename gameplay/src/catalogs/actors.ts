@@ -1,8 +1,8 @@
 /**
  * Actor definitions: the lantern-company party and the dormant opposition.
- * Every entityId and stat is preserved exactly from
- * `rust/content/rules/starter.json` — do not renumber or deduplicate the
- * opposition archetypes.
+ * Every entityId and stat is preserved exactly in the committed
+ * `data/gameplay/rusty-roguelike-starter.package.json` artifact — do not
+ * renumber or deduplicate the opposition archetypes.
  */
 
 import { abilityScore, actor, type ActorDefinition } from '../authoring/mod.js';

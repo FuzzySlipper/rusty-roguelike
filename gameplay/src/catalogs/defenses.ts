@@ -1,6 +1,6 @@
 /**
  * Defense definitions: base value and the ability each defense keys off.
- * Values mirror `rust/content/rules/starter.json` exactly.
+ * Values match the committed `data/gameplay/rusty-roguelike-starter.package.json` artifact exactly.
  */
 
 import { defense, type DefenseDefinition } from '../authoring/mod.js';

@@ -1,1 +1,4 @@
 libs/protocol/src/generated/api-types.ts
+# Generated gameplay package artifacts; format is owned by the materializer
+# and guarded by `pnpm run gameplay:check` drift, not Prettier.
+data/gameplay/

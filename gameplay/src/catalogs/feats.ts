@@ -1,5 +1,5 @@
 /**
- * Feat definitions. Values mirror `rust/content/rules/starter.json` exactly.
+ * Feat definitions. Values match the committed `data/gameplay/rusty-roguelike-starter.package.json` artifact exactly.
  */
 
 import { feat, statModifier, type FeatDefinition } from '../authoring/mod.js';

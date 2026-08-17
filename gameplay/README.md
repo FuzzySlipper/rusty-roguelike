@@ -32,8 +32,8 @@ House rules:
   grid step and target self only; the `ally-cell` target is rejected by the
   compiler and absent from the grammar; activation cost is compiler-hardcoded
   to 1.
-- Content matches `rust/content/rules/starter.json` exactly; the materialized
-  payload is semantically identical to that file (the envelope adds wrapper
+- Content matches the committed `data/gameplay/rusty-roguelike-starter.package.json` artifact exactly; the materialized
+  payload is semantically identical to that artifact (the envelope adds wrapper
   fields only).
 
 ## Commands

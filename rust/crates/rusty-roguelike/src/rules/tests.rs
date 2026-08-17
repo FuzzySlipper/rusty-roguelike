@@ -33,15 +33,32 @@ fn starter_catalog_compiles_with_one_activation_actions_and_exact_party() {
         .actions()
         .values()
         .all(|action| !action.origin.source_path.is_empty()));
+    // Provenance comes from the materialized artifact's TypeScript catalog
+    // sources, not the retired hand-maintained JSON.
+    assert_eq!(
+        rules.actions()[&RoguelikeId::parse("move").unwrap()]
+            .origin
+            .source_path,
+        "gameplay/src/catalogs/actions.ts",
+    );
+    assert_eq!(
+        rules.actors()[&RoguelikeId::parse("brann").unwrap()]
+            .origin
+            .source_path,
+        "gameplay/src/catalogs/actors.ts",
+    );
+    assert_eq!(
+        rules.party().origin.source_path,
+        "gameplay/src/catalogs/party.ts",
+    );
 }
 
 #[test]
 fn strict_candidate_and_semantic_compiler_reject_unknown_or_multi_effect_actions() {
-    let unknown = STARTER_JSON.replace(
-        "\"schemaVersion\": 1,",
-        "\"schemaVersion\": 1, \"unknown\": true,",
-    );
-    assert!(serde_json::from_str::<RoguelikeRulesCandidate>(&unknown).is_err());
+    let artifact: serde_json::Value = serde_json::from_str(STARTER_PACKAGE_JSON).unwrap();
+    let mut unknown = artifact["payload"].clone();
+    unknown["unknown"] = serde_json::json!(true);
+    assert!(serde_json::from_value::<RoguelikeRulesCandidate>(unknown).is_err());
 
     let mut candidate = starter_candidate().unwrap();
     candidate.actions[0].attack = candidate.actions[1].attack.clone();
@@ -227,4 +244,5 @@ fn package_for_test_omitting(
     .unwrap()
 }
 
-const STARTER_JSON: &str = include_str!("../../../../content/rules/starter.json");
+const STARTER_PACKAGE_JSON: &str =
+    include_str!("../../../../../data/gameplay/rusty-roguelike-starter.package.json");

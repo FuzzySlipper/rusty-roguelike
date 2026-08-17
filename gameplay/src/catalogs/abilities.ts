@@ -1,6 +1,6 @@
 /**
  * Ability definitions: the four core ability scores with their legal ranges.
- * Values mirror `rust/content/rules/starter.json` exactly.
+ * Values match the committed `data/gameplay/rusty-roguelike-starter.package.json` artifact exactly.
  */
 
 import { ability, type AbilityDefinition } from '../authoring/mod.js';

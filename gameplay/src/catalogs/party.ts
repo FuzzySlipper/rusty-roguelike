@@ -1,6 +1,6 @@
 /**
  * The collapsed-party definition. Members must equal exactly the set of
- * party-side actors. Values mirror `rust/content/rules/starter.json`
+ * party-side actors. Values match the committed `data/gameplay/rusty-roguelike-starter.package.json` artifact
  * exactly.
  */
 

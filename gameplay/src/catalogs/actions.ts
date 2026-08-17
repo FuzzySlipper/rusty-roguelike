@@ -1,8 +1,8 @@
 /**
  * Action definitions: everything an actor can attempt. Movement actions move
  * exactly one grid step and target self (fixed policy). Attacks target a
- * hostile cell or the hostile party square. Values mirror
- * `rust/content/rules/starter.json` exactly.
+ * hostile cell or the hostile party square. Values match the committed
+ * `data/gameplay/rusty-roguelike-starter.package.json` artifact exactly.
  */
 
 import {

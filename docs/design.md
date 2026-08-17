@@ -76,12 +76,15 @@ host lifecycle.
 
 ## Rules compilation
 
-`rust/content/rules/starter.json` is inert authored policy. Rust strictly decodes
-it into the Roguelike-owned candidate schema, requires exact Engine rules-package
-provenance for every definition, resolves the admitted package, validates all
-cross-references and bounds, and compiles an immutable `RoguelikeRuleset`.
-TypeScript declarations are generated from that Rust schema; the browser does
-not compile or evaluate the candidate.
+Starter content is authored as build-time TypeScript in `gameplay/` and
+materialized into the committed `data/gameplay/rusty-roguelike-starter.package.json`
+artifact (see `docs/agent-code-atlas.md`). That artifact is inert authored
+policy. Rust decodes the Engine gameplay-rules envelope, strictly decodes the
+payload into the Roguelike-owned candidate schema, requires exact Engine
+rules-package provenance for every definition, resolves the admitted package,
+validates all cross-references and bounds, and compiles an immutable
+`RoguelikeRuleset`. TypeScript declarations are generated from that Rust schema;
+the browser does not compile or evaluate the candidate.
 
 The rules retain the Ruleweaver-inspired attack-versus-defense shape, four
 ability/defense families, class level grants, feats, equipment, and attributed
