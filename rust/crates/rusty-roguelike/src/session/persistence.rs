@@ -187,6 +187,7 @@ impl GameSession {
             log: save.log,
             next_log_id,
             target_cursors: save.target_cursors,
+            next_attempt: 1,
         };
         session.rebuild_order()?;
         let derived = session

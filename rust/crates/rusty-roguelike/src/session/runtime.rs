@@ -35,6 +35,9 @@ pub struct GameSession {
     pub(super) log: Vec<SessionLogEntry>,
     pub(super) next_log_id: u64,
     pub(super) target_cursors: BTreeMap<u64, usize>,
+    /// Ephemeral resolution-identity counter for gameplay_resolution
+    /// attempts; never persisted (resolution ids are not part of the save).
+    pub(super) next_attempt: u64,
 }
 
 impl GameSession {
@@ -53,6 +56,7 @@ impl GameSession {
             log: vec![],
             next_log_id: 1,
             target_cursors: BTreeMap::new(),
+            next_attempt: 1,
         };
         session.initialize_canonical_loadout()?;
         session.rebuild_order()?;
@@ -177,6 +181,7 @@ impl GameSession {
             log: self.log.clone(),
             next_log_id: self.next_log_id,
             target_cursors: self.target_cursors.clone(),
+            next_attempt: self.next_attempt,
         })
     }
 

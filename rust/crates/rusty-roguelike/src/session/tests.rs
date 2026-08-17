@@ -754,6 +754,169 @@ fn selected_attack_consumes_one_activation_and_failed_static_roll_is_atomic() {
 }
 
 #[test]
+fn resolution_party_attack_miss_reports_exact_facts_and_consumes_one_roll() {
+    // kestrel (102) finesse 17 -> modifier +3; ember-watcher (202) finesse 12 ->
+    // armor defense 8 + 1 = 9. aimed-shot is 1d8+1; d20 1 gives 4 < 9 => miss.
+    let rules = static_rules_single_enemy(vec![StaticRollCandidate {
+        d20: 1,
+        damage: vec![3],
+    }]);
+    let floor = open_arena();
+    let seeded = WorldState::new(floor.clone(), rules.clone()).unwrap();
+    let mut durable = seeded.durable_state().unwrap();
+    durable.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        crate::WorldCell { x: 2, y: 1 },
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    let mut session = prepared_session(WorldState::restore(floor, rules, durable).unwrap());
+    let before = session.view().unwrap();
+    let resolved = session
+        .command(SessionCommand::UseAction {
+            actor_entity_id: 102,
+            expected_revision: before.revision,
+            action_id: crate::RoguelikeId::parse("aimed-shot").unwrap(),
+            target_entity_id: 202,
+        })
+        .unwrap();
+    assert!(matches!(
+        resolved.latest_receipts.first(),
+        Some(TurnReceipt::PartyAttacked {
+            actor_entity_id: 102,
+            target_entity_id: 202,
+            d20: 1,
+            ability_modifier: 3,
+            attack_total: 4,
+            defense: 9,
+            hit: false,
+            damage_rolls,
+            damage_bonus: 1,
+            requested_damage: 0,
+            applied_damage: 0,
+            ..
+        }) if damage_rolls == &vec![3]
+    ));
+    // The miss consumed exactly one roll; the next command draws d20 12.
+    assert_eq!(session.roll.next_roll(), 1);
+}
+
+#[test]
+fn resolution_party_attack_hit_applies_requested_damage_exactly() {
+    // d20 12 -> attack total 15 >= 9 => hit; rolled 4 + 1 bonus = 5 requested.
+    let rules = static_rules_single_enemy(vec![StaticRollCandidate {
+        d20: 12,
+        damage: vec![4],
+    }]);
+    let floor = open_arena();
+    let seeded = WorldState::new(floor.clone(), rules.clone()).unwrap();
+    let mut durable = seeded.durable_state().unwrap();
+    durable.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        crate::WorldCell { x: 2, y: 1 },
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    let mut session = prepared_session(WorldState::restore(floor, rules, durable).unwrap());
+    let before = session.view().unwrap();
+    let resolved = session
+        .command(SessionCommand::UseAction {
+            actor_entity_id: 102,
+            expected_revision: before.revision,
+            action_id: crate::RoguelikeId::parse("aimed-shot").unwrap(),
+            target_entity_id: 202,
+        })
+        .unwrap();
+    assert!(matches!(
+        resolved.latest_receipts.first(),
+        Some(TurnReceipt::PartyAttacked {
+            actor_entity_id: 102,
+            target_entity_id: 202,
+            d20: 12,
+            ability_modifier: 3,
+            attack_total: 15,
+            defense: 9,
+            hit: true,
+            damage_rolls,
+            damage_bonus: 1,
+            requested_damage: 5,
+            applied_damage: 5,
+            ..
+        }) if damage_rolls == &vec![4]
+    ));
+}
+
+#[test]
+fn resolution_illegal_target_rejects_with_classified_error_and_no_mutation() {
+    // A party member is not a legal party-attack target; the rejection must
+    // surface the existing code without consuming a roll or mutating state.
+    let floor = open_arena();
+    let rules = single_enemy_rules();
+    let seeded = WorldState::new(floor.clone(), rules.clone()).unwrap();
+    let mut durable = seeded.durable_state().unwrap();
+    durable.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        crate::WorldCell { x: 2, y: 1 },
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    let mut session = prepared_session(WorldState::restore(floor, rules, durable).unwrap());
+    let before = session.view().unwrap();
+    let error = session
+        .command(SessionCommand::UseAction {
+            actor_entity_id: 102,
+            expected_revision: before.revision,
+            action_id: crate::RoguelikeId::parse("aimed-shot").unwrap(),
+            target_entity_id: 101,
+        })
+        .expect_err("a party member is not a legal target for a party attack");
+    assert_eq!(error.code(), "session_target_not_legal");
+    assert_eq!(session.view().unwrap(), before);
+}
+
+#[test]
+fn resolution_out_of_range_attack_rejects_without_consuming_a_roll() {
+    // Shrink aimed-shot to range 1 and place the participating enemy two cells
+    // ahead: visible but out of range. The preflight rejects before the roll
+    // source advances (roll parity) and the session does not mutate.
+    let mut candidate = starter_candidate().unwrap();
+    candidate
+        .actors
+        .retain(|actor| actor.side == crate::ActorSideCandidate::Party || actor.entity_id == 202);
+    candidate
+        .actions
+        .iter_mut()
+        .find(|action| action.id.as_str() == "aimed-shot")
+        .unwrap()
+        .attack
+        .as_mut()
+        .unwrap()
+        .range = 1;
+    let rules = RoguelikeRuleset::compile(vec![package_for_test(candidate)]).unwrap();
+    let floor = open_arena();
+    let seeded = WorldState::new(floor.clone(), rules.clone()).unwrap();
+    let mut durable = seeded.durable_state().unwrap();
+    durable.enemies[0].world = EnemyWorldComponent::new(
+        floor.floor_id.clone(),
+        crate::WorldCell { x: 2, y: 0 },
+        EnemyParticipation::Participating,
+    )
+    .unwrap();
+    let mut session = prepared_session(WorldState::restore(floor, rules, durable).unwrap());
+    let before = session.view().unwrap();
+    let error = session
+        .command(SessionCommand::UseAction {
+            actor_entity_id: 102,
+            expected_revision: before.revision,
+            action_id: crate::RoguelikeId::parse("aimed-shot").unwrap(),
+            target_entity_id: 202,
+        })
+        .expect_err("the enemy is visible but outside range 1");
+    assert_eq!(error.code(), "session_target_out_of_range");
+    assert_eq!(session.view().unwrap(), before);
+}
+
+#[test]
 fn defeated_participant_leaves_the_live_order_without_blocking_the_round() {
     let rolls = vec![
         StaticRollCandidate {
