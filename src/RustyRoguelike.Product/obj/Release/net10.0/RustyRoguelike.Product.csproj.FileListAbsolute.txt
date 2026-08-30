@@ -1,0 +1,16 @@
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/bin/Release/net10.0/RustyRoguelike.Product.deps.json
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/bin/Release/net10.0/RustyRoguelike.Product.dll
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/bin/Release/net10.0/RustyRoguelike.Product.pdb
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/bin/Release/net10.0/Rusty.Engine.dll
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/bin/Release/net10.0/Rusty.Engine.pdb
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRoguelike.Product.csproj.AssemblyReference.cache
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRoguelike.Product.GeneratedMSBuildEditorConfig.editorconfig
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRoguelike.Product.AssemblyInfoInputs.cache
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRoguelike.Product.AssemblyInfo.cs
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRoguelike.Product.csproj.CoreCompileInputs.cache
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRoguelike.Product.sourcelink.json
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRog.3092F8B7.Up2Date
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRoguelike.Product.dll
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/refint/RustyRoguelike.Product.dll
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/RustyRoguelike.Product.pdb
+/home/dev/rusty-roguelike/src/RustyRoguelike.Product/obj/Release/net10.0/ref/RustyRoguelike.Product.dll

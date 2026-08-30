@@ -1,0 +1,6 @@
+V1.0 {
+    global:
+        DotNetRuntimeDebugHeader;
+        rusty_product_bind;
+    local: *;
+};

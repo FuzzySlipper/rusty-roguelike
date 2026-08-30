@@ -1,0 +1,56 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "RustyRoguelike.NativeProduct/1.0.0": {
+        "dependencies": {
+          "Rusty.Engine": "1.0.0",
+          "RustyRoguelike.Product": "1.0.0"
+        },
+        "runtime": {
+          "RustyRoguelike.NativeProduct.dll": {}
+        }
+      },
+      "Rusty.Engine/1.0.0": {
+        "runtime": {
+          "Rusty.Engine.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "RustyRoguelike.Product/1.0.0": {
+        "dependencies": {
+          "Rusty.Engine": "1.0.0"
+        },
+        "runtime": {
+          "RustyRoguelike.Product.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "RustyRoguelike.NativeProduct/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Rusty.Engine/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "RustyRoguelike.Product/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
