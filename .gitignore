@@ -6,6 +6,8 @@ coverage/
 tmp/
 target/
 rust/target/
+bin/
+obj/
 playwright-report/
 test-results/
 *.log
