@@ -40,8 +40,8 @@ internal sealed class RoguelikeSaveStore : IDisposable
 
 internal sealed class RoguelikeSaveCodec : IProductStateCodec<RoguelikeSave>
 {
-    internal const uint CurrentSchema = 1;
-    internal const string StarterRulesFingerprint = "rusty-roguelike.starter-rules.csharp-v1";
+    internal const uint CurrentSchema = 2;
+    internal const string StarterRulesFingerprint = "rusty-roguelike.starter-rules.csharp-v2-initiative";
     public uint SchemaVersion => CurrentSchema;
 
     public void Encode(in RoguelikeSave state, IBufferWriter<byte> destination)

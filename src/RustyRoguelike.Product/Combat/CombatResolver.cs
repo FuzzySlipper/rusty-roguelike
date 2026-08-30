@@ -22,6 +22,7 @@ internal sealed class CombatResolver
 {
     private readonly IRandomService _random;
     internal CombatResolver(IRandomService random) => _random = random ?? throw new ArgumentNullException(nameof(random));
+    internal IRandomService Random => _random;
 
     internal CombatReceipt ResolvePartyAttack(
         PartyMemberState attacker,

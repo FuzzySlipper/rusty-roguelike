@@ -31,12 +31,20 @@ revision-bound session boundary. The demonstrated intents are begin, cardinal
 party movement, wait, save, and load. A stale, inactive, illegal, or terminal
 command produces a rejected receipt and does not advance the session revision.
 
-The party is a single C# grid cell. Each accepted party activation advances the
-activation index, admits visible opposition, and settles each participating
-living opponent in deterministic finesse-descending/entity-ID order. An enemy
-attacks the party square and the product chooses a living party member using
-that enemy's round-robin cursor. Detailed combat receipts and the current
-initiative admission order remain visible in the game projection.
+The party is a single C# grid cell, while each living party member retains one
+place in the product-owned initiative order. The full round combines living
+party members with admitted opposition in deterministic
+finesse-descending/entity-ID order. Only the current party member may submit an
+action; movement and wait consume that member's collapsed-party activation.
+Automatic opposition settles through the next party decision, subject to the
+visible settlement bound. An enemy attacks the party square and the product
+chooses a living party member using that enemy's round-robin cursor. Round,
+cursor, current actor, decision class, detailed receipts, and the full order
+remain visible in the game projection and closed save.
+
+Commands execute against a detached candidate session. Vitality, target
+cursors, activation/round state, receipts, outcome, and revision replace the
+live session only after the complete command and automatic settlement succeed.
 
 Starter values are named in `GameplayTuning`, typed rule definitions, and
 `FloorProjectionTuning`; they are intentionally inspectable and replaceable

@@ -59,7 +59,7 @@ internal sealed record GameplayTuning(
         AttackRollMinimum: 1,
         AttackRollMaximum: 20,
         AutomaticSettlementLimit: 32,
-        InitiativePolicy: "collapsed-party-then-admitted-opposition:finesse-descending,entity-id-ascending",
+        InitiativePolicy: "living-party-plus-admitted-opposition:finesse-descending,entity-id-ascending; automatic-opposition-to-next-party-decision",
         EntryCell: new GridCell(0, 0),
         RngScope: "rusty-roguelike.combat.v1");
 }

@@ -27,7 +27,7 @@ internal sealed class GameSessionProjection : IDisposable
         uint party = Party(value, session.Party.Members);
         uint opposition = Opposition(value, session.World.Opposition);
         uint latestReceipt = LatestReceipt(value, session.Receipts.LastOrDefault());
-        uint initiative = Initiative(value, session.LastAdmittedInitiative);
+        uint initiative = Initiative(value, session.Initiative);
         uint tuning = value.Object(
             ("campaignSeed", value.Number(session.Tuning.CampaignSeed)),
             ("activationCost", value.Number(session.Tuning.ActivationCost)),
@@ -39,8 +39,11 @@ internal sealed class GameSessionProjection : IDisposable
             ("outcome", value.String(session.Outcome.ToString().ToLowerInvariant())),
             ("revision", value.Number(session.Revision)),
             ("activationIndex", value.Number(session.ActivationIndex)),
-            ("lastAdmittedOppositionActivations", value.Number(session.LastAdmittedOppositionActivations)),
-            ("lastAdmittedOppositionInitiative", initiative),
+            ("round", value.Number(session.Round)),
+            ("initiativeCursor", value.Number(session.InitiativeCursor)),
+            ("currentActor", value.String(session.CurrentActor?.Id ?? "none")),
+            ("decisionClass", value.String(session.DecisionClass.ToString().ToLowerInvariant())),
+            ("initiative", initiative),
             ("partyCellX", value.Number(session.World.PartyCell.X)),
             ("partyCellY", value.Number(session.World.PartyCell.Y)),
             ("party", party),
@@ -65,8 +68,12 @@ internal sealed class GameSessionProjection : IDisposable
             ("cellX", value.Number(enemy.Position.X)),
             ("cellY", value.Number(enemy.Position.Y))))).ToArray());
 
-    private static uint Initiative(LifecycleValueBuilder value, IReadOnlyList<string> actorIds) => value.Object(
-        actorIds.Select((actorId, index) => (actorId, value.Number(index))).ToArray());
+    private static uint Initiative(LifecycleValueBuilder value, IReadOnlyList<InitiativeActorSnapshot> actors) => value.Object(
+        actors.Select((actor, index) => (actor.Id, value.Object(
+            ("index", value.Number(index)),
+            ("side", value.String(actor.Side.ToString().ToLowerInvariant())),
+            ("finesse", value.Number(actor.Finesse)),
+            ("entityId", value.Number(actor.EntityId))))).ToArray());
 
     private static uint LatestReceipt(LifecycleValueBuilder value, CombatReceipt? receipt) => receipt is null
         ? value.String("none")
