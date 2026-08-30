@@ -6,16 +6,8 @@ using System.Text.Json.Serialization;
 namespace RustyRoguelike.Product.Floors;
 
 /// <summary>Strict boundary for offline Procgen output. It never invokes a generator.</summary>
-public static class FloorArtifactAdmission
+public static partial class FloorArtifactAdmission
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = false,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        RespectNullableAnnotations = true,
-    };
-
     public static FloorAdmissionResult Admit(ReadOnlySpan<byte> artifactBytes, FloorAdmissionProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
@@ -34,7 +26,7 @@ public static class FloorArtifactAdmission
                 return Reject("floor_artifact_shape_invalid", "The artifact must contain a floor object.");
             }
 
-            RawArtifact artifact = JsonSerializer.Deserialize<RawArtifact>(artifactPayload, JsonOptions)
+            RawArtifact artifact = JsonSerializer.Deserialize(artifactPayload, FloorArtifactJsonContext.Default.RawArtifact)
                 ?? throw new FloorArtifactException("floor_artifact_decode_failed", "The artifact decoded to null.");
             if (artifact.SchemaVersion != 1 || artifact.ArtifactId != profile.ArtifactId)
             {
@@ -250,6 +242,10 @@ public static class FloorArtifactAdmission
     private sealed class RawScenePlacement { public required string Id { get; init; } public required string SourceInstanceId { get; init; } public required string SourceSocketId { get; init; } public required RawCell Cell { get; init; } public required string Facing { get; init; } public required string[] Tags { get; init; } public required RawSceneContent Content { get; init; } }
     private sealed class RawSceneContent { public required string Kind { get; init; } public string? ContentId { get; init; } public string? ColorRgb { get; init; } public int? IntensityMilli { get; init; } public int? RangeCells { get; init; } }
     private sealed class RawProvenance { public required int SchemaVersion { get; init; } public required string RustyProcgenRevision { get; init; } public required ulong Seed { get; init; } public required ulong RuleSeed { get; init; } public required ulong GeometrySeed { get; init; } public required ulong RealizationSeed { get; init; } public required string IntentHash { get; init; } public required string GeometryPolicyHash { get; init; } public required string CatalogHash { get; init; } public required string CatalogPolicyHash { get; init; } public required string CandidateHash { get; init; } public required string SourceGeometryHash { get; init; } public required string SourcePiecePlanHash { get; init; } public required string ProcgenResultHash { get; init; } public required string AcceptedGeometryHash { get; init; } public required string AcceptedPlacementHash { get; init; } public required int SelectedAttempt { get; init; } }
+
+    [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
+    [JsonSerializable(typeof(RawArtifact))]
+    private sealed partial class FloorArtifactJsonContext : JsonSerializerContext;
 }
 
 public sealed record FloorAdmissionResult(FloorState? Floor, string? RejectionCode, string? RejectionDetail)

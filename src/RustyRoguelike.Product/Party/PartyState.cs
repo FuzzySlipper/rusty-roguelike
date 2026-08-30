@@ -49,6 +49,16 @@ internal sealed class PartyMemberState
         _vitality.Spend(new ExactValue(applied));
         return applied;
     }
+
+    internal void RestoreVitality(long value)
+    {
+        if (value < 0 || value > Definition.Vitality)
+        {
+            throw new InvalidOperationException("party-vitality-out-of-range");
+        }
+
+        ApplyDamage(checked((int)(Definition.Vitality - value)));
+    }
 }
 
 internal sealed class PartyState
@@ -64,4 +74,24 @@ internal sealed class PartyState
     internal IReadOnlyList<PartyMemberState> Living => _members.Where(member => member.IsLiving).ToArray();
     internal PartyMemberState? Find(string id) => _members.SingleOrDefault(member => member.Definition.Id == id);
     internal ulong LoadoutRevision => _loadout.Revision;
+
+    internal IReadOnlyList<ActorVitalitySnapshot> CaptureVitality() => _members
+        .Select(member => new ActorVitalitySnapshot(member.Definition.Id, member.Vitality))
+        .ToArray();
+
+    internal void RestoreVitality(IReadOnlyList<ActorVitalitySnapshot> saved)
+    {
+        if (saved.Count != _members.Count || saved.Select(member => member.Id).Distinct(StringComparer.Ordinal).Count() != saved.Count)
+        {
+            throw new InvalidOperationException("party-save-roster-mismatch");
+        }
+
+        foreach (ActorVitalitySnapshot snapshot in saved)
+        {
+            PartyMemberState member = Find(snapshot.Id) ?? throw new InvalidOperationException("party-save-member-unknown");
+            member.RestoreVitality(snapshot.Vitality);
+        }
+    }
 }
+
+internal sealed record ActorVitalitySnapshot(string Id, long Vitality);

@@ -1,6 +1,7 @@
 using Rusty.Engine;
 using RustyRoguelike.Product.Combat;
 using RustyRoguelike.Product.Exploration;
+using RustyRoguelike.Product.Floors;
 using RustyRoguelike.Product.Party;
 using RustyRoguelike.Product.Rules;
 
@@ -22,13 +23,15 @@ internal sealed class GameSession
     private readonly CombatResolver _combat;
     private readonly Dictionary<string, int> _targetCursors = new(StringComparer.Ordinal);
     private readonly List<CombatReceipt> _receipts = [];
+    private readonly Func<GridCell, GridCell, bool> _movementAdmission;
     private IReadOnlyList<string> _lastAdmittedInitiative = [];
-    internal GameSession(IRandomService random)
+    internal GameSession(IRandomService random, FloorState floor, Func<GridCell, GridCell, bool>? movementAdmission = null)
     {
         _rules = RoguelikeRules.Starter;
         Party = new PartyState(_rules);
-        World = new ExplorationState(_rules);
+        World = new ExplorationState(_rules, floor);
         _combat = new CombatResolver(random);
+        _movementAdmission = movementAdmission ?? ((_, destination) => World.IsWalkable(destination));
         Phase = SessionPhase.Preparation;
         Outcome = SessionOutcome.Ongoing;
     }
@@ -81,7 +84,9 @@ internal sealed class GameSession
         if (Phase != SessionPhase.PartyDecision) return Reject("not-party-decision");
         int distance = Math.Abs(command.DeltaX) + Math.Abs(command.DeltaY);
         if (distance != _rules.Tuning.ActivationCost) return Reject("movement-must-be-one-step");
-        World.MoveParty(World.PartyCell.Step(command.DeltaX, command.DeltaY));
+        GridCell destination = World.PartyCell.Step(command.DeltaX, command.DeltaY);
+        if (!_movementAdmission(World.PartyCell, destination)) return Reject("engine-navigation-rejected-step");
+        World.MoveParty(destination);
         World.AdmitVisibleOpposition();
         return SettleAndAccept([]);
     }
@@ -141,4 +146,78 @@ internal sealed class GameSession
     }
 
     private SessionCommandReceipt Reject(string code) => new(false, code, Revision, []);
+
+    internal SessionCheckpoint Capture()
+    {
+        return new SessionCheckpoint(
+            Phase,
+            Outcome,
+            Revision,
+            ActivationIndex,
+            LastAdmittedOppositionActivations,
+            LastAdmittedInitiative.ToArray(),
+            Party.CaptureVitality(),
+            World.PartyCell.X,
+            World.PartyCell.Y,
+            World.CaptureOpposition(),
+            new Dictionary<string, int>(_targetCursors, StringComparer.Ordinal),
+            Receipts.ToArray());
+    }
+
+    internal static GameSession Restore(
+        IRandomService random,
+        FloorState floor,
+        SessionCheckpoint checkpoint,
+        Func<GridCell, GridCell, bool>? movementAdmission = null)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        if (!Enum.IsDefined(checkpoint.Phase) || !Enum.IsDefined(checkpoint.Outcome)
+            || checkpoint.LastAdmittedOppositionActivations < 0
+            || checkpoint.LastAdmittedOppositionInitiative.Distinct(StringComparer.Ordinal).Count() != checkpoint.LastAdmittedOppositionInitiative.Count)
+        {
+            throw new InvalidOperationException("session-save-shape-invalid");
+        }
+
+        GameSession restored = new(random, floor, movementAdmission);
+        restored.Party.RestoreVitality(checkpoint.Party);
+        restored.World.Restore(new GridCell(checkpoint.PartyCellX, checkpoint.PartyCellY), checkpoint.Opposition);
+        if (checkpoint.TargetCursors.Any(cursor => restored.World.Find(cursor.Key) is null || cursor.Value < 0))
+        {
+            throw new InvalidOperationException("session-save-target-cursor-invalid");
+        }
+        if (checkpoint.Receipts.Any(receipt => restored.Party.Find(receipt.Attacker) is null && restored.World.Find(receipt.Attacker) is null
+            || restored.Party.Find(receipt.Target) is null && restored.World.Find(receipt.Target) is null
+            || receipt.EligibleMembers < 0 || receipt.RequestedDamage < 0 || receipt.AppliedDamage < 0 || receipt.AppliedDamage > receipt.RequestedDamage))
+        {
+            throw new InvalidOperationException("session-save-receipt-invalid");
+        }
+
+        restored.Phase = checkpoint.Phase;
+        restored.Outcome = checkpoint.Outcome;
+        restored.Revision = checkpoint.Revision;
+        restored.ActivationIndex = checkpoint.ActivationIndex;
+        restored.LastAdmittedOppositionActivations = checkpoint.LastAdmittedOppositionActivations;
+        restored._lastAdmittedInitiative = checkpoint.LastAdmittedOppositionInitiative.ToArray();
+        foreach ((string key, int value) in checkpoint.TargetCursors)
+        {
+            restored._targetCursors.Add(key, value);
+        }
+        restored._receipts.AddRange(checkpoint.Receipts);
+        return restored;
+    }
 }
+
+/// <summary>Closed product state used by the persistence codec; it never becomes an Engine gameplay schema.</summary>
+internal sealed record SessionCheckpoint(
+    SessionPhase Phase,
+    SessionOutcome Outcome,
+    ulong Revision,
+    ulong ActivationIndex,
+    int LastAdmittedOppositionActivations,
+    IReadOnlyList<string> LastAdmittedOppositionInitiative,
+    IReadOnlyList<ActorVitalitySnapshot> Party,
+    int PartyCellX,
+    int PartyCellY,
+    IReadOnlyList<OppositionSnapshot> Opposition,
+    IReadOnlyDictionary<string, int> TargetCursors,
+    IReadOnlyList<CombatReceipt> Receipts);

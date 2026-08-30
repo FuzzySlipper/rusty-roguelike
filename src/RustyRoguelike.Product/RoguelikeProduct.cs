@@ -1,6 +1,10 @@
 using Rusty.Engine;
+using Rusty.Engine.Persistence;
+using RustyRoguelike.Product.Integration;
 using RustyRoguelike.Product.Presentation;
+using RustyRoguelike.Product.Saves;
 using RustyRoguelike.Product.Session;
+using System.Text;
 
 namespace RustyRoguelike.Product;
 
@@ -12,8 +16,12 @@ public sealed class RoguelikeProduct : IEngineProduct
 {
     private readonly LifecycleProjection _lifecycleProjection;
     private readonly GameSessionProjection _sessionProjection;
+    private readonly EngineIntegrationProjection _integrationProjection;
     private readonly IRandomService _random;
+    private readonly FloorEngineProjection _floor;
+    private readonly RoguelikeSaveStore _saves;
     private GameSession _session;
+    private SaveOperationReadout _saveReadout = SaveOperationReadout.None;
     private bool _started;
     private bool _paused;
     private bool _shutdown;
@@ -23,10 +31,13 @@ public sealed class RoguelikeProduct : IEngineProduct
         ArgumentNullException.ThrowIfNull(context);
         _lifecycleProjection = new LifecycleProjection(context.Engine.Ui);
         _sessionProjection = new GameSessionProjection(context.Engine.Ui);
+        _integrationProjection = new EngineIntegrationProjection(context.Engine.Ui);
         _random = context.Engine.Random;
-        _session = new GameSession(_random);
+        _floor = FloorEngineProjection.Create(context.Engine);
+        _saves = new RoguelikeSaveStore(context.Engine);
+        _session = NewSession();
         _lifecycleProjection.Publish(LifecycleSnapshot.Created);
-        _sessionProjection.Publish(_session);
+        Publish();
     }
 
     public void Start()
@@ -39,7 +50,7 @@ public sealed class RoguelikeProduct : IEngineProduct
         _started = true;
         _paused = false;
         _lifecycleProjection.Publish(LifecycleSnapshot.Started);
-        _sessionProjection.Publish(_session);
+        Publish();
     }
 
     public ProductUpdateResult Update(ProductUpdate update)
@@ -51,7 +62,11 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         LifecycleSnapshot snapshot = LifecycleSnapshot.From(update.Facts, update.Input.Length);
         _lifecycleProjection.Publish(snapshot);
-        _sessionProjection.Publish(_session);
+        foreach (ProductInputEvent input in update.Input)
+        {
+            HandleInput(input);
+        }
+        Publish();
         return ProductUpdateResult.None;
     }
 
@@ -64,7 +79,7 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         _paused = true;
         _lifecycleProjection.Publish(LifecycleSnapshot.Paused);
-        _sessionProjection.Publish(_session);
+        Publish();
     }
 
     public void Resume()
@@ -76,7 +91,7 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         _paused = false;
         _lifecycleProjection.Publish(LifecycleSnapshot.Resumed);
-        _sessionProjection.Publish(_session);
+        Publish();
     }
 
     public void Restart()
@@ -88,9 +103,9 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         _started = true;
         _paused = false;
-        _session = new GameSession(_random);
+        _session = NewSession();
         _lifecycleProjection.Publish(LifecycleSnapshot.Restarted);
-        _sessionProjection.Publish(_session);
+        Publish();
     }
 
     public void Shutdown()
@@ -102,6 +117,9 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         _lifecycleProjection.Dispose();
         _sessionProjection.Dispose();
+        _integrationProjection.Dispose();
+        _saves.Dispose();
+        _floor.Dispose();
         _shutdown = true;
     }
 
@@ -114,8 +132,91 @@ public sealed class RoguelikeProduct : IEngineProduct
         }
 
         SessionCommandReceipt receipt = _session.Submit(command);
-        _sessionProjection.Publish(_session);
+        Publish();
         return receipt;
+    }
+
+    private GameSession NewSession() => new(_random, _floor.Floor, _floor.ProposePartyStep);
+
+    private void HandleInput(ProductInputEvent input)
+    {
+        if (input.Kind != InputEventKind.DirectDigital || input.Provenance != InputProvenance.DirectUi)
+        {
+            return;
+        }
+
+        string intent = Encoding.UTF8.GetString(input.Intent.Span);
+        switch (intent)
+        {
+            case "roguelike.begin":
+                Submit(new BeginExpeditionCommand(_session.Revision));
+                break;
+            case "roguelike.move.north":
+                Submit(new MovePartyCommand(_session.Revision, 0, -1));
+                break;
+            case "roguelike.move.east":
+                Submit(new MovePartyCommand(_session.Revision, 1, 0));
+                break;
+            case "roguelike.move.south":
+                Submit(new MovePartyCommand(_session.Revision, 0, 1));
+                break;
+            case "roguelike.move.west":
+                Submit(new MovePartyCommand(_session.Revision, -1, 0));
+                break;
+            case "roguelike.wait":
+                Submit(new WaitCommand(_session.Revision));
+                break;
+            case "roguelike.save":
+                Save();
+                break;
+            case "roguelike.load":
+                Load();
+                break;
+        }
+    }
+
+    private void Save()
+    {
+        try
+        {
+            PersistenceSaveReceipt saved = _saves.Save(_session, _floor);
+            _saveReadout = new SaveOperationReadout("save", "accepted", saved.Revision, "closed product snapshot saved through Engine persistence");
+        }
+        catch (Exception exception)
+        {
+            _saveReadout = new SaveOperationReadout("save", "rejected", 0, exception.Message);
+        }
+    }
+
+    private void Load()
+    {
+        try
+        {
+            ProductStateLoad<RoguelikeSave> loaded = _saves.Load();
+            if (!loaded.Present || loaded.State is null)
+            {
+                _saveReadout = new SaveOperationReadout("load", "absent", loaded.Revision, "the Engine store has no saved session");
+                return;
+            }
+            RoguelikeSave save = loaded.State;
+            if (save.FloorProvenance != _floor.Floor.Provenance || save.FloorContentHash != _floor.Content.Sha256)
+            {
+                throw new InvalidOperationException("save-floor-provenance-mismatch");
+            }
+            _session = GameSession.Restore(_random, _floor.Floor, save.Session, _floor.ProposePartyStep);
+            _saveReadout = new SaveOperationReadout("load", "accepted", loaded.Revision, "closed product snapshot restored after floor provenance validation");
+        }
+        catch (Exception exception)
+        {
+            _saveReadout = new SaveOperationReadout("load", "rejected", 0, exception.Message);
+        }
+    }
+
+    private void Publish()
+    {
+        _floor.RefreshReadout();
+        _sessionProjection.Publish(_session);
+        _integrationProjection.Publish(_floor.Readout, _saveReadout);
     }
 
     public void Dispose() => Shutdown();
