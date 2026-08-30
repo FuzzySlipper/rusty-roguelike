@@ -1,14 +1,10 @@
+bin/
+obj/
 node_modules/
 .angular/
 .nx/
 dist/
-coverage/
-tmp/
-target/
+gameplay/dist/
 rust/target/
-bin/
-obj/
-playwright-report/
-test-results/
 *.log
 .DS_Store

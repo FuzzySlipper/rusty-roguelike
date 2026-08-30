@@ -2,279 +2,81 @@
 
 ## Product boundary
 
-Rusty Roguelike is one independent game. It is not a Rusty D20 mode, a shared
-RPG framework, or a facade over either Rusty Engine or Rusty Procgen.
+Rusty Roguelike is one C# product with a collapsed party. It owns game policy:
+the starter rules vocabulary, party and opposition definitions, activation and
+target-selection policy, floor-artifact admission, session state, closed save
+meaning, and observational game projections. It does not expose a reusable RPG
+layer, depend on Rusty D20, or retain a Rust/TypeScript compatibility runtime.
 
-The durable direction is:
+Rusty Engine is the reusable mechanism provider. `RoguelikeProduct` implements
+the Engine-generated `IEngineProduct` contract and receives lifecycle/update
+callbacks from the Engine host. It has no second clock, raw interop, or custom
+host loop. Engine owns content bytes, input delivery, deterministic random,
+spatial sessions, collision/navigation, voxel-scene presentation, appearance,
+UI streams, and durable state storage. The product keeps the meaning of its
+rules, floor, session, and save data.
 
 ```text
-authored game policy + explicit generation seed
-  -> public Rusty Procgen in-memory generation
-  -> Rust admission of generated floor and content
-  -> registered state plus named services through the complete Rusty Engine facade
-  -> Rust collapsed-party session and initiative runtime
-  -> Rust-generated strict protocol
-  -> Rust-owned retained-frame projection
-  -> Engine-owned native webview renderer plus observational browser shell
+committed Procgen artifact -> C# strict floor admission -> Engine content/spatial/scene
+typed C# rules + party -> C# session command -> Engine random/mechanics/navigation
+                           -> C# receipt and projection -> Engine UI stream / host readout
+closed C# save meaning -> Engine durable state blob
 ```
 
-Rust owns generated-floor admission, discovery and visibility, participation
-and dormancy, the collapsed party square, initiative, the one-action economy,
-movement, actions, target/member selection, inventory, progression, objectives,
-saves, and retained-frame projection. TypeScript presents the observational
-browser shell and transient control state. It does not translate renderer
-contracts, mount a renderer, decide gameplay legality, or maintain a second
-live session.
+## Current vertical slice
 
-## Preparation and party inventory
+`RoguelikeProduct` creates an admitted starter floor and a fresh `GameSession`
+at product construction. Direct Engine input intents enter a single internal,
+revision-bound session boundary. The demonstrated intents are begin, cardinal
+party movement, wait, save, and load. A stale, inactive, illegal, or terminal
+command produces a rejected receipt and does not advance the session revision.
 
-A session begins in an explicit preparation phase before initiative is live.
-Rust creates every authored item as a unique registered Engine entity, then a
-fresh `GameSession` atomically transfers and equips the authored party loadout
-through the named inventory and equipment services. The first published view
-therefore has an empty shared expedition stash and is ready to begin without
-browser-issued setup commands. Party members and the stash expose Engine
-inventory capacity; party members additionally expose the Roguelike-authored
-body, weapon, and focus slots through Engine equipment state. Revision-bound
-loadout commands still use those named services on a cloned world, so players
-may customize before beginning and a stale owner, incompatible slot, full
-destination, or service failure cannot partially publish state.
+The party is a single C# grid cell. Each accepted party activation advances the
+activation index, admits visible opposition, and settles each participating
+living opponent in deterministic finesse-descending/entity-ID order. An enemy
+attacks the party square and the product chooses a living party member using
+that enemy's round-robin cursor. Detailed combat receipts and the current
+initiative admission order remain visible in the game projection.
 
-The expedition becomes ready only when the shared stash is empty and every
-party item is equipped. Beginning the expedition is a separate authoritative
-command that freezes the loadout, builds initiative, and settles automatic
-actors to the first party decision. Equipment-granted actions and modifiers
-become live only from the equipped registered item facts. Once the expedition
-begins, the inventory and complete character sheets remain inspectable but
-read-only: changing gear is not a free side channel around the one-activation
-economy.
+Starter values are named in `GameplayTuning`, typed rule definitions, and
+`FloorProjectionTuning`; they are intentionally inspectable and replaceable
+without burying product policy in Engine mechanism calls. The initial artifact
+and rules are small by design, not a claim that the campaign is feature-complete.
 
-## Turn model
+## Floor admission and presentation
 
-One movement step or one chosen action consumes one activation. Rounds retain
-initiative order. Each currently participating visible actor receives an
-activation; hidden or non-participating enemies remain dormant. When a party
-member activates, movement relocates the whole collapsed party. An enemy first
-targets the party square and Rust then selects which party member receives the
-effect.
+There is no supported live C# Procgen generator. The product instead opens the
+committed content artifact through `IContentService`, verifies strict schema,
+hash/provenance, bounds, connectivity, required features/portals, and socket
+rules, then atomically accepts it as `FloorState`. Invalid bytes do not replace
+the admitted floor.
 
-Combat never changes to a modal tactical board. The first-person renderer,
-party status, action controls, and log remain one composition throughout
-exploration and initiative resolution.
+The admitted walkable cells are projected through Engine voxel, collision,
+navigation, scene, and light services. `FloorProjectionTuning` carries the
+product's material, grid, navigation, light, and content bounds. Engine
+readouts are published separately from the game-session projection so a future
+UI can inspect spatial/content/persistence facts without becoming an authority.
 
-The bounded starter-floor objective is to find and defeat all fifteen authored
-dormant raiders, distributed deterministically across near, middle, and far
-reachable floor strata so contact begins early without collapsing the roster at
-the entry. Living enemies occupy distinct cells, treat the collapsed party cell
-and every other living actor as blocked, and stop on an available adjacent cell
-before attacking. An actor with no legal route consumes its activation without
-moving. Rust derives victory only from authoritative actor vitality across the
-exact compiled opposition roster; the browser's objective panel merely presents
-the current `SessionOutcome`. Terminal sessions accept no further gameplay
-commands, but their complete state can still be saved and reopened through the
-host lifecycle.
+## Saves and presentation
 
-## Rules compilation
+`RoguelikeSaveStore` defines a closed product snapshot and codec. Engine stores
+the opaque durable blob. Load validates the saved rules fingerprint and floor
+provenance/content hash before replacing the live session. The host has one
+development persistence root; durable profile selection is later product work.
 
-Starter content is authored as build-time TypeScript in `gameplay/` and
-materialized into the committed `data/gameplay/rusty-roguelike-starter.package.json`
-artifact (see `docs/agent-code-atlas.md`). That artifact is inert authored
-policy. Rust decodes the Engine gameplay-rules envelope, strictly decodes the
-payload into the Roguelike-owned candidate schema, requires exact Engine
-rules-package provenance for every definition, resolves the admitted package,
-validates all cross-references and bounds, and compiles an immutable
-`RoguelikeRuleset`. TypeScript declarations are generated from that Rust schema;
-the browser does not compile or evaluate the candidate.
+The native product is NativeAOT and is hosted by Engine's C# product runtime.
+Its small bundled HTML page is merely a lifecycle/readout endpoint. It neither
+mounts a renderer nor evaluates rules. A broader first-person UX remains
+deliberately unclaimed until there is a concrete product composition to build.
 
-The rules retain the Ruleweaver-inspired attack-versus-defense shape, four
-ability/defense families, class level grants, feats, equipment, and attributed
-modifiers. They intentionally omit D20's multi-budget activation model. Movement
-and every attack compile with the same fixed activation cost of one. The later
-session runtime owns when that activation is spent.
+## Provider boundary
 
-## Initiative session
+The sole Engine dependency is the unconditional adjacent C# project reference
+to `../rusty-engine/csharp/Rusty.Engine/Rusty.Engine.csproj`, plus its public
+product generator analyzer in the NativeAOT project. Do not edit or synchronize
+the provider from here.
 
-`GameSession` owns one continuous, non-modal initiative order. Finesse orders
-live party members and permanently participating enemies, with entity identity
-as the stable tie break. A successful relative step, rotation, or selected
-attack consumes the current party member's sole activation; party movement
-relocates the collapsed party square. Failed and stale commands operate on a
-cloned candidate session and publish neither world state, turn cursor, nor roll
-consumption.
-
-Opposition activations settle automatically through Engine-routed movement to
-the next party decision. An actor with no currently legal action explicitly
-passes, defeated actors are removed, newly revealed actors join on the next
-round rebuild, and automatic settlement has a fixed bound. Seeded action rolls
-come from the named Engine RNG service under one stable scope per action index;
-authored static rolls are consumed in order and must match the selected action's
-dice. The durable action index is cross-validated against the complete Rust
-rules log. The current catalog authors no
-reactions, so there is no acknowledgement pause. Enemy attacks intentionally
-target the collapsed party square rather than an aggregate party resource. For
-each enemy, Rust selects one living party member in authored party order using
-a per-enemy round-robin cursor, then evaluates that member's defense and applies
-damage to that member through the named Engine services. The staged cursor,
-rolls, damage, and full resolution receipt publish atomically. Receipts expose
-the selected member, selection policy, eligible count, rolls, modifiers,
-defense, and requested versus applied damage; the browser displays those facts
-and never chooses the recipient. The starter catalog has no area or multi-member
-effect, so no area targeting policy is implied.
-
-Attack attempts resolve through `rusty_engine::gameplay_resolution`. A
-downstream `RoguelikeResolutionPolicy` admits the intent (ownership,
-equipment-availability, activation cost, target mode, attack effect), gathers
-immutable facts (ability score, Engine-evaluated defense, visibility,
-participation, distance), checks legality, plans a single attack operation, and
-stages a typed damage effect with an `AttackResolved` event carrying the exact
-receipt facts. A downstream `RoguelikeTransaction` applies staged damage through
-`DamageService` on commit and is fail-atomic because the session command already
-operates on a fork. Party `UseAction` and opposition attack selection build the
-same intent shape and traverse the same policy; only attacks migrate. Movement,
-turns, Wait, opposition move/pass, and Rust-owned party-member round-robin
-selection remain ordinary runtime scheduling, and the resolver never touches
-the roll source — rolls are drawn after preflight legality checks and supplied
-as bounded evidence.
-
-Durable actor abilities, builds, and collapsed-party membership use registered
-`entity-state` components. Defense modifiers, vitality bounds, damage kinds,
-items, and equipment use an admitted `gameplay-mechanics` catalog and named
-Engine services directly. This repository owns their Roguelike vocabulary and
-does not wrap those mechanisms in a shared RPG facade.
-
-## Complete session persistence
-
-Save schema 5 is a closed Rust-owned contract. It records the exact public
-Procgen revision, compiled starter-rules fingerprint, admitted floor
-and complete Procgen provenance, Engine's registered durable entity snapshot,
-session revision/round/phase/outcome, derived initiative order and cursor,
-action-roll index, per-enemy target cursors, latest receipts, and the complete
-bounded rules log, including explicit one-activation party waits. Session view
-schema 6 projects that Rust log and current `canWait` admission directly; the
-browser no longer assembles a parallel history from transient receipts.
-
-Restore recompiles the starter rules and regenerates the floor from the saved
-seed before comparing either artifact. It restores registered entities through
-the exact world component registry, validates compiled entity and immutable
-component identity, Engine mechanics/catalog consistency, reachable discovery
-and actor positions, living occupancy, dormancy, vitality, inventory/equipment,
-initiative, terminal outcome, receipt arithmetic, damage history, RNG position,
-and log continuity. Unknown nested facts, old schemas, dependency mismatches,
-forged provenance, disconnected positions, impossible components, and
-inconsistent lifecycle facts reject before a replacement session is published.
-Finally, Rust replays every initiating receipt from a fresh authored session and
-requires exact receipts, registered snapshot, initiative, rolls, cursors, log,
-and projection; locally plausible but unreachable combinations therefore fail.
-The same-origin host owns one in-memory save slot; Save captures the current
-Rust session and Load constructs a fresh `GameSession` from its serialized
-contract before atomically replacing live state. New / Restart requests a
-fresh authored session through the host's Rust lifecycle and does not mutate
-the saved slot. The browser game menu exposes Exit as a disabled,
-native-host-only option rather than attempting to close a web tab.
-
-## Collapsed-party world state
-
-The admitted floor is projected into Engine voxel, navigation, and collision
-services. Rust stores one party pose and facing for the whole collapsed party;
-one accepted relative step relocates that pose atomically. Party discovery and
-each enemy's floor position and dormant/participating state are durable
-registered components. Every admitted walkable cell and every restored durable
-position must be reachable from the authored entry through the same Engine
-navigation projection used by movement.
-
-Gameplay visibility is a bounded forward cone produced by deterministic
-recursive shadowcasting and constrained by Engine collision raycasts. Walls,
-corners, and authored locked portal fixtures occlude later cells while the first
-blocker remains observable.
-Seeing a dormant enemy promotes it permanently into encounter participation;
-turning away removes it from the current visible projection without putting it
-back to sleep. Party discovery durably records observed floor and wall facts
-separately. Browser-facing WorldView schema 5 keeps two projections distinct: a
-bounded local first-person topology frustum for ordinary 3D depth/lighting, and
-a Rust-projected minimap containing only discovered terrain, known feature/door
-icons, the party pose, and currently shadowcast-visible opposition. Local scene
-topology may continue behind a front wall so the retained renderer has complete
-geometry and lights, but actor projection remains shadowcast-gated and hidden
-enemy positions never cross the protocol. The generated TypeScript decoder
-requires every currently visible minimap fact and actor to agree with the scene
-projection while rejecting unknown, out-of-frustum, contradictory, or
-hidden-actor facts rather than becoming another visibility authority.
-
-## Upstream ownership
-
-Rusty Engine is one unconditional adjacent path dependency on
-`../../rusty-engine/rust/crates/rusty-engine`. The game consumes that checkout
-exactly as it stands through the complete facade for registered entity state,
-rules-package admission, named gameplay mechanics, renderer-neutral frames,
-and the Engine-owned Wry renderer adapter. No Roguelike command pulls,
-synchronizes, or mutates the Engine checkout, and Engine revision identity is
-not a game runtime or persistence fact. `dependency-sources.json` remains the
-canonical exact source selection for Rusty Procgen, which is pinned for
-`rusty_procgen_preflight::core::ProcgenCore`; the consumer never shells out to
-its CLI or copies its algorithms. A missing reusable generation capability
-must be demonstrated by this consumer and fixed upstream.
-
-## Generated-floor admission
-
-The authored seed intent, layout policy, catalog, and bounded catalog-aware
-policy live under `rust/content/procgen`. Rust parses them into Procgen's public
-types and runs the complete filesystem-free `ProcgenCore` pipeline in memory.
-The game admits only a successful unit-cell, four-way, bounded, connected
-lock/key floor with the expected entry, goal, key, gate, and portal semantics.
-Floor schema 2 additionally admits Procgen-authored prefab scene sockets as
-inert prop and point-light placements. Rust requires the exact validated
-catalog placement chain, bounded known content, unique placement identity,
-walkable placement cells, and paired torch/light sockets before publication.
-The scene placements have no collision, navigation, visibility, or gameplay
-authority.
-
-Every admitted floor retains the exact Procgen revision, authored seed and
-derived stage seeds, selected attempt, plus canonical hashes for all authored,
-intermediate, accepted, and result artifacts. Admission recomputes those hashes
-before trusting geometry. A proposed generation is fully generated and
-admitted before it can replace the current floor, so malformed, incompatible,
-or exhausted results cannot partially publish state.
-
-The Rust host publishes the live session and accepts only strict,
-revision-bound typed commands plus explicit save/load/restart lifecycle
-requests. Its
-projection includes phase, preparation
-readiness, the shared stash while preparing, complete party identity, class,
-level, experience, abilities, defenses, feats, actions and loadouts, the current
-decision, relative visible topology, and complete target-resolution receipts.
-The browser strictly decodes that view, keeps classified transport failures
-visible, and submits only projected choices; it does not recreate inventory,
-equipment, movement, targeting, initiative, or rules policy.
-
-`create_dungeon_frame` is the only game-owned retained-scene projection. The
-native `rusty-roguelike-native` binary owns the outer `winit` product window,
-the bounded child region, admitted torch bytes, and semantic mapping from
-Engine physical-input/pick observations to revision-bound `SessionCommand`s.
-The product converts its authored torch GLB through Engine Rust import types,
-packs the resulting mesh into the Engine content-addressed mesh-resource
-format, and references that exact payload from `DefineStaticMesh` and
-`CreateStaticMeshInstance` operations. Facing offsets, authored scale, warm
-emissive material intent, and paired point lights remain game-owned
-presentation meaning.
-`rusty_engine::renderer_webview_host::RendererWebviewAdapter` exclusively owns
-the child webview, embedded private artifact, retained surface, frame loop,
-camera and view application, picking, resizing, and transactional disposal.
-There is no downstream JavaScript renderer package, bridge, callback registry,
-or generic command tunnel.
-
-World schema 5 projects bounded local topology, locked-door barriers, prefab
-placements, and shadowcast-visible actors. Rust maps those facts into stable
-retained handles, point lights, and source-entity metadata. The native host
-submits one bounded offscreen local-overview composition and the first-person
-camera through named adapter operations. Renderer input is observational:
-Rust converts key edges to explicit movement/turn/wait commands and converts
-an enemy pick only to the first already-projected legal action. Save, restore,
-restart, game state, target admission, and consequences remain inside
-`GameSession`.
-
-The Angular application remains an accessible gameplay/control shell for the
-same Rust contracts, but its viewport is only a marker for the native mount
-boundary. It does not fetch renderer resources or render a scene. Preparation,
-initiative, action alternatives, the detailed minimap, party sheets, and rules
-log therefore remain useful observational presentations without acquiring
-renderer authority.
+Rusty Procgen is not linked at runtime. Its reviewed public revision identifies
+the provenance of the committed starter-floor artifact. A runtime generation
+need is an upstream C# capability request, not a reason to copy Procgen or add
+a Rust sidecar.
