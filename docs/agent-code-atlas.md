@@ -3,6 +3,7 @@
 | Path | Owner | Focused proof |
 | --- | --- | --- |
 | `RustyRoguelike.sln` | C# product composition | `dotnet build RustyRoguelike.sln -c Release` |
+| `src/RustyRoguelike.Product.Checks/` | narrow review-critical floor/session executable checks | focused checks command in `docs/verification.md` |
 | `src/RustyRoguelike.Product/RoguelikeProduct.cs` | Engine lifecycle composition, input routing, projection publication | host exercise |
 | `src/RustyRoguelike.Product/Rules/` | Roguelike vocabulary and named gameplay tuning | build + session readout |
 | `src/RustyRoguelike.Product/Party/`, `Combat/`, `Exploration/`, `Session/` | collapsed-party state, one-activation policy, dormancy, receipts, restore shape | host exercise |

@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RustyRoguelike.Product", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RustyRoguelike.NativeProduct", "src\\RustyRoguelike.NativeProduct\\RustyRoguelike.NativeProduct.csproj", "{D4E2A37A-7F5A-4184-8CFF-7A6926B39010}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RustyRoguelike.Product.Checks", "src\\RustyRoguelike.Product.Checks\\RustyRoguelike.Product.Checks.csproj", "{11D93D85-2BFF-4307-B893-3E934885C2F8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,5 +22,9 @@ Global
 		{D4E2A37A-7F5A-4184-8CFF-7A6926B39010}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D4E2A37A-7F5A-4184-8CFF-7A6926B39010}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D4E2A37A-7F5A-4184-8CFF-7A6926B39010}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11D93D85-2BFF-4307-B893-3E934885C2F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11D93D85-2BFF-4307-B893-3E934885C2F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11D93D85-2BFF-4307-B893-3E934885C2F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11D93D85-2BFF-4307-B893-3E934885C2F8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

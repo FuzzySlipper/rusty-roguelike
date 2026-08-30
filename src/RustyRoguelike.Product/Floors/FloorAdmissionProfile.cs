@@ -6,6 +6,7 @@ namespace RustyRoguelike.Product.Floors;
 /// </summary>
 public sealed record FloorAdmissionProfile(
     string ArtifactId,
+    string ExpectedArtifactSha256,
     FloorProvenance ExpectedProvenance,
     int MaxWidth,
     int MaxHeight,
@@ -18,6 +19,9 @@ public sealed record FloorAdmissionProfile(
 {
     public static FloorAdmissionProfile Starter { get; } = new(
         ArtifactId: "rusty-roguelike.starter-floor.5201",
+        // Hash the exact committed envelope bytes, including its final newline. This is the
+        // trust anchor; the envelope's payload hash remains a separate corruption check.
+        ExpectedArtifactSha256: "sha256:58b0e5ab3971c10a17f30c44fb6086f3b90d0f2c2f54b44ef06e0091d1d109e2",
         ExpectedProvenance: new FloorProvenance(
             SchemaVersion: 1,
             RustyProcgenRevision: "722e2c479bdf88ab39b66d2d33ab466b698ec7df",

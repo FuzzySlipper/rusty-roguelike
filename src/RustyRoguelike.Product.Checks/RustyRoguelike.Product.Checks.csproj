@@ -9,5 +9,8 @@
   <ItemGroup>
     <ProjectReference Include="../RustyRoguelike.Product/RustyRoguelike.Product.csproj" />
     <ProjectReference Include="$(EngineRoot)/csharp/Rusty.Engine/Rusty.Engine.csproj" />
+    <Content Include="../RustyRoguelike.NativeProduct/DevelopmentHost/content/floors/starter-floor.5201.procgen.json"
+             Link="content/starter-floor.5201.procgen.json"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

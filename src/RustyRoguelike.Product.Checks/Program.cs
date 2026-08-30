@@ -2,10 +2,17 @@ using Rusty.Engine;
 using RustyRoguelike.Product.Floors;
 using RustyRoguelike.Product.Session;
 
+CheckFloorAdmission();
 CheckInitiative();
 CheckDeadActorPruning();
 CheckAtomicRngFailure();
-Console.WriteLine("Roguelike focused session checks passed");
+Console.WriteLine("Roguelike focused product checks passed");
+
+static void CheckFloorAdmission()
+{
+    string artifactPath = Path.Combine(AppContext.BaseDirectory, "content", "starter-floor.5201.procgen.json");
+    FloorArtifactAdmissionProbe.Verify(File.ReadAllBytes(artifactPath));
+}
 
 static void CheckInitiative()
 {

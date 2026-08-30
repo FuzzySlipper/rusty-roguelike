@@ -19,8 +19,14 @@ public static partial class FloorArtifactAdmission
         try
         {
             byte[] artifactPayload = artifactBytes.ToArray();
+            if (!DigestMatches(profile.ExpectedArtifactSha256, artifactPayload))
+            {
+                return Reject("floor_artifact_trusted_hash_mismatch", "The artifact bytes do not match this profile's trusted digest.");
+            }
+
             using JsonDocument document = JsonDocument.Parse(artifactPayload);
             RejectDuplicateProperties(document.RootElement);
+            RejectUnexpectedNulls(document.RootElement);
             if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty("floor", out JsonElement floorElement))
             {
                 return Reject("floor_artifact_shape_invalid", "The artifact must contain a floor object.");
@@ -33,7 +39,7 @@ public static partial class FloorArtifactAdmission
                 return Reject("floor_artifact_identity_mismatch", "The artifact schema or identity is not admitted by this profile.");
             }
 
-            string expectedHash = "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(floorElement.GetRawText()))).ToLowerInvariant();
+            string expectedHash = Sha256Digest(Encoding.UTF8.GetBytes(floorElement.GetRawText()));
             if (!CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(artifact.ArtifactHash), Encoding.ASCII.GetBytes(expectedHash)))
             {
                 return Reject("floor_artifact_hash_mismatch", "The floor payload does not match its declared artifact hash.");
@@ -224,11 +230,43 @@ public static partial class FloorArtifactAdmission
         }
     }
 
+    private static void RejectUnexpectedNulls(JsonElement element, string? propertyName = null)
+    {
+        if (element.ValueKind == JsonValueKind.Null)
+        {
+            // These fields are intentionally nullable in the artifact contract. Every
+            // structural member and all other scalar facts are required and fail closed.
+            Require(propertyName is "requiredItem" or "contentId" or "colorRgb" or "intensityMilli" or "rangeCells",
+                "floor_artifact_null_required", "A required artifact member cannot be null.");
+            return;
+        }
+
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (JsonProperty property in element.EnumerateObject())
+            {
+                RejectUnexpectedNulls(property.Value, property.Name);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in element.EnumerateArray())
+            {
+                RejectUnexpectedNulls(item);
+            }
+        }
+    }
+
     private static void RequireUnique<T>(IEnumerable<T> values, string code) where T : notnull =>
         Require(values.Distinct().Count() == values.Count(), code, "Artifact values that define identity must be unique.");
     private static void RequireId(string value, string code) => Require(!string.IsNullOrWhiteSpace(value) && value.Length <= 192, code, "An identifier is empty or too long.");
     private static void Require(bool condition, string code, string message) { if (!condition) throw new FloorArtifactException(code, message); }
     private static FloorAdmissionResult Reject(string code, string detail) => new(null, code, detail);
+    private static bool DigestMatches(string expectedDigest, ReadOnlySpan<byte> bytes) =>
+        !string.IsNullOrWhiteSpace(expectedDigest)
+        && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(expectedDigest), Encoding.ASCII.GetBytes(Sha256Digest(bytes)));
+    private static string Sha256Digest(ReadOnlySpan<byte> bytes) =>
+        "sha256:" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
     private sealed class FloorArtifactException(string code, string message) : Exception(message) { public string Code { get; } = code; }
 
@@ -243,7 +281,10 @@ public static partial class FloorArtifactAdmission
     private sealed class RawSceneContent { public required string Kind { get; init; } public string? ContentId { get; init; } public string? ColorRgb { get; init; } public int? IntensityMilli { get; init; } public int? RangeCells { get; init; } }
     private sealed class RawProvenance { public required int SchemaVersion { get; init; } public required string RustyProcgenRevision { get; init; } public required ulong Seed { get; init; } public required ulong RuleSeed { get; init; } public required ulong GeometrySeed { get; init; } public required ulong RealizationSeed { get; init; } public required string IntentHash { get; init; } public required string GeometryPolicyHash { get; init; } public required string CatalogHash { get; init; } public required string CatalogPolicyHash { get; init; } public required string CandidateHash { get; init; } public required string SourceGeometryHash { get; init; } public required string SourcePiecePlanHash { get; init; } public required string ProcgenResultHash { get; init; } public required string AcceptedGeometryHash { get; init; } public required string AcceptedPlacementHash { get; init; } public required int SelectedAttempt { get; init; } }
 
-    [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
+    [JsonSourceGenerationOptions(
+        PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        RespectNullableAnnotations = true)]
     [JsonSerializable(typeof(RawArtifact))]
     private sealed partial class FloorArtifactJsonContext : JsonSerializerContext;
 }

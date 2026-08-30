@@ -46,6 +46,7 @@ current branch and record its exact SHA in Den.
 Run only the focused maintained checks:
 
 ```bash
+dotnet run --project src/RustyRoguelike.Product.Checks/RustyRoguelike.Product.Checks.csproj
 dotnet build RustyRoguelike.sln -c Release
 dotnet publish src/RustyRoguelike.NativeProduct/RustyRoguelike.NativeProduct.csproj -c Release -r linux-x64
 bash src/scripts/exercise-native-product.sh

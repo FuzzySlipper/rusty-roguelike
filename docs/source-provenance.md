@@ -19,7 +19,11 @@
   is a committed artifact derived offline from the reviewed public Procgen
   surface. Its full seed chain, selected attempt, source hashes, required
   features, portals, and scene sockets are pinned by
-  `FloorAdmissionProfile.Starter` before it is accepted.
+  `FloorAdmissionProfile.Starter` before it is accepted. The profile also pins
+  the exact full-envelope SHA-256
+  `58b0e5ab3971c10a17f30c44fb6086f3b90d0f2c2f54b44ef06e0091d1d109e2`;
+  the artifact's internal floor-payload hash is only an additional integrity
+  check and is never its trust anchor.
 
 The C# product does not link Procgen, shell out to it, copy its algorithms, or
 claim live generation. Its admission and Engine projection code are original

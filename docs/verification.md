@@ -3,12 +3,15 @@
 The maintained product checks are deliberately focused:
 
 ```bash
+dotnet run --project src/RustyRoguelike.Product.Checks/RustyRoguelike.Product.Checks.csproj
 dotnet build RustyRoguelike.sln -c Release
 dotnet publish src/RustyRoguelike.NativeProduct/RustyRoguelike.NativeProduct.csproj -c Release -r linux-x64
 bash src/scripts/exercise-native-product.sh
 ```
 
-The build checks both managed C# projects. Publish checks the NativeAOT shared
+The small checks executable covers only the review-critical floor trust/null
+boundary, full initiative cursor, defeated-actor pruning, and fail-atomic
+settlement. The build checks the managed projects. Publish checks the NativeAOT shared
 library. The exercise starts the actual adjacent Engine C# product runtime on
 an isolated loopback port, loads the product library and committed content,
 admits begin/save/load input followed by demand steps, verifies persistence,
