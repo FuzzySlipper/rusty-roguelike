@@ -1,5 +1,6 @@
 using Rusty.Engine;
 using RustyRoguelike.Product.Presentation;
+using RustyRoguelike.Product.Session;
 
 namespace RustyRoguelike.Product;
 
@@ -10,6 +11,9 @@ namespace RustyRoguelike.Product;
 public sealed class RoguelikeProduct : IEngineProduct
 {
     private readonly LifecycleProjection _lifecycleProjection;
+    private readonly GameSessionProjection _sessionProjection;
+    private readonly IRandomService _random;
+    private GameSession _session;
     private bool _started;
     private bool _paused;
     private bool _shutdown;
@@ -18,7 +22,11 @@ public sealed class RoguelikeProduct : IEngineProduct
     {
         ArgumentNullException.ThrowIfNull(context);
         _lifecycleProjection = new LifecycleProjection(context.Engine.Ui);
+        _sessionProjection = new GameSessionProjection(context.Engine.Ui);
+        _random = context.Engine.Random;
+        _session = new GameSession(_random);
         _lifecycleProjection.Publish(LifecycleSnapshot.Created);
+        _sessionProjection.Publish(_session);
     }
 
     public void Start()
@@ -31,6 +39,7 @@ public sealed class RoguelikeProduct : IEngineProduct
         _started = true;
         _paused = false;
         _lifecycleProjection.Publish(LifecycleSnapshot.Started);
+        _sessionProjection.Publish(_session);
     }
 
     public ProductUpdateResult Update(ProductUpdate update)
@@ -42,6 +51,7 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         LifecycleSnapshot snapshot = LifecycleSnapshot.From(update.Facts, update.Input.Length);
         _lifecycleProjection.Publish(snapshot);
+        _sessionProjection.Publish(_session);
         return ProductUpdateResult.None;
     }
 
@@ -54,6 +64,7 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         _paused = true;
         _lifecycleProjection.Publish(LifecycleSnapshot.Paused);
+        _sessionProjection.Publish(_session);
     }
 
     public void Resume()
@@ -65,6 +76,7 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         _paused = false;
         _lifecycleProjection.Publish(LifecycleSnapshot.Resumed);
+        _sessionProjection.Publish(_session);
     }
 
     public void Restart()
@@ -76,7 +88,9 @@ public sealed class RoguelikeProduct : IEngineProduct
 
         _started = true;
         _paused = false;
+        _session = new GameSession(_random);
         _lifecycleProjection.Publish(LifecycleSnapshot.Restarted);
+        _sessionProjection.Publish(_session);
     }
 
     public void Shutdown()
@@ -87,7 +101,21 @@ public sealed class RoguelikeProduct : IEngineProduct
         }
 
         _lifecycleProjection.Dispose();
+        _sessionProjection.Dispose();
         _shutdown = true;
+    }
+
+    /// <summary>Future strict transport commands enter through this single product-owned revision boundary.</summary>
+    internal SessionCommandReceipt Submit(SessionCommand command)
+    {
+        if (!_started || _paused || _shutdown)
+        {
+            return new SessionCommandReceipt(false, "inactive-lifecycle", _session.Revision, []);
+        }
+
+        SessionCommandReceipt receipt = _session.Submit(command);
+        _sessionProjection.Publish(_session);
+        return receipt;
     }
 
     public void Dispose() => Shutdown();
