@@ -29,15 +29,40 @@ public sealed class RoguelikeProduct : IEngineProduct
     public RoguelikeProduct(ProductCreateContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        _lifecycleProjection = new LifecycleProjection(context.Engine.Ui);
-        _sessionProjection = new GameSessionProjection(context.Engine.Ui);
-        _integrationProjection = new EngineIntegrationProjection(context.Engine.Ui);
-        _random = context.Engine.Random;
-        _floor = FloorEngineProjection.Create(context.Engine);
-        _saves = new RoguelikeSaveStore(context.Engine);
-        _session = NewSession();
-        _lifecycleProjection.Publish(LifecycleSnapshot.Created);
-        Publish();
+        LifecycleProjection? lifecycle = null;
+        GameSessionProjection? sessionProjection = null;
+        EngineIntegrationProjection? integrationProjection = null;
+        FloorEngineProjection? floor = null;
+        RoguelikeSaveStore? saves = null;
+        try
+        {
+            lifecycle = new LifecycleProjection(context.Engine.Ui);
+            sessionProjection = new GameSessionProjection(context.Engine.Ui);
+            integrationProjection = new EngineIntegrationProjection(context.Engine.Ui);
+            floor = FloorEngineProjection.Create(context.Engine);
+            saves = new RoguelikeSaveStore(context.Engine);
+            IRandomService random = context.Engine.Random;
+            GameSession session = new(random, floor.Floor, floor.ProposePartyStep);
+
+            _lifecycleProjection = lifecycle;
+            _sessionProjection = sessionProjection;
+            _integrationProjection = integrationProjection;
+            _floor = floor;
+            _saves = saves;
+            _random = random;
+            _session = session;
+            _lifecycleProjection.Publish(LifecycleSnapshot.Created);
+            Publish();
+        }
+        catch
+        {
+            saves?.Dispose();
+            floor?.Dispose();
+            integrationProjection?.Dispose();
+            sessionProjection?.Dispose();
+            lifecycle?.Dispose();
+            throw;
+        }
     }
 
     public void Start()
@@ -140,7 +165,10 @@ public sealed class RoguelikeProduct : IEngineProduct
 
     private void HandleInput(ProductInputEvent input)
     {
-        if (input.Kind != InputEventKind.DirectDigital || input.Provenance != InputProvenance.DirectUi)
+        if (input.Kind != InputEventKind.DirectDigital
+            || input.Provenance != InputProvenance.DirectUi
+            || input.ValueKind != InputValueKind.Digital
+            || input.X != 1.0f)
         {
             return;
         }

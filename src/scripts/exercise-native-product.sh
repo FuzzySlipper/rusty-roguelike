@@ -62,9 +62,10 @@ post_direct_input() {
   local runtime=$1
   local sequence=$2
   local intent=$3
+  local active=$4
   local payload
-  payload=$(jq -cn --argjson runtime "$runtime" --arg sequence "$sequence" --arg intent "$intent" \
-    '{batch: [{runtime: $runtime, sequence: $sequence, context: "gameplay.default", intent: $intent, value: {kind: "digital", active: true}}]}')
+  payload=$(jq -cn --argjson runtime "$runtime" --arg sequence "$sequence" --arg intent "$intent" --argjson active "$active" \
+    '{batch: [{runtime: $runtime, sequence: $sequence, context: "gameplay.default", intent: $intent, value: {kind: "digital", active: $active}}]}')
   curl --fail --silent --show-error \
     -H 'Content-Type: application/json' \
     --data "$payload" \
@@ -82,18 +83,38 @@ start=$(post_lifecycle start null)
 jq -e '.accepted == true and .operation == "start" and .readout.state == "running"' <<<"$start" >/dev/null
 runtime=$(jq -c '.binding' <<<"$start")
 
-begin=$(post_direct_input "$runtime" 1 roguelike.begin)
+inactive_begin=$(post_direct_input "$runtime" 1 roguelike.begin false)
+jq -e '.accepted == true' <<<"$inactive_begin" >/dev/null
+inactive_begin_step=$(admit_demand_step)
+jq -e '.accepted == true' <<<"$inactive_begin_step" >/dev/null
+
+save_before_begin=$(post_direct_input "$runtime" 2 roguelike.save true)
+jq -e '.accepted == true' <<<"$save_before_begin" >/dev/null
+save_before_begin_step=$(admit_demand_step)
+jq -e '.accepted == true' <<<"$save_before_begin_step" >/dev/null
+save_file="$persistence_root/rusty-roguelike/starter-session"
+test -f "$save_file"
+grep -aq '"revision":0' "$save_file"
+save_before_inactive=$(sha256sum "$save_file" | awk '{print $1}')
+
+inactive_save=$(post_direct_input "$runtime" 3 roguelike.save false)
+jq -e '.accepted == true' <<<"$inactive_save" >/dev/null
+inactive_save_step=$(admit_demand_step)
+jq -e '.accepted == true' <<<"$inactive_save_step" >/dev/null
+test "$save_before_inactive" = "$(sha256sum "$save_file" | awk '{print $1}')"
+
+begin=$(post_direct_input "$runtime" 4 roguelike.begin true)
 jq -e '.accepted == true' <<<"$begin" >/dev/null
 begin_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$begin_step" >/dev/null
 
-save=$(post_direct_input "$runtime" 2 roguelike.save)
+save=$(post_direct_input "$runtime" 5 roguelike.save true)
 jq -e '.accepted == true' <<<"$save" >/dev/null
 save_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$save_step" >/dev/null
-test -n "$(find "$persistence_root" -type f -print -quit)"
+grep -aq '"revision":1' "$save_file"
 
-load=$(post_direct_input "$runtime" 3 roguelike.load)
+load=$(post_direct_input "$runtime" 6 roguelike.load true)
 jq -e '.accepted == true' <<<"$load" >/dev/null
 load_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$load_step" >/dev/null

@@ -53,11 +53,12 @@ internal sealed class FloorEngineProjection : IDisposable
             Tuning.CollisionVoxelSize,
             Tuning.CollisionChunkSize,
             Tuning.VoxelSurfaceMode));
-        Material material = engine.Appearance.CreateMaterial(Tuning.FloorMaterial);
+        Material? material = null;
         VoxelScenePresentation? scene = null;
         List<Light>? lights = null;
         try
         {
+            material = engine.Appearance.CreateMaterial(Tuning.FloorMaterial);
             VoxelSceneReadout before = engine.Voxel.ReadScene(new VoxelSceneReadRequest(spatial));
             VoxelEdit[] edits = floor.WalkableCells
                 .Select(cell => new VoxelEdit(VoxelEditKind.Set, new VoxelAddress(cell.X, Tuning.FloorVoxelY, cell.Y), Tuning.FloorMaterialSlot))
@@ -83,7 +84,7 @@ internal sealed class FloorEngineProjection : IDisposable
         {
             foreach (Light light in lights ?? []) light.Dispose();
             scene?.Dispose();
-            material.Dispose();
+            material?.Dispose();
             spatial.Dispose();
             throw;
         }
@@ -164,20 +165,28 @@ internal sealed class FloorEngineProjection : IDisposable
     private static List<Light> ProjectLights(IAppearanceService appearance, FloorState floor)
     {
         var lights = new List<Light>();
-        int index = 0;
-        foreach (FloorScenePlacement placement in floor.ScenePlacements.Where(placement => placement.Content.Kind == "point_light"))
+        try
         {
-            FloorSceneContent content = placement.Content;
-            Vector3 color = ParseColor(content.ColorRgb);
-            lights.Add(appearance.CreateLight(new LightRequest(
-                checked(Tuning.FirstLightLogicalId + (ulong)index++),
-                false,
-                0,
-                new LightDescriptor(LightKind.Point, color, content.IntensityMilli!.Value / Tuning.LightIntensityScale,
-                    true, new Vector3(placement.Cell.X + Tuning.LightOffsetX, Tuning.LightHeight, placement.Cell.Y + Tuning.LightOffsetZ),
-                    Vector3.UnitY, true, content.RangeCells!.Value, Tuning.LightDecay, 0, 0, LightShadowIntent.Disabled))));
+            int index = 0;
+            foreach (FloorScenePlacement placement in floor.ScenePlacements.Where(placement => placement.Content.Kind == "point_light"))
+            {
+                FloorSceneContent content = placement.Content;
+                Vector3 color = ParseColor(content.ColorRgb);
+                lights.Add(appearance.CreateLight(new LightRequest(
+                    checked(Tuning.FirstLightLogicalId + (ulong)index++),
+                    false,
+                    0,
+                    new LightDescriptor(LightKind.Point, color, content.IntensityMilli!.Value / Tuning.LightIntensityScale,
+                        true, new Vector3(placement.Cell.X + Tuning.LightOffsetX, Tuning.LightHeight, placement.Cell.Y + Tuning.LightOffsetZ),
+                        Vector3.UnitY, true, content.RangeCells!.Value, Tuning.LightDecay, 0, 0, LightShadowIntent.Disabled))));
+            }
+            return lights;
         }
-        return lights;
+        catch
+        {
+            foreach (Light light in lights) light.Dispose();
+            throw;
+        }
     }
 
     private static Vector3 ParseColor(string? value) => value switch
