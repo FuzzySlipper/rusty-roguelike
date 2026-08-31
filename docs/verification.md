@@ -25,8 +25,8 @@ and cleans its temporary host/persistence directory.
 
 The navigation atomicity exercise launches a dedicated NativeAOT probe through
 the same real Engine host. It creates the production `FloorEngineProjection`,
-seeds and reads a single-cell retained Engine path that differs from the tested
-move, performs movement admission through
+seeds and reads the reverse of the tested adjacent Engine path, performs
+movement admission through
 `FloorEngineProjection.ProposePartyStep`, injects a visibility failure during
 the later candidate-settlement stage, then compares the complete product
 checkpoint and actual Engine navigation projection/path readouts before and
