@@ -42,7 +42,7 @@ public sealed class RoguelikeProduct : IEngineProduct
             floor = FloorEngineProjection.Create(context.Engine);
             saves = new RoguelikeSaveStore(context.Engine);
             IRandomService random = context.Engine.Random;
-            GameSession session = new(random, floor.Floor, floor.ProposePartyStep);
+            GameSession session = new(random, floor.Floor, floor.QueryVisibleOpposition, floor.ProposePartyStep);
 
             _lifecycleProjection = lifecycle;
             _sessionProjection = sessionProjection;
@@ -161,7 +161,7 @@ public sealed class RoguelikeProduct : IEngineProduct
         return receipt;
     }
 
-    private GameSession NewSession() => new(_random, _floor.Floor, _floor.ProposePartyStep);
+    private GameSession NewSession() => new(_random, _floor.Floor, _floor.QueryVisibleOpposition, _floor.ProposePartyStep);
 
     private void HandleInput(ProductInputEvent input)
     {
@@ -231,7 +231,7 @@ public sealed class RoguelikeProduct : IEngineProduct
             {
                 throw new InvalidOperationException("save-floor-provenance-mismatch");
             }
-            _session = GameSession.Restore(_random, _floor.Floor, save.Session, _floor.ProposePartyStep);
+            _session = GameSession.Restore(_random, _floor.Floor, save.Session, _floor.QueryVisibleOpposition, _floor.ProposePartyStep);
             _saveReadout = new SaveOperationReadout("load", "accepted", loaded.Revision, "closed product snapshot restored after floor provenance validation");
         }
         catch (Exception exception)

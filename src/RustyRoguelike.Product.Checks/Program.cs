@@ -1,11 +1,16 @@
 using Rusty.Engine;
+using RustyRoguelike.Product.Combat;
+using RustyRoguelike.Product.Exploration;
 using RustyRoguelike.Product.Floors;
+using RustyRoguelike.Product.Rules;
 using RustyRoguelike.Product.Session;
 
 CheckFloorAdmission();
 CheckInitiative();
 CheckDeadActorPruning();
 CheckAtomicRngFailure();
+CheckOppositionTrackBounds();
+CheckRestoreValidation();
 Console.WriteLine("Roguelike focused product checks passed");
 
 static void CheckFloorAdmission()
@@ -57,13 +62,58 @@ static void CheckDeadActorPruning()
 
 static GameSession NewSession(IRandomService random)
 {
+    return new GameSession(random, NewProbeFloor(), VisibleProbe);
+}
+
+static FloorState NewProbeFloor()
+{
     FloorCell[] cells = Enumerable.Range(0, 20).Select(x => new FloorCell(x, 0)).ToArray();
     FloorState floor = new(
         "probe-floor", new FloorBounds(0, 0, 20, 1), cells,
         [new FloorRegion("main", "probe", "room", cells, [])],
         [new FloorFeature("entry", "entry", "entry", new FloorCell(0, 0))], [], [],
         new FloorProvenance(2, "probe", 1, 2, 3, 4, "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", 0));
-    return new GameSession(random, floor);
+    return floor;
+}
+
+static IReadOnlySet<ulong> VisibleProbe(GridCell party, IReadOnlyList<OppositionState> opposition, ExplorationTuning tuning) =>
+    opposition.Where(enemy => enemy.Position.ManhattanDistance(party) <= tuning.AdmissionRadius)
+        .Select(enemy => enemy.Definition.EntityId).ToHashSet();
+
+static void CheckOppositionTrackBounds()
+{
+    ActorDefinition definition = new("probe", 9_001, "Probe", "Probe", false, 5, 1, 1, 1, 1, [], []);
+    var opposition = new OppositionState(definition, new GridCell(1, 0));
+    Require(opposition.ApplyDamage(99) == 5 && opposition.Vitality == 0, "opposition track did not clamp damage at zero");
+    opposition.Restore(5, false, new GridCell(1, 0));
+    Require(opposition.Vitality == 5, "opposition track did not restore its exact maximum");
+}
+
+static void CheckRestoreValidation()
+{
+    var random = new ProbeRandom();
+    GameSession session = NewSession(random);
+    Require(session.Submit(new BeginExpeditionCommand(0)).Accepted, "begin failed");
+    SessionCheckpoint checkpoint = session.Capture();
+    InitiativeActorSnapshot badSide = checkpoint.Initiative[0] with { Side = (InitiativeSide)99 };
+    RequireRestoreReject(checkpoint with { Initiative = [badSide] }, "invalid initiative enum accepted");
+    CombatReceipt malformedReceipt = new("not-an-actor", "goblin-scrapper", "hostile-cell", 0, 20, 0, 0, 1, 1, true);
+    RequireRestoreReject(checkpoint with { Receipts = [malformedReceipt] }, "unknown receipt identity accepted");
+    CombatReceipt outOfBoundsReceipt = new("kestrel", "goblin-scrapper", "hostile-cell", 0, 20, 0, 0, 1, 2, true);
+    RequireRestoreReject(checkpoint with { Receipts = [outOfBoundsReceipt] }, "malformed receipt bounds accepted");
+    RequireRestoreReject(checkpoint with { InitiativeCursor = checkpoint.Initiative.Count }, "incoherent decision cursor accepted");
+}
+
+static void RequireRestoreReject(SessionCheckpoint checkpoint, string message)
+{
+    try
+    {
+        _ = GameSession.Restore(new ProbeRandom(), NewProbeFloor(), checkpoint, VisibleProbe);
+        throw new InvalidOperationException(message);
+    }
+    catch (InvalidOperationException exception) when (exception.Message != message)
+    {
+    }
 }
 
 static string Fingerprint(SessionCheckpoint state) => string.Join("|",

@@ -20,10 +20,38 @@
 - **Limitation:** the bundled page proves lifecycle/readout availability only;
   it is not a finished first-person UI, renderer composition, accessibility
   shell, or full gameplay-control surface.
-- **Impact:** the maintained proof demonstrates begin/save/load/lifecycle, not
-  broad interactive play.
+- **Impact:** the maintained proof demonstrates begin, an accepted Wait
+  activation, save/perturb/load restoration, and lifecycle—not broad
+  interactive play.
 - **Follow-up:** choose and build a concrete product UX through Engine's public
   presentation/input contracts. Keep all game decisions in C#.
+
+## Side-effect-free movement admission
+
+- **Status:** active upstream phase boundary.
+- **Affected surface:** cardinal party movement.
+- **Limitation:** the current public `Spatial.ProposeNavigationStep` mutates a
+  retained Engine navigation-path readout. A command can still fail after a
+  movement proposal, so the product refuses movement before that Engine call.
+- **Impact:** `roguelike.move.*` is accepted as input syntax but its product
+  command is rejected with `engine-navigation-rejected-step`; Wait is the
+  demonstrated accepted activation.
+- **Follow-up:** consume Rusty Engine task 7614's side-effect-free C# step
+  admission when it is available. Do not query admitted floor cells, restore a
+  path readout, or otherwise substitute for Engine navigation.
+
+## Starter perception geometry
+
+- **Status:** active, intentional small-floor posture.
+- **Affected surface:** dormant-opposition admission.
+- **Limitation:** admission uses copied Engine `Perception.QueryVisibility`
+  facts plus the product's radius policy, but the starter floor contributes no
+  dynamic occluder colliders to that query.
+- **Impact:** Engine distance/facing results gate admission; no product-local
+  visibility proxy or invented occlusion is present.
+- **Follow-up:** when authored occluding geometry is admitted through an
+  Engine-owned spatial representation, provide those colliders to the same
+  query rather than adding downstream visibility code.
 
 ## Small starter rules and save schema
 

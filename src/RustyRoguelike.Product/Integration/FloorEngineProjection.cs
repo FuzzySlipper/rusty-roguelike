@@ -1,5 +1,6 @@
 using System.Numerics;
 using Rusty.Engine;
+using RustyRoguelike.Product.Exploration;
 using RustyRoguelike.Product.Floors;
 using RustyRoguelike.Product.Rules;
 
@@ -92,13 +93,41 @@ internal sealed class FloorEngineProjection : IDisposable
 
     internal bool ProposePartyStep(GridCell from, GridCell destination)
     {
-        NavigationStepReceipt step = _engine.Spatial.ProposeNavigationStep(new NavigationStepRequest(
+        // Engine task #7614 must supply side-effect-free C# step admission. The
+        // currently public navigation proposal mutates its retained last-path
+        // readout, so it cannot participate in a candidate command that may fail.
+        return false;
+    }
+
+    internal IReadOnlySet<ulong> QueryVisibleOpposition(
+        GridCell partyCell,
+        IReadOnlyList<OppositionState> opposition,
+        ExplorationTuning tuning)
+    {
+        PerceptionObserver observer = new(
+            tuning.PartyPerceptionEntityId,
+            new Vector3(partyCell.X, tuning.PartyEyeHeight, partyCell.Y),
+            Vector3.UnitZ,
+            tuning.PerceptionMaximumDistance,
+            -1,
+            1);
+        PerceptionTarget[] targets = opposition
+            .Where(enemy => enemy.IsLiving)
+            .Select(enemy => new PerceptionTarget(enemy.Definition.EntityId,
+                new Vector3(enemy.Position.X, tuning.PartyEyeHeight, enemy.Position.Y)))
+            .ToArray();
+        PerceptionReadoutLeaseReceipt readout = _engine.Perception.QueryVisibility(new PerceptionQueryRequest(
             _spatial,
-            new Vector3(from.X, Tuning.PartyHeight, from.Y),
-            new Vector3(destination.X, Tuning.PartyHeight, destination.Y),
-            Tuning.MaximumPartyStepUnits,
-            Tuning.MaximumNavigationVisited));
-        return step.Outcome == NavigationPathOutcome.Reached && step.NextPathCell == new PlanarNavCell(destination.X, Tuning.NavigationPlaneY, destination.Y);
+            new[] { observer },
+            targets,
+            Array.Empty<SpatialEntityCollider>()));
+        var visible = new HashSet<ulong>();
+        foreach (PerceptionPair pair in readout.Pairs.Span)
+        {
+            if (pair.Observer == tuning.PartyPerceptionEntityId && pair.Kind == PerceptionPairKind.Visible)
+                visible.Add(pair.Target);
+        }
+        return visible;
     }
 
     internal void RefreshReadout()

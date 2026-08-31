@@ -22,12 +22,13 @@ cleanup() {
 trap cleanup EXIT
 
 dotnet publish "$native_project" -c Release -r linux-x64
-cargo run --manifest-path "$engine/rust/crates/csharp-product-runtime/Cargo.toml" --locked -- \
+cargo run --manifest-path "$engine/rust/crates/csharp-product-runtime/Cargo.toml" --bin csharp-product-runtime --locked -- \
   --library "$native_output/RustyRoguelike.NativeProduct.so" \
   --bundle-dir "$host_root/browser" \
   --content-dir "$host_root/content" \
   --persistence-root "$persistence_root" \
   --direct-intent roguelike.begin=digital \
+  --direct-intent roguelike.wait=digital \
   --direct-intent roguelike.save=digital \
   --direct-intent roguelike.load=digital \
   --mode demand \
@@ -79,6 +80,20 @@ admit_demand_step() {
     "$origin/__rusty/product/runtime/admit-demand-step"
 }
 
+latest_session_projection() {
+  local output_file=$1
+  local status
+  set +e
+  curl --no-buffer --silent --max-time 1 \
+    -H 'Accept: text/event-stream' \
+    "$origin/__rusty/product/runtime/outputs" >"$output_file"
+  status=$?
+  set -e
+  [[ "$status" == 0 || "$status" == 28 ]] || return "$status"
+  sed -n 's/^data: //p' "$output_file" \
+    | jq -cs '[.[] | select(.kind == "ui-projection" and .envelope.stream == "rusty-roguelike.session")] | last'
+}
+
 start=$(post_lifecycle start null)
 jq -e '.accepted == true and .operation == "start" and .readout.state == "running"' <<<"$start" >/dev/null
 runtime=$(jq -c '.binding' <<<"$start")
@@ -108,16 +123,44 @@ jq -e '.accepted == true' <<<"$begin" >/dev/null
 begin_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$begin_step" >/dev/null
 
-save=$(post_direct_input "$runtime" 5 roguelike.save true)
+wait=$(post_direct_input "$runtime" 5 roguelike.wait true)
+jq -e '.accepted == true' <<<"$wait" >/dev/null
+wait_step=$(admit_demand_step)
+jq -e '.accepted == true' <<<"$wait_step" >/dev/null
+session_after_wait=$(latest_session_projection "$run_dir/after-wait.sse")
+jq -e '
+  .envelope.contract == "rusty-roguelike.session.v1"
+  and (.envelope.value.revision | tonumber) >= 2
+  and (.envelope.value.activationIndex | tonumber) >= 1
+  and .envelope.value.currentActor == "mira"
+  and .envelope.value.latestReceipt == "none"' <<<"$session_after_wait" >/dev/null
+saved_session_revision=$(jq -r '.envelope.value.revision | tonumber | floor' <<<"$session_after_wait")
+saved_activation_index=$(jq -r '.envelope.value.activationIndex | tonumber | floor' <<<"$session_after_wait")
+saved_session_value=$(jq -c '.envelope.value' <<<"$session_after_wait")
+
+save=$(post_direct_input "$runtime" 6 roguelike.save true)
 jq -e '.accepted == true' <<<"$save" >/dev/null
 save_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$save_step" >/dev/null
-grep -aq '"revision":1' "$save_file"
+grep -aq "\"revision\":$saved_session_revision" "$save_file"
+grep -aq "\"activationIndex\":$saved_activation_index" "$save_file"
 
-load=$(post_direct_input "$runtime" 6 roguelike.load true)
+perturb=$(post_direct_input "$runtime" 7 roguelike.wait true)
+jq -e '.accepted == true' <<<"$perturb" >/dev/null
+perturb_step=$(admit_demand_step)
+jq -e '.accepted == true' <<<"$perturb_step" >/dev/null
+session_after_perturb=$(latest_session_projection "$run_dir/after-perturb.sse")
+jq -e --argjson saved "$saved_session_revision" '(.envelope.value.revision | tonumber) > $saved' <<<"$session_after_perturb" >/dev/null
+
+load=$(post_direct_input "$runtime" 8 roguelike.load true)
 jq -e '.accepted == true' <<<"$load" >/dev/null
 load_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$load_step" >/dev/null
+session_after_load=$(latest_session_projection "$run_dir/after-load.sse")
+jq -e --argjson revision "$saved_session_revision" --argjson activation "$saved_activation_index" '
+  (.envelope.value.revision | tonumber) == $revision
+  and (.envelope.value.activationIndex | tonumber) == $activation' <<<"$session_after_load" >/dev/null
+jq -e --argjson saved "$saved_session_value" '.envelope.value == $saved' <<<"$session_after_load" >/dev/null
 
 pause=$(post_lifecycle pause "$runtime")
 jq -e '.accepted == true and .readout.state == "paused"' <<<"$pause" >/dev/null

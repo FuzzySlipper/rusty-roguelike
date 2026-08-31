@@ -1,3 +1,4 @@
+using Rusty.Engine.Mechanics;
 using RustyRoguelike.Product.Rules;
 using RustyRoguelike.Product.Floors;
 
@@ -5,21 +6,27 @@ namespace RustyRoguelike.Product.Exploration;
 
 internal sealed class OppositionState
 {
+    private static readonly TrackId VitalityTrackId = TrackId.Parse("roguelike.opposition-vitality");
+    private readonly ExactTrack _vitality;
+
     internal OppositionState(ActorDefinition definition, GridCell position)
     {
         Definition = definition;
         Position = position;
-        Vitality = definition.Vitality;
+        _vitality = new ExactTrack(
+            new ExactTrackDefinition(VitalityTrackId, ExactValue.Zero, new ExactTrackMaximum.Fixed(new ExactValue(definition.Vitality))),
+            new ExactValue(definition.Vitality));
     }
     internal ActorDefinition Definition { get; }
     internal GridCell Position { get; set; }
-    internal int Vitality { get; private set; }
+    internal long Vitality => _vitality.Current.Raw;
     internal bool Participating { get; set; }
     internal bool IsLiving => Vitality > 0;
     internal int ApplyDamage(int requested)
     {
-        int applied = Math.Min(Vitality, requested);
-        Vitality = checked(Vitality - applied);
+        if (requested < 0) throw new ArgumentOutOfRangeException(nameof(requested));
+        int applied = checked((int)Math.Min(Vitality, requested));
+        _vitality.Spend(new ExactValue(applied));
         return applied;
     }
 
@@ -30,19 +37,40 @@ internal sealed class OppositionState
             throw new InvalidOperationException("opposition-vitality-out-of-range");
         }
 
-        Vitality = checked((int)vitality);
+        _vitality.Set(new ExactValue(vitality), ExactTrackSetPolicy.RejectOutOfBounds);
         Participating = participating;
         Position = position;
     }
 }
 
+/// <summary>Product-owned encounter policy supplied with copied, read-only Engine perception facts.</summary>
+internal sealed record ExplorationTuning(
+    int AdmissionRadius,
+    double PerceptionMaximumDistance,
+    float PartyEyeHeight,
+    ulong PartyPerceptionEntityId)
+{
+    internal static ExplorationTuning Starter { get; } = new(
+        AdmissionRadius: 1,
+        PerceptionMaximumDistance: 12,
+        PartyEyeHeight: 1.6f,
+        PartyPerceptionEntityId: 10_001);
+}
+
+internal delegate IReadOnlySet<ulong> OppositionVisibilityQuery(
+    GridCell partyCell,
+    IReadOnlyList<OppositionState> opposition,
+    ExplorationTuning tuning);
+
 /// <summary>Product-owned floor participation policy; floor topology itself is admitted by the dedicated floor domain.</summary>
 internal sealed class ExplorationState
 {
     private readonly List<OppositionState> _opposition;
-    internal ExplorationState(RoguelikeRules rules, FloorState floor)
+    private readonly OppositionVisibilityQuery _visibilityQuery;
+    internal ExplorationState(RoguelikeRules rules, FloorState floor, OppositionVisibilityQuery visibilityQuery)
     {
         ArgumentNullException.ThrowIfNull(floor);
+        _visibilityQuery = visibilityQuery ?? throw new ArgumentNullException(nameof(visibilityQuery));
         Floor = floor;
         FloorCell entry = floor.Features.Single(feature => feature.Kind == "entry").Cell;
         PartyCell = new GridCell(entry.X, entry.Y);
@@ -61,6 +89,7 @@ internal sealed class ExplorationState
             .ToList();
     }
     internal FloorState Floor { get; }
+    internal ExplorationTuning Tuning { get; } = ExplorationTuning.Starter;
     internal GridCell PartyCell { get; private set; }
     internal IReadOnlyList<OppositionState> Opposition => _opposition;
     internal bool IsWalkable(GridCell cell) => Floor.WalkableCells.Contains(new FloorCell(cell.X, cell.Y));
@@ -73,8 +102,16 @@ internal sealed class ExplorationState
 
         PartyCell = destination;
     }
-    internal void AdmitVisibleOpposition() =>
-        _opposition.Where(enemy => enemy.IsLiving && enemy.Position.ManhattanDistance(PartyCell) <= 1).ToList().ForEach(enemy => enemy.Participating = true);
+    internal void AdmitVisibleOpposition()
+    {
+        IReadOnlySet<ulong> engineVisible = _visibilityQuery(PartyCell, _opposition, Tuning);
+        foreach (OppositionState enemy in _opposition.Where(enemy => enemy.IsLiving
+            && enemy.Position.ManhattanDistance(PartyCell) <= Tuning.AdmissionRadius
+            && engineVisible.Contains(enemy.Definition.EntityId)))
+        {
+            enemy.Participating = true;
+        }
+    }
     internal OppositionState? Find(string id) => _opposition.SingleOrDefault(enemy => enemy.Definition.Id == id);
 
     internal IReadOnlyList<OppositionSnapshot> CaptureOpposition() => _opposition

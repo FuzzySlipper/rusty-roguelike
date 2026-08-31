@@ -18,7 +18,7 @@ rules, floor, session, and save data.
 
 ```text
 committed Procgen artifact -> C# strict floor admission -> Engine content/spatial/scene
-typed C# rules + party -> C# session command -> Engine random/mechanics/navigation
+typed C# rules + party -> C# session command -> Engine random/mechanics/perception
                            -> C# receipt and projection -> Engine UI stream / host readout
 closed C# save meaning -> Engine durable state blob
 ```
@@ -27,8 +27,10 @@ closed C# save meaning -> Engine durable state blob
 
 `RoguelikeProduct` creates an admitted starter floor and a fresh `GameSession`
 at product construction. Direct Engine input intents enter a single internal,
-revision-bound session boundary. The demonstrated intents are begin, cardinal
-party movement, wait, save, and load. A stale, inactive, illegal, or terminal
+revision-bound session boundary. The demonstrated intents are begin, wait,
+save, and load. Cardinal party movement is routed but fails closed until Engine
+task 7614 exposes side-effect-free C# navigation-step admission. A stale,
+inactive, illegal, or terminal
 command produces a rejected receipt and does not advance the session revision.
 
 The party is a single C# grid cell, while each living party member retains one
@@ -40,7 +42,11 @@ Automatic opposition settles through the next party decision, subject to the
 visible settlement bound. An enemy attacks the party square and the product
 chooses a living party member using that enemy's round-robin cursor. Round,
 cursor, current actor, decision class, detailed receipts, and the full order
-remain visible in the game projection and closed save.
+remain visible in the game projection and closed save. Dormant opposition
+admission combines the product's named Manhattan-radius policy with Engine
+`Perception.QueryVisibility` facts. The starter floor supplies no dynamic
+perception occluders, so the Engine query currently reports canonical
+distance/facing visibility facts without product-invented walls or occlusion.
 
 Commands execute against a detached candidate session. Vitality, target
 cursors, activation/round state, receipts, outcome, and revision replace the
