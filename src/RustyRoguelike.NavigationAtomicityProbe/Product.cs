@@ -81,9 +81,9 @@ public sealed class NavigationAtomicityProbeProduct : IEngineProduct
 
         GridCell from = session.World.PartyCell;
         GridCell destination = from.Step(1, 0);
-        NavigationPathReadout seeded = _floor.SeedNavigationPath(from, destination);
+        NavigationPathReadout seeded = _floor.SeedNavigationPath(from, from);
         Require(
-            seeded.Outcome == NavigationPathOutcome.Reached && seeded.PathLen > 0,
+            seeded.Outcome == NavigationPathOutcome.Reached && seeded.PathLen == 1,
             "probe-navigation-sentinel-rejected");
         FloorNavigationState navigationBefore = _floor.ReadNavigationState(seeded.PathLen);
         string productBefore = Fingerprint(session.Capture());
