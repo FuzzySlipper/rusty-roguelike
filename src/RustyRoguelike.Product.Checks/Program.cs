@@ -9,6 +9,7 @@ CheckFloorAdmission();
 CheckInitiative();
 CheckDeadActorPruning();
 CheckAtomicRngFailure();
+CheckAtomicMoveFailure();
 CheckOppositionTrackBounds();
 CheckRestoreValidation();
 Console.WriteLine("Roguelike focused product checks passed");
@@ -46,6 +47,23 @@ static void CheckAtomicRngFailure()
     Require(Fingerprint(session.Capture()) == before, "injected RNG failure changed the complete live checkpoint");
 }
 
+static void CheckAtomicMoveFailure()
+{
+    var random = new ProbeRandom { FailOnDraw = 1 };
+    var navigation = new NavigationAdmissionProbe();
+    GameSession session = NewSession(random, navigation.Evaluate);
+    Require(session.Submit(new BeginExpeditionCommand(0)).Accepted, "begin failed");
+    string productBefore = Fingerprint(session.Capture());
+    string navigationBefore = navigation.Fingerprint();
+
+    SessionCommandReceipt failed = session.Submit(new MovePartyCommand(session.Revision, 1, 0));
+
+    Require(!failed.Accepted && failed.Code == "command-settlement-failed", "late move settlement failure was accepted");
+    Require(navigation.EvaluationCount == 1, "move did not pass through navigation admission before settlement failed");
+    Require(Fingerprint(session.Capture()) == productBefore, "late move settlement failure changed the complete live checkpoint");
+    Require(navigation.Fingerprint() == navigationBefore, "late move settlement failure changed retained navigation readout state");
+}
+
 static void CheckDeadActorPruning()
 {
     var random = new ProbeRandom();
@@ -60,9 +78,9 @@ static void CheckDeadActorPruning()
     Require(session.ActivationIndex == before + 1 && session.CurrentActor?.Id == "mira", "defeated actor consumed an activation or became a decision");
 }
 
-static GameSession NewSession(IRandomService random)
+static GameSession NewSession(IRandomService random, Func<GridCell, GridCell, bool>? movementAdmission = null)
 {
-    return new GameSession(random, NewProbeFloor(), VisibleProbe);
+    return new GameSession(random, NewProbeFloor(), VisibleProbe, movementAdmission);
 }
 
 static FloorState NewProbeFloor()
@@ -144,4 +162,19 @@ sealed class ProbeRandom : IRandomService
     public RngValue NextU64(Rng stream) => throw new NotSupportedException();
     public RngValue NextBoundedU32(ScopedRngBoundedRequest request) => throw new NotSupportedException();
     public RngValue NextBool(Rng stream) => throw new NotSupportedException();
+}
+
+sealed class NavigationAdmissionProbe
+{
+    private readonly GridCell[] _retainedPath = [new(0, 0), new(1, 0), new(2, 0)];
+
+    public int EvaluationCount { get; private set; }
+
+    public bool Evaluate(GridCell from, GridCell destination)
+    {
+        EvaluationCount++;
+        return destination == from.Step(1, 0);
+    }
+
+    public string Fingerprint() => string.Join(";", _retainedPath.Select(cell => $"{cell.X},{cell.Y}"));
 }

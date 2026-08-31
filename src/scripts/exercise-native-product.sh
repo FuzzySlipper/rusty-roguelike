@@ -28,6 +28,7 @@ cargo run --manifest-path "$engine/rust/crates/csharp-product-runtime/Cargo.toml
   --content-dir "$host_root/content" \
   --persistence-root "$persistence_root" \
   --direct-intent roguelike.begin=digital \
+  --direct-intent roguelike.move.east=digital \
   --direct-intent roguelike.wait=digital \
   --direct-intent roguelike.save=digital \
   --direct-intent roguelike.load=digital \
@@ -123,36 +124,49 @@ jq -e '.accepted == true' <<<"$begin" >/dev/null
 begin_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$begin_step" >/dev/null
 
-wait=$(post_direct_input "$runtime" 5 roguelike.wait true)
-jq -e '.accepted == true' <<<"$wait" >/dev/null
-wait_step=$(admit_demand_step)
-jq -e '.accepted == true' <<<"$wait_step" >/dev/null
-session_after_wait=$(latest_session_projection "$run_dir/after-wait.sse")
+move=$(post_direct_input "$runtime" 5 roguelike.move.east true)
+jq -e '.accepted == true' <<<"$move" >/dev/null
+move_step=$(admit_demand_step)
+jq -e '.accepted == true' <<<"$move_step" >/dev/null
+session_after_move=$(latest_session_projection "$run_dir/after-move.sse")
 jq -e '
   .envelope.contract == "rusty-roguelike.session.v1"
   and (.envelope.value.revision | tonumber) >= 2
   and (.envelope.value.activationIndex | tonumber) >= 1
   and .envelope.value.currentActor == "mira"
-  and .envelope.value.latestReceipt == "none"' <<<"$session_after_wait" >/dev/null
+  and (.envelope.value.partyCellX | tonumber) == 18
+  and (.envelope.value.partyCellY | tonumber) == 16
+  and .envelope.value.latestReceipt == "none"' <<<"$session_after_move" >/dev/null
+
+wait=$(post_direct_input "$runtime" 6 roguelike.wait true)
+jq -e '.accepted == true' <<<"$wait" >/dev/null
+wait_step=$(admit_demand_step)
+jq -e '.accepted == true' <<<"$wait_step" >/dev/null
+session_after_wait=$(latest_session_projection "$run_dir/after-wait.sse")
+jq -e '
+  (.envelope.value.revision | tonumber) >= 3
+  and .envelope.value.currentActor == "brann"
+  and (.envelope.value.partyCellX | tonumber) == 18
+  and (.envelope.value.partyCellY | tonumber) == 16' <<<"$session_after_wait" >/dev/null
 saved_session_revision=$(jq -r '.envelope.value.revision | tonumber | floor' <<<"$session_after_wait")
 saved_activation_index=$(jq -r '.envelope.value.activationIndex | tonumber | floor' <<<"$session_after_wait")
 saved_session_value=$(jq -c '.envelope.value' <<<"$session_after_wait")
 
-save=$(post_direct_input "$runtime" 6 roguelike.save true)
+save=$(post_direct_input "$runtime" 7 roguelike.save true)
 jq -e '.accepted == true' <<<"$save" >/dev/null
 save_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$save_step" >/dev/null
 grep -aq "\"revision\":$saved_session_revision" "$save_file"
 grep -aq "\"activationIndex\":$saved_activation_index" "$save_file"
 
-perturb=$(post_direct_input "$runtime" 7 roguelike.wait true)
+perturb=$(post_direct_input "$runtime" 8 roguelike.wait true)
 jq -e '.accepted == true' <<<"$perturb" >/dev/null
 perturb_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$perturb_step" >/dev/null
 session_after_perturb=$(latest_session_projection "$run_dir/after-perturb.sse")
 jq -e --argjson saved "$saved_session_revision" '(.envelope.value.revision | tonumber) > $saved' <<<"$session_after_perturb" >/dev/null
 
-load=$(post_direct_input "$runtime" 8 roguelike.load true)
+load=$(post_direct_input "$runtime" 9 roguelike.load true)
 jq -e '.accepted == true' <<<"$load" >/dev/null
 load_step=$(admit_demand_step)
 jq -e '.accepted == true' <<<"$load_step" >/dev/null

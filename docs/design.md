@@ -27,9 +27,10 @@ closed C# save meaning -> Engine durable state blob
 
 `RoguelikeProduct` creates an admitted starter floor and a fresh `GameSession`
 at product construction. Direct Engine input intents enter a single internal,
-revision-bound session boundary. The demonstrated intents are begin, wait,
-save, and load. Cardinal party movement is routed but fails closed until Engine
-task 7614 exposes side-effect-free C# navigation-step admission. A stale,
+revision-bound session boundary. The demonstrated intents include begin,
+cardinal movement, wait, save, and load. Movement uses Engine
+`Spatial.EvaluateNavigationStep`, so the detached product candidate can reject
+later settlement without mutating Engine navigation state. A stale,
 inactive, illegal, or terminal
 command produces a rejected receipt and does not advance the session revision.
 

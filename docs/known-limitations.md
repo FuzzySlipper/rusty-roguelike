@@ -26,20 +26,6 @@
 - **Follow-up:** choose and build a concrete product UX through Engine's public
   presentation/input contracts. Keep all game decisions in C#.
 
-## Side-effect-free movement admission
-
-- **Status:** active upstream phase boundary.
-- **Affected surface:** cardinal party movement.
-- **Limitation:** the current public `Spatial.ProposeNavigationStep` mutates a
-  retained Engine navigation-path readout. A command can still fail after a
-  movement proposal, so the product refuses movement before that Engine call.
-- **Impact:** `roguelike.move.*` is accepted as input syntax but its product
-  command is rejected with `engine-navigation-rejected-step`; Wait is the
-  demonstrated accepted activation.
-- **Follow-up:** consume Rusty Engine task 7614's side-effect-free C# step
-  admission when it is available. Do not query admitted floor cells, restore a
-  path readout, or otherwise substitute for Engine navigation.
-
 ## Starter perception geometry
 
 - **Status:** active, intentional small-floor posture.

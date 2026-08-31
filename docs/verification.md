@@ -11,10 +11,11 @@ bash src/scripts/exercise-native-product.sh
 
 The small checks executable covers only the review-critical floor trust/null
 boundary, full initiative cursor, defeated-actor pruning, Engine `ExactTrack`
-opposition bounds, malformed restore data, and fail-atomic settlement. The build checks the managed projects. Publish checks the NativeAOT shared
+opposition bounds, malformed restore data, and fail-atomic action and movement
+settlement after navigation admission. The build checks the managed projects. Publish checks the NativeAOT shared
 library. The exercise starts the actual adjacent Engine C# product runtime on
 an isolated loopback port, loads the product library and committed content,
-admits begin and an explicit Wait activation followed by demand steps, reads the
+admits begin and explicit movement/Wait activations followed by demand steps, reads the
 actual `rusty-roguelike.session` SSE projection to verify revision, activation,
 and the current no-admitted-opposition projection, saves, perturbs, loads, and
 verifies the restored observable projection and durable snapshot,

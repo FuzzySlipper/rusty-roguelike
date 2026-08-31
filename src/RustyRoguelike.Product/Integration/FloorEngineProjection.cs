@@ -93,10 +93,25 @@ internal sealed class FloorEngineProjection : IDisposable
 
     internal bool ProposePartyStep(GridCell from, GridCell destination)
     {
-        // Engine task #7614 must supply side-effect-free C# step admission. The
-        // currently public navigation proposal mutates its retained last-path
-        // readout, so it cannot participate in a candidate command that may fail.
-        return false;
+        NavigationStepReceipt step = _engine.Spatial.EvaluateNavigationStep(new NavigationStepRequest(
+            _spatial,
+            NavigationCellCenter(from),
+            NavigationCellCenter(destination),
+            Tuning.MaximumPartyStepUnits,
+            Tuning.MaximumNavigationVisited));
+        return step.Outcome == NavigationPathOutcome.Reached
+            && step.Reached != 0
+            && step.NextPathCell == new PlanarNavCell(destination.X, Tuning.NavigationPlaneY, destination.Y);
+    }
+
+    private static Vector3 NavigationCellCenter(GridCell cell)
+    {
+        float cellSize = (float)Tuning.CollisionVoxelSize;
+        float halfCell = cellSize * 0.5f;
+        return new Vector3(
+            cell.X * cellSize + halfCell,
+            Tuning.NavigationPlaneY * cellSize + halfCell,
+            cell.Y * cellSize + halfCell);
     }
 
     internal IReadOnlySet<ulong> QueryVisibleOpposition(
