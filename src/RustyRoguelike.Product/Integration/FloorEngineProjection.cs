@@ -104,6 +104,29 @@ internal sealed class FloorEngineProjection : IDisposable
             && step.NextPathCell == new PlanarNavCell(destination.X, Tuning.NavigationPlaneY, destination.Y);
     }
 
+    internal NavigationPathReadout SeedNavigationPath(GridCell from, GridCell destination) =>
+        _engine.Spatial.RequestNavigationPath(new NavigationPathRequest(
+            _spatial,
+            new PlanarNavCell(from.X, Tuning.NavigationPlaneY, from.Y),
+            new PlanarNavCell(destination.X, Tuning.NavigationPlaneY, destination.Y),
+            Tuning.MaximumNavigationVisited));
+
+    internal FloorNavigationState ReadNavigationState(uint retainedPathLength)
+    {
+        NavigationProjectionReadout navigation = _engine.Spatial.ReadNavigationProjection(
+            new NavigationProjectionReadRequest(_spatial));
+        SpatialProjectionReadout spatial = _engine.Spatial.ReadProjection(
+            new SpatialProjectionReadRequest(_spatial));
+        PlanarNavCell[] retainedPath = Enumerable.Range(0, checked((int)retainedPathLength))
+            .Select(index => _engine.Spatial.ReadNavigationPathCellAt(
+                new NavigationPathCellAtRequest(_spatial, checked((uint)index))))
+            .Select(readout => readout.Present
+                ? readout.Cell
+                : throw new InvalidOperationException("retained-navigation-path-read-incomplete"))
+            .ToArray();
+        return new FloorNavigationState(navigation, spatial, retainedPath);
+    }
+
     private static Vector3 NavigationCellCenter(GridCell cell)
     {
         float cellSize = (float)Tuning.CollisionVoxelSize;
@@ -238,6 +261,17 @@ internal sealed class FloorEngineProjection : IDisposable
         "#ffb45f" => new Vector3(1.0f, 0.7058824f, 0.37254903f),
         _ => throw new InvalidOperationException("floor-light-color-not-admitted"),
     };
+}
+
+internal sealed record FloorNavigationState(
+    NavigationProjectionReadout Navigation,
+    SpatialProjectionReadout Spatial,
+    IReadOnlyList<PlanarNavCell> RetainedPath)
+{
+    internal bool SameAs(FloorNavigationState other) =>
+        Navigation == other.Navigation
+        && Spatial == other.Spatial
+        && RetainedPath.SequenceEqual(other.RetainedPath);
 }
 
 internal sealed record FloorEngineReadout(
