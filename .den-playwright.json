@@ -1,0 +1,20 @@
+{
+  "project": "rusty-roguelike",
+  "serve": {
+    "command": "exec ./.runtime/runtime-pack-cabba0f/bin/rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --runtime ./.runtime/runtime-pack-cabba0f --live-debug --bind-host {host} --port {port}",
+    "preferredPort": 0,
+    "healthUrl": "/product-ui/main.js",
+    "readyText": "Rusty Roguelike",
+    "reusePolicy": "broker_owned",
+    "startupTimeout": "120s"
+  },
+  "playtest": {
+    "startPath": "/",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "headed": false,
+    "recordVideo": false
+  }
+}

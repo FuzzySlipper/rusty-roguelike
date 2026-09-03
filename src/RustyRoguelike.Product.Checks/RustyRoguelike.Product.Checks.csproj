@@ -4,12 +4,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <EngineRoot Condition="'$(EngineRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../rusty-engine'))</EngineRoot>
+    <RustyEngineSdkPackageVersion>0.1.0-dev.cabba0f</RustyEngineSdkPackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../RustyRoguelike.Product/RustyRoguelike.Product.csproj" />
-    <ProjectReference Include="$(EngineRoot)/csharp/Rusty.Engine/Rusty.Engine.csproj" />
-    <Content Include="../RustyRoguelike.NativeProduct/DevelopmentHost/content/floors/starter-floor.5201.procgen.json"
+    <PackageReference Include="Rusty.Engine" Version="$(RustyEngineSdkPackageVersion)">
+      <ExcludeAssets Condition="'$(RustyEngineUseSourceDevelopment)' == 'true'">compile;runtime</ExcludeAssets>
+    </PackageReference>
+    <Content Include="../../content/floors/starter-floor.5201.procgen.json"
              Link="content/starter-floor.5201.procgen.json"
              CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

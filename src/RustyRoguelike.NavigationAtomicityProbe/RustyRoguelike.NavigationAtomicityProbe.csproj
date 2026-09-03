@@ -1,22 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <OutputType>Library</OutputType>
-    <PublishAot>true</PublishAot>
-    <NativeLib>Shared</NativeLib>
-    <InvariantGlobalization>true</InvariantGlobalization>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <StripSymbols>true</StripSymbols>
-    <EngineRoot Condition="'$(EngineRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../rusty-engine'))</EngineRoot>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <RustyEngineSdkPackageVersion>0.1.0-dev.cabba0f</RustyEngineSdkPackageVersion>
+    <RustyEngineProductEntryType>RustyRoguelike.NavigationAtomicityProbe.NavigationAtomicityProbeProduct</RustyEngineProductEntryType>
+    <RustyEngineProductId>rusty-roguelike.navigation-atomicity</RustyEngineProductId>
+    <RustyEngineProductTitle>Rusty Roguelike navigation atomicity probe</RustyEngineProductTitle>
+    <RustyEngineProductUiRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../ui'))</RustyEngineProductUiRoot>
+    <RustyEngineProductContentRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineProductContentRoot>
+    <RustyEngineProductUiEntry>main.js</RustyEngineProductUiEntry>
+    <RustyEngineProductUiProjectionStream>rusty-roguelike.navigation-atomicity</RustyEngineProductUiProjectionStream>
+    <RustyEngineProductUiProjectionContract>rusty-roguelike.navigation-atomicity.v1</RustyEngineProductUiProjectionContract>
+    <RustyEngineProductLifecycleMode>demand</RustyEngineProductLifecycleMode>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../RustyRoguelike.Product/RustyRoguelike.Product.csproj" />
-    <ProjectReference Include="$(EngineRoot)/csharp/Rusty.Engine/Rusty.Engine.csproj" />
-    <ProjectReference Include="$(EngineRoot)/csharp/Rusty.Engine.ProductGenerator/Rusty.Engine.ProductGenerator.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+    <PackageReference Include="Rusty.Engine" Version="$(RustyEngineSdkPackageVersion)">
+      <ExcludeAssets Condition="'$(RustyEngineUseSourceDevelopment)' == 'true'">compile;runtime</ExcludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

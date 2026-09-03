@@ -2,20 +2,23 @@
 
 ## Runtime provider
 
-- **Rusty Engine:** the product consumes the adjacent checkout at
-  `../rusty-engine` exactly as it stands. Both C# projects reference only its
-  public `csharp/Rusty.Engine/Rusty.Engine.csproj`; the NativeAOT project also
-  references the public `Rusty.Engine.ProductGenerator` analyzer. The checkout
-  is not pulled, synchronized, or modified by this repository. The current
-  migration consultation used Engine revision
-  `94ba020e37ee1409c34f4683f96c09a144042e14`.
+- **Rusty Engine:** the product references immutable package
+  `Rusty.Engine` `0.1.0-dev.cabba0f` from `.runtime/sdk-feed`. The matching
+  installed runtime pack is `.runtime/runtime-pack-cabba0f`, built from Engine
+  revision `cabba0f3d72118b5751be8bc5eef4eefff38db14`. Both carry ABI protocol
+  `1`, fingerprint
+  `9b0093d77fc58cbcb18197f743e58e3243abdf3115ab97a62a5a120833d10fbd`, and
+  build identity `rusty-engine-sdk/v1`. The SDK generates product composition
+  below ignored `obj`; no Engine checkout, generated binding, native bootstrap,
+  host, or browser asset is tracked here. Source use is an explicit contributor
+  override only.
 
 ## Starter-floor artifact
 
 - **Rusty Procgen:** `https://github.com/FuzzySlipper/rusty-procgen` at
   reviewed revision `722e2c479bdf88ab39b66d2d33ab466b698ec7df`.
 - `dependency-sources.json` carries that exact source selection.
-- `src/RustyRoguelike.NativeProduct/DevelopmentHost/content/floors/starter-floor.5201.procgen.json`
+- `content/floors/starter-floor.5201.procgen.json`
   is a committed artifact derived offline from the reviewed public Procgen
   surface. Its full seed chain, selected attempt, source hashes, required
   features, portals, and scene sockets are pinned by

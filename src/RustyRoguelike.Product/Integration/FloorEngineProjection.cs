@@ -13,6 +13,7 @@ namespace RustyRoguelike.Product.Integration;
 internal sealed class FloorEngineProjection : IDisposable
 {
     internal const string StarterFloorContentPath = "floors/starter-floor.5201.procgen.json";
+    private const uint PerceptionPairPageSize = 64;
 
     private static readonly FloorProjectionTuning Tuning = FloorProjectionTuning.Starter;
     private readonly IEngineContext _engine;
@@ -154,16 +155,30 @@ internal sealed class FloorEngineProjection : IDisposable
             .Select(enemy => new PerceptionTarget(enemy.Definition.EntityId,
                 new Vector3(enemy.Position.X, tuning.PartyEyeHeight, enemy.Position.Y)))
             .ToArray();
-        PerceptionReadoutLeaseReceipt readout = _engine.Perception.QueryVisibility(new PerceptionQueryRequest(
-            _spatial,
-            new[] { observer },
-            targets,
-            Array.Empty<SpatialEntityCollider>()));
         var visible = new HashSet<ulong>();
-        foreach (PerceptionPair pair in readout.Pairs.Span)
+        ulong expectedProjectionIdentity = 0;
+        uint pairCursor = 0;
+        while (true)
         {
-            if (pair.Observer == tuning.PartyPerceptionEntityId && pair.Kind == PerceptionPairKind.Visible)
-                visible.Add(pair.Target);
+            PerceptionReadoutLeaseReceipt readout = _engine.Perception.QueryVisibility(new PerceptionQueryRequest(
+                _spatial,
+                new[] { observer },
+                targets,
+                Array.Empty<SpatialEntityCollider>(),
+                expectedProjectionIdentity,
+                pairCursor,
+                PerceptionPairPageSize));
+            foreach (PerceptionPair pair in readout.Pairs.Span)
+            {
+                if (pair.Observer == tuning.PartyPerceptionEntityId && pair.Kind == PerceptionPairKind.Visible)
+                    visible.Add(pair.Target);
+            }
+
+            if (!readout.HasNextPairCursor)
+                break;
+
+            expectedProjectionIdentity = readout.ProjectionIdentity;
+            pairCursor = readout.NextPairCursor;
         }
         return visible;
     }

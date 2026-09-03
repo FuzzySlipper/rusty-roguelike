@@ -4,10 +4,39 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <EngineRoot Condition="'$(EngineRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../rusty-engine'))</EngineRoot>
+    <!-- The immutable SDK owns generated CoreCLR/NativeAOT composition below
+         obj. An Engine source checkout is an explicit contributor override. -->
+    <RustyEngineSdkPackageVersion>0.1.0-dev.cabba0f</RustyEngineSdkPackageVersion>
+    <RustyEngineProductEntryType>RustyRoguelike.Product.RoguelikeProduct</RustyEngineProductEntryType>
+    <RustyEngineProductId>rusty-roguelike</RustyEngineProductId>
+    <RustyEngineProductTitle>Rusty Roguelike</RustyEngineProductTitle>
+    <RustyEngineProductUiRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../ui'))</RustyEngineProductUiRoot>
+    <RustyEngineProductContentRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../content'))</RustyEngineProductContentRoot>
+    <RustyEngineProductUiEntry>main.js</RustyEngineProductUiEntry>
+    <RustyEngineProductUiProjectionStream>rusty-roguelike.session</RustyEngineProductUiProjectionStream>
+    <RustyEngineProductUiProjectionContract>rusty-roguelike.session.v1</RustyEngineProductUiProjectionContract>
+    <RustyEngineProductLifecycleMode>demand</RustyEngineProductLifecycleMode>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(EngineRoot)/csharp/Rusty.Engine/Rusty.Engine.csproj" />
+    <PackageReference Include="Rusty.Engine" Version="$(RustyEngineSdkPackageVersion)">
+      <ExcludeAssets Condition="'$(RustyEngineUseSourceDevelopment)' == 'true'">compile;runtime</ExcludeAssets>
+    </PackageReference>
+    <RustyEngineProductInputIntent Include="roguelike.begin" Value="digital" />
+    <RustyEngineProductInputIntent Include="roguelike.move.north" Value="digital" />
+    <RustyEngineProductInputIntent Include="roguelike.move.east" Value="digital" />
+    <RustyEngineProductInputIntent Include="roguelike.move.south" Value="digital" />
+    <RustyEngineProductInputIntent Include="roguelike.move.west" Value="digital" />
+    <RustyEngineProductInputIntent Include="roguelike.wait" Value="digital" />
+    <RustyEngineProductInputIntent Include="roguelike.save" Value="digital" />
+    <RustyEngineProductInputIntent Include="roguelike.load" Value="digital" />
+    <RustyEngineProductInputMapping Include="roguelike.begin.enter" Intent="roguelike.begin" Trigger="key:enter:pressed" />
+    <RustyEngineProductInputMapping Include="roguelike.move.north.w" Intent="roguelike.move.north" Trigger="key:key-w:pressed" />
+    <RustyEngineProductInputMapping Include="roguelike.move.east.d" Intent="roguelike.move.east" Trigger="key:key-d:pressed" />
+    <RustyEngineProductInputMapping Include="roguelike.move.south.s" Intent="roguelike.move.south" Trigger="key:key-s:pressed" />
+    <RustyEngineProductInputMapping Include="roguelike.move.west.a" Intent="roguelike.move.west" Trigger="key:key-a:pressed" />
+    <RustyEngineProductInputMapping Include="roguelike.wait.space" Intent="roguelike.wait" Trigger="key:space:pressed" />
+    <RustyEngineProductInputMapping Include="roguelike.save.o" Intent="roguelike.save" Trigger="key:key-o:pressed" />
+    <RustyEngineProductInputMapping Include="roguelike.load.l" Intent="roguelike.load" Trigger="key:key-l:pressed" />
   </ItemGroup>
 </Project>

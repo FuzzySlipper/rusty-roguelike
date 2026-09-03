@@ -2,10 +2,9 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-engine=${RUSTY_ENGINE_ROOT:-"$root/../rusty-engine"}
-native_project="$root/src/RustyRoguelike.NativeProduct/RustyRoguelike.NativeProduct.csproj"
-native_output="$root/src/RustyRoguelike.NativeProduct/bin/Release/net10.0/linux-x64/publish"
-host_root="$root/src/RustyRoguelike.NativeProduct/DevelopmentHost"
+project="$root/src/RustyRoguelike.Product/RustyRoguelike.Product.csproj"
+runtime="$root/.runtime/runtime-pack-cabba0f"
+staged_product="$root/src/RustyRoguelike.Product/obj/Rusty.Engine/Product"
 run_dir=$(mktemp -d)
 host_log="$run_dir/host.log"
 persistence_root="$run_dir/persistence"
@@ -21,19 +20,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-dotnet publish "$native_project" -c Release -r linux-x64
-cargo run --manifest-path "$engine/rust/crates/csharp-product-runtime/Cargo.toml" --bin csharp-product-runtime --locked -- \
-  --library "$native_output/RustyRoguelike.NativeProduct.so" \
-  --bundle-dir "$host_root/browser" \
-  --content-dir "$host_root/content" \
+test -x "$runtime/bin/rusty-product-host"
+dotnet msbuild "$project" -t:StageRustyEngineCoreClrProduct
+"$runtime/bin/rusty-product-host" \
+  --product "$staged_product" \
+  --loader coreclr \
   --persistence-root "$persistence_root" \
-  --direct-intent roguelike.begin=digital \
-  --direct-intent roguelike.move.east=digital \
-  --direct-intent roguelike.wait=digital \
-  --direct-intent roguelike.save=digital \
-  --direct-intent roguelike.load=digital \
-  --mode demand \
-  --port 0 >"$host_log" 2>&1 &
+  >"$host_log" 2>&1 &
 host_pid=$!
 
 origin=
@@ -42,7 +35,7 @@ for _ in {1..100}; do
     sed -n '1,200p' "$host_log" >&2
     exit 1
   fi
-  origin=$(sed -n 's/^C# NativeAOT product host listening at //p' "$host_log" | tail -1)
+  origin=$(sed -n 's/^C# .* product host listening at //p' "$host_log" | tail -1)
   [[ -n "$origin" ]] && break
   sleep 0.05
 done
@@ -188,9 +181,9 @@ restart=$(post_lifecycle restart "$runtime")
 jq -e '.accepted == true and .readout.state == "running"' <<<"$restart" >/dev/null
 runtime=$(jq -c '.binding' <<<"$restart")
 
-curl --fail --silent --show-error "$origin/" | grep -Fq 'Rusty Roguelike NativeAOT product spine.'
+curl --fail --silent --show-error "$origin/product-ui/main.js" | grep -Fq 'Rusty Roguelike'
 
 shutdown=$(post_lifecycle shutdown "$runtime")
 jq -e '.accepted == true and .readout.state == "shutdown"' <<<"$shutdown" >/dev/null
 
-echo "NativeAOT product lifecycle and loopback host exercise passed"
+echo "CoreCLR packaged product lifecycle and loopback host exercise passed"

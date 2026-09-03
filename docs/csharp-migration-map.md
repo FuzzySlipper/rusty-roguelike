@@ -1,23 +1,23 @@
 # C# migration map
 
-**Status:** target ownership map for Den task 7555.  It is a migration map,
-not a promise that the C# product or every provider capability already exists.
-The current Rust, build-time TypeScript, Angular, and Nx trees are donor
-evidence.  The target is one ordinary NativeAOT C# product, not a port of the
-Rust crate layout or a new reusable RPG framework.
+**Status:** historical donor/ownership map from Den task 7555. It is not a
+current build-topology guide. The target is one ordinary packaged C# product,
+with CoreCLR for development and generated NativeAOT only for explicit
+fidelity/release checks; it is not a port of the Rust crate layout or a new
+reusable RPG framework.
 
 ## Authority and provider pins
 
 | Owner | Keeps authority | Does not become |
 | --- | --- | --- |
 | `RustyRoguelike.Product` (C#) | Rules, content interpretation, admitted floor meaning, party/session/combat state, saves, receipts, tuning, and presentation facts. | An Engine wrapper, a Procgen implementation, or a generic RPG kit. |
-| `Rusty.Engine` | NativeAOT lifecycle/update/input delivery, renderer/resources, spatial/navigation/collision/perception, random, persistence primitives, UI publishing, and managed mechanics/entity/resolution helpers. | The roguelike's rules or session. |
+| `Rusty.Engine` | generated CoreCLR/NativeAOT lifecycle/update/input delivery, renderer/resources, spatial/navigation/collision/perception, random, persistence primitives, UI publishing, and managed mechanics/entity/resolution helpers. | The roguelike's rules or session. |
 | Rusty Procgen | Deterministic generation, validation, generation diagnostics, and generated-artifact provenance. | A game-session or presentation owner. |
 | TypeScript | DOM UI, accessibility, and an explicit Engine host/backend only when one is required. | A renderer, protocol authority, gameplay evaluator, or browser-side save. |
 
-The implementation reads the generated safe `Rusty.Engine` C# contracts at
-build time; ordinary product code has no P/Invoke, unsafe ABI declarations, or
-raw Engine handles.  This map was made against the adjacent Engine checkout at
+The implementation reads the safe `Rusty.Engine` package contracts at build
+time; ordinary product code has no P/Invoke, unsafe ABI declarations, or raw
+Engine handles. This historical map was made against Engine snapshot
 `94ba020e37ee1409c34f4683f96c09a144042e14` and the current Procgen checkout at
 `0e937f70689abb98340642fd7f029414a3f2a6c0`.  The product remains pinned to its
 reviewed Procgen public revision
@@ -44,9 +44,8 @@ src/
     Saves/                          closed product save/restore validation
     Presentation/                   C# projections and Engine publication
     Content/                        committed rules/floor/asset inputs
-  RustyRoguelike.NativeProduct/
-    NativeProduct.cs                EngineProduct attribute only
-  ui/                               optional DOM/accessibility shell only
+  ui/                               product-owned observational DOM module
+  content/                          committed admitted Product content
 ```
 
 `RoguelikeProduct` constructs a `StarterSessionFactory` from
@@ -61,7 +60,7 @@ direct domain methods remain preferable to a command bus.
 
 | Current donor family | C# target owner | Provider/input | Disposition and preserved behavior |
 | --- | --- | --- | --- |
-| `bootstrap.rs`, `lib.rs`, `bin/host.rs`, `bin/native_host.rs` | `RoguelikeProduct`, `StarterSessionFactory`, thin NativeAOT composition | Generated `IEngineProduct`, lifecycle/update/input services | **Delete/replace.** One Engine-admitted lifecycle owns start, pause, restart, shutdown, and disposal. No static Rust host, HTTP command server, Wry adapter, or second game loop survives. |
+| `bootstrap.rs`, `lib.rs`, `bin/host.rs`, `bin/native_host.rs` | `RoguelikeProduct`, SDK-generated composition | Generated `IEngineProduct`, lifecycle/update/input services | **Delete/replace.** One Engine-admitted lifecycle owns start, pause, restart, shutdown, and disposal. No static Rust host, HTTP command server, Wry adapter, or second game loop survives. |
 | `rules/*`, `gameplay/src/authoring/*`, `gameplay/src/catalogs/*`, `gameplay/src/packages/*`, materialized package JSON | `Rules/StarterRuleset`, `Rules/Definitions`, `Rules/RulesetCompiler`, `Content/Rules` | Engine managed `Mechanics` values/services and `Entities` only for reusable stat, track, item, inventory, and equipment mechanisms | **Adapt.** C# owns the catalog vocabulary and semantic checks. Keep definitions and provenance inspectable; TypeScript authoring and the Rust compiler are donor-only. A committed C#-readable rules artifact is content, not executable browser policy. |
 | `session/loadout.rs`, party/item/class/feat catalogs | `Party/PartyState`, `Party/LoadoutState`, `Party/PreparationService` | Engine `Mechanics` inventory/equipment, stats/tracks/items; `Entities` snapshots | **Adapt.** Create unique authored items, perform preparation loadout atomically, require an empty stash plus equipped party before Begin, then make loadout read-only. Product owns body/weapon/focus slot meaning and readiness policy; Engine owns assignment and capacity truth. |
 | `world/{component,state,navigation,projection}.rs` | `Exploration/ExplorationState`, `Exploration/PartyPose`, `Exploration/DiscoveryState`, `Exploration/EncounterAdmission` | Engine `Spatial`, `Perception`, `Kinematic`/`Motion`, `Entities`, `Appearance` | **Adapt.** One party pose occupies one grid cell. Dormant enemies become participating only when the product's named radius rule accepts a visible Engine `Perception.QueryVisibility` pair. The starter floor has no supplied dynamic occluders, so it deliberately asks Engine with an empty occluder set rather than fabricating walls. Movement uses side-effect-free Engine `Spatial.EvaluateNavigationStep`; ask Engine for collision/navigation/perception facts rather than copy shadowcasting, raycasts, occupancy queries, or pathfinding. |
@@ -72,7 +71,7 @@ direct domain methods remain preferable to a command bus.
 | `presentation.rs` and native retained-frame mapping | `Presentation/RoguelikeProjection`, `Presentation/WorldProjection`, `Presentation/CombatProjection` | Engine `Ui`, `Presentation`, `Appearance`, `CameraView`, `VoxelScenePresentation`, audio/animation where used | **Replace.** C# maps admitted product facts to named Engine presentation/UI calls and disposes every returned lease at its owning scope. It does not recreate retained-frame commands, webviews, mesh import, renderer resources, frame loops, or picking. Stable presentation identities, authored torch meaning, camera offsets, and projection choices remain product meaning. |
 | `libs/protocol`, `libs/platform`, `libs/transport`, `libs/store` | Typed C# requests/views/receipts; optional thin `ui/` decode/render layer | C# in-process product calls and Engine-supported UI/host contract | **Delete/replace.** Rust-generated DTOs, HTTP transport, client store, and browser-side revision logic do not migrate. A DOM shell may submit explicit semantic requests and render C#-published facts, but does not calculate legality, visibility, targeting, initiative, saves, or a parallel log. |
 | `libs/feature-game`, `libs/theme`, `apps/app`, `apps/app-e2e` | `ui/` only if an accessible shell is still wanted | DOM/browser host only | **Delete then recreate selectively.** Retain only accessible controls and presentation of published values. Do not preserve Angular/Nx seams, drag state as authority, native-viewport marker, renderer implementation, or old browser harness. |
-| root Cargo/Nx/package/CI scripts, Rust tests, Vitest/Playwright suites | new C# solution/build/run scripts | NativeAOT product build and one explicit host route | **Delete.** They prove the retired architecture. Fresh focused checks belong beside the new product; no compatibility lane, Rust fallback, or legacy CI maintenance remains. |
+| root Cargo/Nx/package/CI scripts, Rust tests, Vitest/Playwright suites | packaged C# product commands | `rusty dev` CoreCLR plus explicit NativeAOT fidelity | **Delete.** They prove the retired architecture. Fresh focused checks belong beside the new product; no compatibility lane, Rust fallback, or legacy CI maintenance remains. |
 
 ## Content, tuning, and Procgen contract
 
@@ -143,8 +142,8 @@ and the browser cannot become a gameplay or renderer authority.
   identified.  Artifact admission is a valid first slice; runtime regeneration
   needs the upstream capability described above.
 - **Exact current Engine call shapes:** capability names in this map route work
-  only.  Each implementation slice must read the generated `Rusty.Engine`
-  contract at the pinned checkout and use supported calls, not inferred Rust
+  only. Each implementation slice must read the selected immutable
+  `Rusty.Engine` package contract and use supported calls, not inferred Rust
   internals.
 - **Native and DOM presentation composition:** choose a concrete product UX
   before combining them.  A DOM shell is optional and remains observational;
@@ -153,8 +152,8 @@ and the browser cannot become a gameplay or renderer authority.
 ## Donor consultation
 
 - **Corpus and snapshots:** current Rusty Roguelike donor at
-  `909dd4521e57ddebd277522b7e887534a34fa23d`; adjacent Engine C# guidance/SDK
-  inspected at `94ba020e37ee1409c34f4683f96c09a144042e14`; product-reviewed Procgen
+  `909dd4521e57ddebd277522b7e887534a34fa23d`; historical Engine C# guidance/SDK
+  snapshot inspected at `94ba020e37ee1409c34f4683f96c09a144042e14`; product-reviewed Procgen
   contract pinned at `722e2c479bdf88ab39b66d2d33ab466b698ec7df`, with the newer local
   Procgen checkout `0e937f70689abb98340642fd7f029414a3f2a6c0` consulted only to confirm
   that no supported C# generation surface exists.

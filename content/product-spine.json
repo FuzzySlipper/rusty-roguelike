@@ -1,5 +1,5 @@
 {
   "product": "rusty-roguelike",
   "contract": "rusty-roguelike.lifecycle.v1",
-  "purpose": "NativeAOT product-spine development-host admission"
+  "purpose": "packaged product-spine content admission"
 }

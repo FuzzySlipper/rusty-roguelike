@@ -79,17 +79,21 @@ the opaque durable blob. Load validates the saved rules fingerprint and floor
 provenance/content hash before replacing the live session. The host has one
 development persistence root; durable profile selection is later product work.
 
-The native product is NativeAOT and is hosted by Engine's C# product runtime.
-Its small bundled HTML page is merely a lifecycle/readout endpoint. It neither
-mounts a renderer nor evaluates rules. A broader first-person UX remains
-deliberately unclaimed until there is a concrete product composition to build.
+The ordinary product is staged and hosted through CoreCLR by the matching
+Engine runtime pack. Its small product-owned DOM readout observes the declared
+session projection; it neither mounts a renderer nor evaluates rules. NativeAOT
+is generated only for explicit fidelity/release verification. A broader
+first-person UX remains deliberately unclaimed until there is a concrete
+product composition to build.
 
 ## Provider boundary
 
-The sole Engine dependency is the unconditional adjacent C# project reference
-to `../rusty-engine/csharp/Rusty.Engine/Rusty.Engine.csproj`, plus its public
-product generator analyzer in the NativeAOT project. Do not edit or synchronize
-the provider from here.
+The sole Engine dependency is the immutable `Rusty.Engine` package. It owns
+the generated CoreCLR/NativeAOT composition beneath `obj`; this repository has
+no checked native bridge, Engine host, generated bindings, or provider browser
+assets. The locally installed SDK and runtime pack must carry the same ABI
+identity. An explicit Engine-source contributor override is supported by the
+SDK but is not normal product setup.
 
 Rusty Procgen is not linked at runtime. Its reviewed public revision identifies
 the provenance of the committed starter-floor artifact. A runtime generation

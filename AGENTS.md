@@ -8,12 +8,13 @@ admission policy, session orchestration, save meaning, controls, and
 observational projections. It is not a reusable RPG framework and must never
 depend on Rusty D20.
 
-Rusty Engine owns reusable host-neutral mechanisms. Consume the adjacent
-`../rusty-engine` checkout exactly as it stands through its public C# SDK and
-generated product contract; never mutate, pull, or synchronize it from this
-repository. Rusty Procgen remains an exact public source provenance for the
-committed starter-floor artifact. Do not copy either provider's implementation
-into this repository.
+Rusty Engine owns reusable host-neutral mechanisms. Consume its immutable
+`Rusty.Engine` SDK package and the matching installed runtime pack; the SDK
+generates composition below `obj`. An Engine checkout is only an explicit
+contributor override (`rusty dev --engine-source` with the matching MSBuild
+properties), never the normal downstream setup. Rusty Procgen remains exact
+public source provenance for the committed starter-floor artifact. Do not copy
+either provider's implementation into this repository.
 
 ## Architecture
 
@@ -47,16 +48,17 @@ Run only the focused maintained checks:
 
 ```bash
 dotnet run --project src/RustyRoguelike.Product.Checks/RustyRoguelike.Product.Checks.csproj
-dotnet build RustyRoguelike.sln -c Release
-dotnet publish src/RustyRoguelike.NativeProduct/RustyRoguelike.NativeProduct.csproj -c Release -r linux-x64
-bash src/scripts/exercise-native-product.sh
+dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:StageRustyEngineCoreClrProduct
+./.runtime/runtime-pack-cabba0f/bin/rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --runtime ./.runtime/runtime-pack-cabba0f
+dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:VerifyRustyEngineAot
+bash src/scripts/exercise-product.sh
 ```
 
-The exercise launches the actual Engine C# product runtime and checks a short
-lifecycle plus begin/save/load scenario. Do not restore the removed Rust,
-Node, Angular, Nx, generated-protocol, or broad browser-test workflows for
-compatibility. Add a focused proof only when a new C# product behavior needs
-one.
+`rusty dev` is the ordinary CoreCLR edit/run path. The explicit AOT target and
+the isolated exercise are fidelity/release evidence, not a second development
+host. Do not restore the removed Rust, Node, Angular, Nx, generated-protocol,
+or broad browser-test workflows for compatibility. Add a focused proof only
+when a new C# product behavior needs one.
 
 Update [docs/source-provenance.md](docs/source-provenance.md) when Engine or
 Procgen source selection changes, and [docs/known-limitations.md](docs/known-limitations.md)

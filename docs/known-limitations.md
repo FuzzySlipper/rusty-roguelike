@@ -13,10 +13,10 @@
   real product need. Do not add a Procgen port, Rust sidecar, CLI shell-out, or
   browser simulation.
 
-## Narrow NativeAOT product readout
+## Narrow packaged product readout
 
 - **Status:** active, intentional continuation point.
-- **Affected surface:** NativeAOT development host and UI projections.
+- **Affected surface:** packaged product UI and UI projections.
 - **Limitation:** the bundled page proves lifecycle/readout availability only;
   it is not a finished first-person UI, renderer composition, accessibility
   shell, or full gameplay-control surface.

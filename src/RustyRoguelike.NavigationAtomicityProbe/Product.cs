@@ -5,8 +5,6 @@ using RustyRoguelike.Product.Presentation;
 using RustyRoguelike.Product.Rules;
 using RustyRoguelike.Product.Session;
 
-[assembly: EngineProduct(typeof(RustyRoguelike.NavigationAtomicityProbe.NavigationAtomicityProbeProduct))]
-
 namespace RustyRoguelike.NavigationAtomicityProbe;
 
 public sealed class NavigationAtomicityProbeProduct : IEngineProduct
@@ -41,6 +39,7 @@ public sealed class NavigationAtomicityProbeProduct : IEngineProduct
     }
 
     public void Start() { }
+    public void Attach() { }
     public ProductUpdateResult Update(ProductUpdate update) => ProductUpdateResult.None;
     public void Pause() { }
     public void Resume() { }

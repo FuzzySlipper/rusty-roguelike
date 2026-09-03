@@ -3,6 +3,7 @@ obj/
 node_modules/
 .angular/
 .nx/
+.runtime/
 dist/
 gameplay/dist/
 rust/target/

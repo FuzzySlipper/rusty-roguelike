@@ -2,10 +2,9 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-engine=${RUSTY_ENGINE_ROOT:-"$root/../rusty-engine"}
 project="$root/src/RustyRoguelike.NavigationAtomicityProbe/RustyRoguelike.NavigationAtomicityProbe.csproj"
-output="$root/src/RustyRoguelike.NavigationAtomicityProbe/bin/Release/net10.0/linux-x64/publish"
-host_root="$root/src/RustyRoguelike.NativeProduct/DevelopmentHost"
+runtime="$root/.runtime/runtime-pack-cabba0f"
+staged_product="$root/src/RustyRoguelike.NavigationAtomicityProbe/obj/Rusty.Engine/Product"
 run_dir=$(mktemp -d)
 host_log="$run_dir/host.log"
 host_pid=
@@ -19,14 +18,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-dotnet publish "$project" -c Release -r linux-x64
-cargo run --manifest-path "$engine/rust/crates/csharp-product-runtime/Cargo.toml" --bin csharp-product-runtime --locked -- \
-  --library "$output/RustyRoguelike.NavigationAtomicityProbe.so" \
-  --bundle-dir "$host_root/browser" \
-  --content-dir "$host_root/content" \
+test -x "$runtime/bin/rusty-product-host"
+dotnet msbuild "$project" -t:VerifyRustyEngineAot
+"$runtime/bin/rusty-product-host" \
+  --product "$staged_product" \
+  --loader nativeaot \
   --persistence-root "$run_dir/persistence" \
-  --mode demand \
-  --port 0 >"$host_log" 2>&1 &
+  >"$host_log" 2>&1 &
 host_pid=$!
 
 origin=
@@ -35,7 +33,7 @@ for _ in {1..100}; do
     sed -n '1,200p' "$host_log" >&2
     exit 1
   fi
-  origin=$(sed -n 's/^C# NativeAOT product host listening at //p' "$host_log" | tail -1)
+  origin=$(sed -n 's/^C# .* product host listening at //p' "$host_log" | tail -1)
   [[ -n "$origin" ]] && break
   sleep 0.05
 done
@@ -67,4 +65,4 @@ jq -e '
   and .envelope.value.engineNavigationUnchanged == "true"
   and (.envelope.value.retainedPathLength | tonumber) > 0' <<<"$proof" >/dev/null
 
-echo "NativeAOT navigation atomicity proof passed"
+echo "Packaged NativeAOT navigation atomicity proof passed"
