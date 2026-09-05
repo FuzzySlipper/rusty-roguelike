@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <RustyEngineSdkPackageVersion>0.1.0-dev.cabba0f</RustyEngineSdkPackageVersion>
+    <RustyEngineSdkPackageVersion>0.1.0-dev.cbf35130d06c</RustyEngineSdkPackageVersion>
     <RustyEngineProductEntryType>RustyRoguelike.NavigationAtomicityProbe.NavigationAtomicityProbeProduct</RustyEngineProductEntryType>
     <RustyEngineProductId>rusty-roguelike.navigation-atomicity</RustyEngineProductId>
     <RustyEngineProductTitle>Rusty Roguelike navigation atomicity probe</RustyEngineProductTitle>

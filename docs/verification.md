@@ -5,7 +5,7 @@ The maintained product checks are deliberately focused:
 ```bash
 dotnet run --project src/RustyRoguelike.Product.Checks/RustyRoguelike.Product.Checks.csproj
 dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:StageRustyEngineCoreClrProduct
-./.runtime/runtime-pack-cabba0f/bin/rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --runtime ./.runtime/runtime-pack-cabba0f
+./.runtime/runtime-pack-cbf35130d06c/bin/rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --runtime ./.runtime/runtime-pack-cbf35130d06c
 dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:VerifyRustyEngineAot
 bash src/scripts/exercise-product.sh
 bash src/scripts/exercise-navigation-atomicity.sh

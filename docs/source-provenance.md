@@ -3,9 +3,9 @@
 ## Runtime provider
 
 - **Rusty Engine:** the product references immutable package
-  `Rusty.Engine` `0.1.0-dev.cabba0f` from `.runtime/sdk-feed`. The matching
-  installed runtime pack is `.runtime/runtime-pack-cabba0f`, built from Engine
-  revision `cabba0f3d72118b5751be8bc5eef4eefff38db14`. Both carry ABI protocol
+  `Rusty.Engine` `0.1.0-dev.cbf35130d06c` from `.runtime/sdk-feed`. The matching
+  installed runtime pack is `.runtime/runtime-pack-cbf35130d06c`, built from Engine
+  revision `cbf35130d06ceec72b1d80ac8e28451453cccde2`. Both carry ABI protocol
   `1`, fingerprint
   `9b0093d77fc58cbcb18197f743e58e3243abdf3115ab97a62a5a120833d10fbd`, and
   build identity `rusty-engine-sdk/v1`. The SDK generates product composition

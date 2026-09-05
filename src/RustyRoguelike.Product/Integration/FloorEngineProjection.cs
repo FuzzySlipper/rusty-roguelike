@@ -60,7 +60,7 @@ internal sealed class FloorEngineProjection : IDisposable
         List<Light>? lights = null;
         try
         {
-            material = engine.Appearance.CreateMaterial(Tuning.FloorMaterial);
+            material = engine.Graphics.CreateMaterial(Tuning.FloorMaterial);
             VoxelSceneReadout before = engine.Voxel.ReadScene(new VoxelSceneReadRequest(spatial));
             VoxelEdit[] edits = floor.WalkableCells
                 .Select(cell => new VoxelEdit(VoxelEditKind.Set, new VoxelAddress(cell.X, Tuning.FloorVoxelY, cell.Y), Tuning.FloorMaterialSlot))
@@ -73,7 +73,7 @@ internal sealed class FloorEngineProjection : IDisposable
             scene = engine.VoxelScenePresentation.ProjectScene(new ProjectVoxelSceneRequest(
                 spatial,
                 new VoxelSceneMaterialBinding[] { new(Tuning.FloorMaterialSlot, material) }));
-            lights = ProjectLights(engine.Appearance, floor);
+            lights = ProjectLights(engine.Graphics, floor);
             SpatialProjectionReadout projection = engine.Spatial.ReadProjection(new SpatialProjectionReadRequest(spatial));
             VoxelSceneReadout after = engine.Voxel.ReadScene(new VoxelSceneReadRequest(spatial));
             NavigationProjectionReadout navigationReadout = engine.Spatial.ReadNavigationProjection(new NavigationProjectionReadRequest(spatial));
@@ -244,7 +244,7 @@ internal sealed class FloorEngineProjection : IDisposable
             : throw new InvalidOperationException($"starter-floor-rejected:{admitted.RejectionCode}");
     }
 
-    private static List<Light> ProjectLights(IAppearanceService appearance, FloorState floor)
+    private static List<Light> ProjectLights(IGraphicsService appearance, FloorState floor)
     {
         var lights = new List<Light>();
         try

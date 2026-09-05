@@ -13,14 +13,14 @@ The host page is an observational readout, not a second renderer or gameplay
 runtime.
 
 ```bash
-./.runtime/runtime-pack-cabba0f/bin/rusty dev \
+./.runtime/runtime-pack-cbf35130d06c/bin/rusty dev \
   --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj \
-  --runtime ./.runtime/runtime-pack-cabba0f
+  --runtime ./.runtime/runtime-pack-cbf35130d06c
 ```
 
 The checked `NuGet.Config` resolves the immutable `Rusty.Engine`
-`0.1.0-dev.cabba0f` SDK from the installed `.runtime/sdk-feed`. The matching
-`cabba0f` runtime pack supplies `rusty`, the product host, and Engine browser
+`0.1.0-dev.cbf35130d06c` SDK from the installed `.runtime/sdk-feed`. The matching
+`cbf35130d06c` runtime pack supplies `rusty`, the product host, and Engine browser
 shell. CoreCLR is the edit/run loop; NativeAOT is a separate fidelity/release
 operation:
 

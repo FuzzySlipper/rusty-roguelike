@@ -3,7 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 project="$root/src/RustyRoguelike.NavigationAtomicityProbe/RustyRoguelike.NavigationAtomicityProbe.csproj"
-runtime="$root/.runtime/runtime-pack-cabba0f"
+runtime="$root/.runtime/runtime-pack-cbf35130d06c"
 staged_product="$root/src/RustyRoguelike.NavigationAtomicityProbe/obj/Rusty.Engine/Product"
 run_dir=$(mktemp -d)
 host_log="$run_dir/host.log"

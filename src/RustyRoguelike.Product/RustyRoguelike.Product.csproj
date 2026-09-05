@@ -6,7 +6,7 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <!-- The immutable SDK owns generated CoreCLR/NativeAOT composition below
          obj. An Engine source checkout is an explicit contributor override. -->
-    <RustyEngineSdkPackageVersion>0.1.0-dev.cabba0f</RustyEngineSdkPackageVersion>
+    <RustyEngineSdkPackageVersion>0.1.0-dev.cbf35130d06c</RustyEngineSdkPackageVersion>
     <RustyEngineProductEntryType>RustyRoguelike.Product.RoguelikeProduct</RustyEngineProductEntryType>
     <RustyEngineProductId>rusty-roguelike</RustyEngineProductId>
     <RustyEngineProductTitle>Rusty Roguelike</RustyEngineProductTitle>
