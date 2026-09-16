@@ -7,7 +7,7 @@ namespace RustyRoguelike.Product.Party;
 /// <summary>Maps the authored initial loadout to Engine inventory/equipment relationships; game meaning remains in the party definitions.</summary>
 internal sealed class LoadoutMechanics
 {
-    private readonly InventoryWorld _world = new();
+    private readonly InventoryStore _world = new();
     private readonly Dictionary<string, Rusty.Engine.Mechanics.ItemDefinition> _definitions = new(StringComparer.Ordinal);
 
     internal LoadoutMechanics(IEnumerable<PartyMemberState> members)
