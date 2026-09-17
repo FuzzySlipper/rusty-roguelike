@@ -49,7 +49,7 @@ Run only the focused maintained checks:
 ```bash
 dotnet run --project src/RustyRoguelike.Product.Checks/RustyRoguelike.Product.Checks.csproj
 dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:StageRustyEngineCoreClrProduct
-./.runtime/runtime-pack-cbf35130d06c/bin/rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --runtime ./.runtime/runtime-pack-cbf35130d06c
+./.runtime/runtime-pack-bcf02594620c/bin/rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --runtime ./.runtime/runtime-pack-bcf02594620c
 dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:VerifyRustyEngineAot
 bash src/scripts/exercise-product.sh
 ```
