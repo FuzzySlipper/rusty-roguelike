@@ -25,7 +25,7 @@ internal sealed class LoadoutMechanics
                 EquipmentSlotDefinition slot = new(
                     EquipmentSlotId.Parse($"roguelike.{member.Definition.Id}.{item.Slot}"),
                     [ItemClassificationId.Parse($"roguelike.{item.Slot}")]);
-                EquipmentService.Equip(_world, owner, itemEntity, [slot]);
+                _world.Equip(owner, itemEntity, [slot]);
             }
         }
     }
