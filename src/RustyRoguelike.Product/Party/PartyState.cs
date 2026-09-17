@@ -6,22 +6,20 @@ namespace RustyRoguelike.Product.Party;
 
 internal sealed class PartyMemberState
 {
-    private static readonly TrackId VitalityTrackId = TrackId.Parse("roguelike.vitality");
-    private readonly ExactTrack _vitality;
+    private readonly Track _vitality;
 
     internal PartyMemberState(ActorDefinition definition, RoguelikeRules rules)
     {
         Definition = definition;
         IReadOnlyList<RustyRoguelike.Product.Rules.ItemDefinition> equipped = definition.Items.Select(id => rules.Items[id]).ToArray();
         EquippedItems = equipped;
-        _vitality = new ExactTrack(
-            new ExactTrackDefinition(VitalityTrackId, ExactValue.Zero, new ExactTrackMaximum.Fixed(new ExactValue(definition.Vitality))),
-            new ExactValue(definition.Vitality));
+        _vitality = new Track(definition.Vitality, definition.Vitality,
+            quantum: 1, rounding: MidpointRounding.ToZero, integerRounding: MidpointRounding.ToZero);
     }
 
     internal ActorDefinition Definition { get; }
     internal IReadOnlyList<RustyRoguelike.Product.Rules.ItemDefinition> EquippedItems { get; }
-    internal long Vitality => _vitality.Current.Raw;
+    internal long Vitality => _vitality.ValueInt64;
     internal bool IsLiving => Vitality > 0;
 
     internal int Ability(Rules.Ability ability) => ability switch
@@ -46,7 +44,7 @@ internal sealed class PartyMemberState
     internal int ApplyDamage(int requested)
     {
         int applied = checked((int)Math.Min(Vitality, requested));
-        _vitality.Spend(new ExactValue(applied));
+        _vitality.Spend(applied);
         return applied;
     }
 
@@ -57,7 +55,7 @@ internal sealed class PartyMemberState
             throw new InvalidOperationException("party-vitality-out-of-range");
         }
 
-        ApplyDamage(checked((int)(Definition.Vitality - value)));
+        _vitality.SetCurrent(value);
     }
 }
 

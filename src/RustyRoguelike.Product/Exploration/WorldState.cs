@@ -6,27 +6,25 @@ namespace RustyRoguelike.Product.Exploration;
 
 internal sealed class OppositionState
 {
-    private static readonly TrackId VitalityTrackId = TrackId.Parse("roguelike.opposition-vitality");
-    private readonly ExactTrack _vitality;
+    private readonly Track _vitality;
 
     internal OppositionState(ActorDefinition definition, GridCell position)
     {
         Definition = definition;
         Position = position;
-        _vitality = new ExactTrack(
-            new ExactTrackDefinition(VitalityTrackId, ExactValue.Zero, new ExactTrackMaximum.Fixed(new ExactValue(definition.Vitality))),
-            new ExactValue(definition.Vitality));
+        _vitality = new Track(definition.Vitality, definition.Vitality,
+            quantum: 1, rounding: MidpointRounding.ToZero, integerRounding: MidpointRounding.ToZero);
     }
     internal ActorDefinition Definition { get; }
     internal GridCell Position { get; set; }
-    internal long Vitality => _vitality.Current.Raw;
+    internal long Vitality => _vitality.ValueInt64;
     internal bool Participating { get; set; }
     internal bool IsLiving => Vitality > 0;
     internal int ApplyDamage(int requested)
     {
         if (requested < 0) throw new ArgumentOutOfRangeException(nameof(requested));
         int applied = checked((int)Math.Min(Vitality, requested));
-        _vitality.Spend(new ExactValue(applied));
+        _vitality.Spend(applied);
         return applied;
     }
 
@@ -37,7 +35,7 @@ internal sealed class OppositionState
             throw new InvalidOperationException("opposition-vitality-out-of-range");
         }
 
-        _vitality.Set(new ExactValue(vitality), ExactTrackSetPolicy.RejectOutOfBounds);
+        _vitality.SetCurrent(vitality);
         Participating = participating;
         Position = position;
     }
