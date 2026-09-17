@@ -346,6 +346,6 @@ internal sealed record FloorProjectionTuning(
         LightDecay: 2.0f,
         MaximumContentReadBytes: 256 * 1024,
         MaximumArtifactBytes: 256 * 1024,
-        FloorMaterial: new MaterialRequest(new Color(0.22f, 0.27f, 0.31f, 1.0f), new RenderResourceHandle(0), 0.92f,
+        FloorMaterial: new MaterialRequest(new Color(0.22f, 0.27f, 0.31f, 1.0f), default(RenderResourceReference), 0.92f,
             new Color(1, 1, 1, 1), Vector3.Zero, 0, false));
 }
