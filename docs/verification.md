@@ -3,7 +3,6 @@
 The maintained product checks are deliberately focused:
 
 ```bash
-export $(rusty env)
 dotnet run --project src/RustyRoguelike.Product.Checks/RustyRoguelike.Product.Checks.csproj
 rusty build --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj
 rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj

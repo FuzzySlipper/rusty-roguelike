@@ -3,10 +3,10 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 project="$root/src/RustyRoguelike.Product/RustyRoguelike.Product.csproj"
-# The pinned pair comes from the Engine rusty CLI: install it if needed, restore
-# through its SDK feed, and run its host directly.
+# The pinned pair comes from the Engine rusty CLI: install it if needed and run
+# its host directly. The host finds the .NET runtime through DOTNET_ROOT.
 (cd "$root" && rusty install >/dev/null)
-export $(cd "$root" && rusty env)
+export DOTNET_ROOT="${DOTNET_ROOT:-$(dirname "$(readlink -f "$(command -v dotnet)")")}"
 runtime=$(cd "$root" && rusty status | sed -n 's/^runtime pack *//p')
 staged_product="$root/src/RustyRoguelike.Product/obj/Rusty.Engine/Product"
 run_dir=$(mktemp -d)
