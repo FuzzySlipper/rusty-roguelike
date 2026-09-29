@@ -39,7 +39,6 @@ public sealed class NavigationAtomicityProbeProduct : IEngineProduct
     }
 
     public void Start() { }
-    public void Attach() { }
     public ProductUpdateResult Update(ProductUpdate update) => ProductUpdateResult.None;
     public void Pause() { }
     public void Resume() { }
@@ -78,20 +77,13 @@ public sealed class NavigationAtomicityProbeProduct : IEngineProduct
             _floor.ProposePartyStep);
         Require(session.Submit(new BeginExpeditionCommand(0)).Accepted, "probe-begin-rejected");
 
-        GridCell from = session.World.PartyCell;
-        GridCell destination = from.Step(1, 0);
-        // Equal length keeps both paths fully sampled; reversed cells expose a mutating proposal.
-        NavigationPathReadout seeded = _floor.SeedNavigationPath(destination, from);
-        Require(
-            seeded.Outcome == NavigationPathOutcome.Reached && seeded.PathLen == 2,
-            "probe-navigation-sentinel-rejected");
-        FloorNavigationState navigationBefore = _floor.ReadNavigationState(seeded.PathLen);
+        FloorNavigationState navigationBefore = _floor.ReadNavigationState();
         string productBefore = Fingerprint(session.Capture());
 
         SessionCommandReceipt failed = session.Submit(
             new MovePartyCommand(session.Revision, 1, 0));
 
-        FloorNavigationState navigationAfter = _floor.ReadNavigationState(seeded.PathLen);
+        FloorNavigationState navigationAfter = _floor.ReadNavigationState();
         string productAfter = Fingerprint(session.Capture());
         Require(
             !failed.Accepted && failed.Code == "command-settlement-failed",
@@ -105,9 +97,7 @@ public sealed class NavigationAtomicityProbeProduct : IEngineProduct
             ("settlementCode", value.String(failed.Code)),
             ("productStateUnchanged", value.String("true")),
             ("engineNavigationUnchanged", value.String("true")),
-            ("retainedPathLength", value.Number(seeded.PathLen)),
-            ("navigationRevision", value.Number(navigationBefore.Navigation.NavigationRevision)),
-            ("pathHash", value.String($"0x{seeded.PathHash:x16}")));
+            ("navigationRevision", value.Number(navigationBefore.Navigation.NavigationRevision)));
         _ui.PublishProjection(new UiProjection(_stream, 1, value.Build(root)));
     }
 

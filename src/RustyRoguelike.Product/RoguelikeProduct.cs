@@ -78,12 +78,6 @@ public sealed class RoguelikeProduct : IEngineProduct
         Publish();
     }
 
-    public void Attach()
-    {
-        // The Engine owns host attachment. The product already owns all
-        // construction-time admission, so no second initialization path runs.
-    }
-
     public ProductUpdateResult Update(ProductUpdate update)
     {
         if (!_started || _paused || _shutdown)

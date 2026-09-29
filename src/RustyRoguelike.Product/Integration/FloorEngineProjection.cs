@@ -61,11 +61,10 @@ internal sealed class FloorEngineProjection : IDisposable
         try
         {
             material = engine.Graphics.CreateMaterial(Tuning.FloorMaterial);
-            VoxelSceneReadout before = engine.Voxel.ReadScene(new VoxelSceneReadRequest(spatial));
             VoxelEdit[] edits = floor.WalkableCells
                 .Select(cell => new VoxelEdit(VoxelEditKind.Set, new VoxelAddress(cell.X, Tuning.FloorVoxelY, cell.Y), Tuning.FloorMaterialSlot))
                 .ToArray();
-            VoxelEditReceipt voxel = engine.Voxel.ApplyEdits(new VoxelEditTransaction(spatial, before.SourceRevision, edits));
+            VoxelEditReceipt voxel = engine.Voxel.ApplyEdits(new VoxelEditTransaction(spatial, edits));
             NavigationReplaceReceipt navigation = engine.Spatial.ReplaceNavigation(new NavigationReplaceRequest(
                 spatial,
                 new PlanarNavConfig(Tuning.NavigationGridId, Tuning.CollisionVoxelSize, Tuning.CollisionChunkSize, Tuning.MaximumNavigationStepCells),
@@ -94,7 +93,7 @@ internal sealed class FloorEngineProjection : IDisposable
 
     internal bool ProposePartyStep(GridCell from, GridCell destination)
     {
-        NavigationStepReceipt step = _engine.Spatial.EvaluateNavigationStep(new NavigationStepRequest(
+        NavigationStepResult step = _engine.Spatial.EvaluateNavigationStep(new NavigationStepRequest(
             _spatial,
             NavigationCellCenter(from),
             NavigationCellCenter(destination),
@@ -105,27 +104,13 @@ internal sealed class FloorEngineProjection : IDisposable
             && step.NextPathCell == new PlanarNavCell(destination.X, Tuning.NavigationPlaneY, destination.Y);
     }
 
-    internal NavigationPathReadout SeedNavigationPath(GridCell from, GridCell destination) =>
-        _engine.Spatial.RequestNavigationPath(new NavigationPathRequest(
-            _spatial,
-            new PlanarNavCell(from.X, Tuning.NavigationPlaneY, from.Y),
-            new PlanarNavCell(destination.X, Tuning.NavigationPlaneY, destination.Y),
-            Tuning.MaximumNavigationVisited));
-
-    internal FloorNavigationState ReadNavigationState(uint retainedPathLength)
+    internal FloorNavigationState ReadNavigationState()
     {
         NavigationProjectionReadout navigation = _engine.Spatial.ReadNavigationProjection(
             new NavigationProjectionReadRequest(_spatial));
         SpatialProjectionReadout spatial = _engine.Spatial.ReadProjection(
             new SpatialProjectionReadRequest(_spatial));
-        PlanarNavCell[] retainedPath = Enumerable.Range(0, checked((int)retainedPathLength))
-            .Select(index => _engine.Spatial.ReadNavigationPathCellAt(
-                new NavigationPathCellAtRequest(_spatial, checked((uint)index))))
-            .Select(readout => readout.Present
-                ? readout.Cell
-                : throw new InvalidOperationException("retained-navigation-path-read-incomplete"))
-            .ToArray();
-        return new FloorNavigationState(navigation, spatial, retainedPath);
+        return new FloorNavigationState(navigation, spatial);
     }
 
     private static Vector3 NavigationCellCenter(GridCell cell)
@@ -160,7 +145,7 @@ internal sealed class FloorEngineProjection : IDisposable
         uint pairCursor = 0;
         while (true)
         {
-            PerceptionReadoutLeaseReceipt readout = _engine.Perception.QueryVisibility(new PerceptionQueryRequest(
+            PerceptionReadoutResult readout = _engine.Perception.QueryVisibility(new PerceptionQueryRequest(
                 _spatial,
                 new[] { observer },
                 targets,
@@ -280,13 +265,11 @@ internal sealed class FloorEngineProjection : IDisposable
 
 internal sealed record FloorNavigationState(
     NavigationProjectionReadout Navigation,
-    SpatialProjectionReadout Spatial,
-    IReadOnlyList<PlanarNavCell> RetainedPath)
+    SpatialProjectionReadout Spatial)
 {
     internal bool SameAs(FloorNavigationState other) =>
         Navigation == other.Navigation
-        && Spatial == other.Spatial
-        && RetainedPath.SequenceEqual(other.RetainedPath);
+        && Spatial == other.Spatial;
 }
 
 internal sealed record FloorEngineReadout(

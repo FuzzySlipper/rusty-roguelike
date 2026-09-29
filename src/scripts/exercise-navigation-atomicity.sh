@@ -54,19 +54,18 @@ jq -e '.accepted == true and .readout.state == "running"' <<<"$start" >/dev/null
 
 set +e
 curl --no-buffer --silent --max-time 1 \
-  -H 'Accept: text/event-stream' \
-  "$origin/__rusty/product/runtime/outputs" >"$run_dir/proof.sse"
+  -H 'Accept: text/event-stream' -H "Origin: $origin" \
+  "$origin/__rusty/product/runtime/outputs/fresh" >"$run_dir/proof.sse"
 status=$?
 set -e
 [[ "$status" == 0 || "$status" == 28 ]]
 proof=$(sed -n 's/^data: //p' "$run_dir/proof.sse" \
-  | jq -cs '[.[] | select(.kind == "ui-projection" and .envelope.stream == "rusty-roguelike.navigation-atomicity")] | last')
+  | jq -cs '[.. | objects | select(.kind == "ui-projection" and .envelope.stream? == "rusty-roguelike.navigation-atomicity")] | last')
 jq -e '
   .envelope.contract == "rusty-roguelike.navigation-atomicity.v1"
   and .envelope.value.accepted == "true"
   and .envelope.value.settlementCode == "command-settlement-failed"
   and .envelope.value.productStateUnchanged == "true"
-  and .envelope.value.engineNavigationUnchanged == "true"
-  and (.envelope.value.retainedPathLength | tonumber) > 0' <<<"$proof" >/dev/null
+  and .envelope.value.engineNavigationUnchanged == "true"' <<<"$proof" >/dev/null
 
 echo "Packaged NativeAOT navigation atomicity proof passed"

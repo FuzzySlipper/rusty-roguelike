@@ -83,18 +83,29 @@ latest_session_projection() {
   local status
   set +e
   curl --no-buffer --silent --max-time 1 \
-    -H 'Accept: text/event-stream' \
-    "$origin/__rusty/product/runtime/outputs" >"$output_file"
+    -H 'Accept: text/event-stream' -H "Origin: $origin" \
+    "$origin/__rusty/product/runtime/outputs/fresh" >"$output_file"
   status=$?
   set -e
   [[ "$status" == 0 || "$status" == 28 ]] || return "$status"
   sed -n 's/^data: //p' "$output_file" \
-    | jq -cs '[.[] | select(.kind == "ui-projection" and .envelope.stream == "rusty-roguelike.session")] | last'
+    | jq -cs '[.. | objects | select(.kind == "ui-projection" and .envelope.stream? == "rusty-roguelike.session")] | last'
 }
 
-start=$(post_lifecycle start null)
-jq -e '.accepted == true and .operation == "start" and .readout.state == "running"' <<<"$start" >/dev/null
-runtime=$(jq -c '.binding' <<<"$start")
+# The CoreCLR host has already started the product when it answers; a first
+# attachment, as the browser makes, reports the running binding.
+attach_file="$run_dir/attach.sse"
+set +e
+curl --no-buffer --silent --max-time 1 \
+  -H 'Accept: text/event-stream' -H "Origin: $origin" \
+  "$origin/__rusty/product/runtime/outputs/fresh" >"$attach_file"
+status=$?
+set -e
+[[ "$status" == 0 || "$status" == 28 ]]
+jq -e -s '[.. | objects | select(.artifact? == "rusty.product.runtime-readout")] | last | .state == "running"' \
+  < <(sed -n 's/^data: //p' "$attach_file") >/dev/null
+runtime=$(sed -n 's/^data: //p' "$attach_file" \
+  | jq -cs '[.. | objects | select(.kind? == "binding")] | last | .runtime')
 
 inactive_begin=$(post_direct_input "$runtime" 1 roguelike.begin false)
 jq -e '.accepted == true' <<<"$inactive_begin" >/dev/null

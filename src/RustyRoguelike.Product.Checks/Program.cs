@@ -144,4 +144,5 @@ sealed class ProbeRandom : IRandomService
     public RngValue NextU64(Rng stream) => throw new NotSupportedException();
     public RngValue NextBoundedU32(ScopedRngBoundedRequest request) => throw new NotSupportedException();
     public RngValue NextBool(Rng stream) => throw new NotSupportedException();
+    public Lcg15Receipt DrawLcg15(Lcg15Request request) => throw new NotSupportedException();
 }
