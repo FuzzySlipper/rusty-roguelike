@@ -13,19 +13,19 @@ The host page is an observational readout, not a second renderer or gameplay
 runtime.
 
 ```bash
-./.runtime/runtime-pack-cbf35130d06c/bin/rusty dev \
-  --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj \
-  --runtime ./.runtime/runtime-pack-cbf35130d06c
+rusty install
+rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj
 ```
 
-The checked `NuGet.Config` resolves the immutable `Rusty.Engine`
-`0.1.0-dev.cbf35130d06c` SDK from the installed `.runtime/sdk-feed`. The matching
-`cbf35130d06c` runtime pack supplies `rusty`, the product host, and Engine browser
-shell. CoreCLR is the edit/run loop; NativeAOT is a separate fidelity/release
-operation:
+`Directory.Build.props` pins the immutable Engine SDK/runtime pair. The Engine's
+`rusty` command (bootstrap:
+`curl -fsSL https://raw.githubusercontent.com/FuzzySlipper/rusty-engine/main/scripts/install-rusty.sh | bash`)
+installs it, supplies its SDK package source, and runs the product on its
+runtime; `rusty update` moves the pin. CoreCLR is the edit/run loop; NativeAOT is
+a separate fidelity/release operation:
 
 ```bash
-dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:VerifyRustyEngineAot
+rusty build --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --aot
 bash src/scripts/exercise-product.sh
 ```
 

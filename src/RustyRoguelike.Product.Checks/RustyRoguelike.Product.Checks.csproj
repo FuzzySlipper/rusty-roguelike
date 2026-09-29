@@ -4,11 +4,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RustyEngineSdkPackageVersion>0.1.0-dev.bcf02594620c</RustyEngineSdkPackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../RustyRoguelike.Product/RustyRoguelike.Product.csproj" />
-    <PackageReference Include="Rusty.Engine" Version="$(RustyEngineSdkPackageVersion)">
+    <PackageReference Include="Rusty.Engine" Version="$(RustyEnginePackageVersion)">
       <ExcludeAssets Condition="'$(RustyEngineUseSourceDevelopment)' == 'true'">compile;runtime</ExcludeAssets>
     </PackageReference>
     <Content Include="../../content/floors/starter-floor.5201.procgen.json"

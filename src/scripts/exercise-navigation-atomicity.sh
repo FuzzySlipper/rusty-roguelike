@@ -3,7 +3,11 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 project="$root/src/RustyRoguelike.NavigationAtomicityProbe/RustyRoguelike.NavigationAtomicityProbe.csproj"
-runtime="$root/.runtime/runtime-pack-bcf02594620c"
+# The pinned pair comes from the Engine rusty CLI: install it if needed, restore
+# through its SDK feed, and run its host directly.
+(cd "$root" && rusty install >/dev/null)
+export $(cd "$root" && rusty env)
+runtime=$(cd "$root" && rusty status | sed -n 's/^runtime pack *//p')
 staged_product="$root/src/RustyRoguelike.NavigationAtomicityProbe/obj/Rusty.Engine/Product"
 run_dir=$(mktemp -d)
 host_log="$run_dir/host.log"

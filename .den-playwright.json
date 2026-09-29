@@ -1,7 +1,7 @@
 {
   "project": "rusty-roguelike",
   "serve": {
-    "command": "exec ./.runtime/runtime-pack-bcf02594620c/bin/rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --runtime ./.runtime/runtime-pack-bcf02594620c --live-debug --bind-host {host} --port {port}",
+    "command": "PATH=\"$HOME/.local/bin:$PATH\" exec rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --live-debug --bind-host {host} --port {port}",
     "preferredPort": 0,
     "healthUrl": "/product-ui/main.js",
     "readyText": "Rusty Roguelike",

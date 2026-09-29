@@ -6,7 +6,6 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <!-- The immutable SDK owns generated CoreCLR/NativeAOT composition below
          obj. An Engine source checkout is an explicit contributor override. -->
-    <RustyEngineSdkPackageVersion>0.1.0-dev.bcf02594620c</RustyEngineSdkPackageVersion>
     <RustyEngineProductEntryType>RustyRoguelike.Product.RoguelikeProduct</RustyEngineProductEntryType>
     <RustyEngineProductId>rusty-roguelike</RustyEngineProductId>
     <RustyEngineProductTitle>Rusty Roguelike</RustyEngineProductTitle>
@@ -19,7 +18,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Rusty.Engine" Version="$(RustyEngineSdkPackageVersion)">
+    <PackageReference Include="Rusty.Engine" Version="$(RustyEnginePackageVersion)">
       <ExcludeAssets Condition="'$(RustyEngineUseSourceDevelopment)' == 'true'">compile;runtime</ExcludeAssets>
     </PackageReference>
     <RustyEngineProductInputIntent Include="roguelike.begin" Value="digital" />

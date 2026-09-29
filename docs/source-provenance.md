@@ -2,9 +2,10 @@
 
 ## Runtime provider
 
-- **Rusty Engine:** the product references immutable package
-  `Rusty.Engine` `0.1.0-dev.cbf35130d06c` from `.runtime/sdk-feed`. The matching
-  installed runtime pack is `.runtime/runtime-pack-cbf35130d06c`, built from Engine
+- **Rusty Engine:** the current pin is `RustyEnginePackageVersion` in
+  `Directory.Build.props`, installed by the Engine `rusty` CLI. This record was
+  taken against package `Rusty.Engine` `0.1.0-dev.cbf35130d06c` and its runtime
+  pack, built from Engine
   revision `cbf35130d06ceec72b1d80ac8e28451453cccde2`. Both carry ABI protocol
   `1`, fingerprint
   `9b0093d77fc58cbcb18197f743e58e3243abdf3115ab97a62a5a120833d10fbd`, and

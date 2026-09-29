@@ -4,7 +4,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
-    <RustyEngineSdkPackageVersion>0.1.0-dev.bcf02594620c</RustyEngineSdkPackageVersion>
     <RustyEngineProductEntryType>RustyRoguelike.NavigationAtomicityProbe.NavigationAtomicityProbeProduct</RustyEngineProductEntryType>
     <RustyEngineProductId>rusty-roguelike.navigation-atomicity</RustyEngineProductId>
     <RustyEngineProductTitle>Rusty Roguelike navigation atomicity probe</RustyEngineProductTitle>
@@ -18,7 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../RustyRoguelike.Product/RustyRoguelike.Product.csproj" />
-    <PackageReference Include="Rusty.Engine" Version="$(RustyEngineSdkPackageVersion)">
+    <PackageReference Include="Rusty.Engine" Version="$(RustyEnginePackageVersion)">
       <ExcludeAssets Condition="'$(RustyEngineUseSourceDevelopment)' == 'true'">compile;runtime</ExcludeAssets>
     </PackageReference>
   </ItemGroup>

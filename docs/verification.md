@@ -3,10 +3,11 @@
 The maintained product checks are deliberately focused:
 
 ```bash
+export $(rusty env)
 dotnet run --project src/RustyRoguelike.Product.Checks/RustyRoguelike.Product.Checks.csproj
-dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:StageRustyEngineCoreClrProduct
-./.runtime/runtime-pack-cbf35130d06c/bin/rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --runtime ./.runtime/runtime-pack-cbf35130d06c
-dotnet msbuild src/RustyRoguelike.Product/RustyRoguelike.Product.csproj -t:VerifyRustyEngineAot
+rusty build --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj
+rusty dev --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj
+rusty build --project ./src/RustyRoguelike.Product/RustyRoguelike.Product.csproj --aot
 bash src/scripts/exercise-product.sh
 bash src/scripts/exercise-navigation-atomicity.sh
 ```
